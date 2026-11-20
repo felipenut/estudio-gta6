@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(1, str(Path(__file__).resolve().parent.parent))
 from common import ffprobe, load_json, run, save_json, tool
-from cut import CAP_Y, build_ass, titulo_e_faixa, video_filter
+from cut import CAP_Y, build_ass, comando_render, duracao_editada, palavras_editadas, titulo_e_faixa
 
 IDIOMAS = {"pt": "português do Brasil", "en": "inglês (EUA)", "es": "espanhol (América Latina)", "de": "alemão",
            "ru": "russo", "fr": "francês", "it": "italiano"}
@@ -35,16 +35,16 @@ def sentences(words):
     return out
 
 
-def traduzir_lote(lang, frases, gancho, titulo):
+def traduzir_lote(lang, frases, gancho, titulo, pergunta=""):
     """Uma chamada à IA por idioma: devolve (frases, gancho, titulo) traduzidos."""
     import ia
-    pedido = {"gancho": gancho, "titulo": titulo, "frases": frases}
+    pedido = {"gancho": gancho, "titulo": titulo, "pergunta": pergunta, "frases": frases}
     msgs = [{"role": "system", "content": "Você é tradutor de legendas de vídeos curtos de games. Traduza de forma natural e "
                                           "curta, como um criador nativo falaria. Não acrescente fatos, números, nomes ou datas. "
                                           "Mantenha 'GTA 6', nomes de pessoas, canais e lugares do jogo como estão. Se o texto "
                                           "já estiver no idioma pedido, apenas corrija a pontuação."},
             {"role": "user", "content": f"Traduza para {IDIOMAS.get(lang, lang)}. Devolva SOMENTE JSON no formato "
-                                        '{"gancho": "...", "titulo": "...", "frases": ["...", ...]} com exatamente '
+                                        '{"gancho": "...", "titulo": "...", "pergunta": "...", "frases": ["...", ...]} com exatamente '
                                         f"{len(frases)} frases, na mesma ordem. Campos vazios continuam vazios.\n\n"
                                         + __import__("json").dumps(pedido, ensure_ascii=False)}]
     r = ia.chat_json(msgs, temperatura=0.2, max_tokens=4000)
@@ -52,7 +52,8 @@ def traduzir_lote(lang, frases, gancho, titulo):
     if len(novas) != len(frases):
         print(f"aviso: a IA devolveu {len(novas)} frases em vez de {len(frases)}; completando com o original", flush=True)
         novas = (novas + frases[len(novas):])[:len(frases)]
-    return novas, (r.get("gancho") or "") if gancho else "", (r.get("titulo") or "") if titulo else ""
+    return (novas, (r.get("gancho") or "") if gancho else "", (r.get("titulo") or "") if titulo else "",
+            (r.get("pergunta") or "") if pergunta else "")
 
 
 def espalhar(sents, traduzidas):
@@ -78,23 +79,8 @@ def fazer_voz(lang, texto, dest):
 
 
 def render(src, s0, e0, rp, ass, band, mp4, voz_mp3=None):
-    v = video_filter(rp["layout"], rp["cam"], ass, band=band, cam_side=rp.get("side") or "right",
-                     src=tuple(rp["src"]) if rp.get("src") else None, game_x=rp.get("gx"),
-                     face_expr=tuple(rp["face_expr"]) if rp.get("face_expr") else None)
-    cmd = [tool("ffmpeg"), "-y", "-v", "error", "-ss", f"{s0:.2f}", "-to", f"{e0:.2f}", "-i", src]
-    if voz_mp3:
-        dur = float(ffprobe(voz_mp3)["format"]["duration"])
-        tempo = f"atempo={min(2.0, dur / HOOK_SECONDS):.3f}," if dur > HOOK_SECONDS else ""
-        cmd += ["-i", str(voz_mp3)]
-        a = (f"[0:a]volume=0.2:enable='lt(t,{HOOK_SECONDS})'[bed];"
-             f"[1:a]{tempo}atrim=0:{HOOK_SECONDS},afade=t=out:st={HOOK_SECONDS - 0.15}:d=0.15,apad[tts];"
-             f"[bed][tts]amix=inputs=2:duration=first:normalize=0,loudnorm=I=-14:TP=-1.5:LRA=11[ao]")
-        cmd += ["-filter_complex", v + ";" + a, "-map", "[vo]", "-map", "[ao]"]
-    else:
-        cmd += ["-filter_complex", v, "-map", "[vo]", "-map", "0:a?", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11"]
-    cmd += ["-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
-            "-ar", "48000", "-movflags", "+faststart", str(mp4)]
-    run(cmd)
+    """Mesmo comando do cut.py: a versão traduzida sai com os mesmos cortes de pausa, zoom, voz e loop."""
+    run(comando_render(src, s0, e0, rp, ass, band, mp4, voz_mp3, HOOK_SECONDS))
 
 
 def main():
@@ -122,12 +108,16 @@ def main():
     canal = meta.get("source_channel") or ""
     for k, lang in enumerate(langs, 1):
         print(f"({k}/{len(langs)}) {IDIOMAS.get(lang, lang)}: traduzindo com a IA…", flush=True)
-        trad, h, t = traduzir_lote(lang, frases, hook, title)
+        trad, h, t, perg = traduzir_lote(lang, frases, hook, title, meta.get("pergunta") or "")
         tw = espalhar(sents, trad) if rp.get("captions", "word") != "none" else []
+        manter = [tuple(x) for x in (rp.get("manter") or [])]
+        fim_ed = s0 + duracao_editada(manter) if manter else e0
+        if manter:
+            tw = palavras_editadas(tw, s0, e0, manter)
         titulo, band = titulo_e_faixa(t or h, rp.get("title_style", "box"), rp.get("title_secs", 4),
                                       rp["layout"], rp.get("texto_y"), rp.get("texto_tamanho", 66), rp.get("texto_cor", "rosa"))
         ass = out / f"clip_{a.pick}_{lang}.ass"
-        ass.write_text(build_ass(tw, s0, e0, '', CAP_Y[rp["layout"]], title=titulo, caps=rp.get("captions", "word"),
+        ass.write_text(build_ass(tw, s0, fim_ed, '', rp.get("cap_y") or CAP_Y[rp["layout"]], title=titulo, caps=rp.get("captions", "word"),
                                  profanity=rp.get("profanity", False)), encoding="utf-8")
         mp4 = out / f"clip_{a.pick}_{lang}.mp4"
         mp3 = None
@@ -136,7 +126,7 @@ def main():
         print(f"   renderizando {mp4.name}…", flush=True)
         render(src, s0, e0, rp, ass, band, mp4, mp3)
         cred = {"pt": "🎥 via", "en": "🎥 via", "es": "🎥 vía"}.get(lang, "🎥 via")
-        legendas[lang] = "\n".join(x for x in [h or t, f"{cred} @{canal}" if canal else "", HASHTAGS.get(lang, "#GTA6 #GTAVI")] if x)
+        legendas[lang] = "\n".join(x for x in [h or t, perg, f"{cred} @{canal}" if canal else "", HASHTAGS.get(lang, "#GTA6 #GTAVI")] if x)
         save_json(out / f"clip_{a.pick}_legendas.json", legendas)
         print(f"ok: {mp4}", flush=True)
 

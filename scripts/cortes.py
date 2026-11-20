@@ -91,8 +91,12 @@ def ranking():
 
 
 def legenda_sugerida(meta, canal):
+    """Gancho + pergunta aberta (a IA sugere ao achar o momento) + crédito + hashtags."""
     t = meta.get("title") or meta.get("hook") or ""
-    return "\n".join(x for x in [t, f"🎥 via @{canal}" if canal else "", "#GTA6 #GTAVI #gta #games"] if x)
+    perg = (meta.get("pergunta") or "").strip()
+    if perg and not perg.endswith("?"):
+        perg += "?"
+    return "\n".join(x for x in [t, perg, f"🎥 via @{canal}" if canal else "", "#GTA6 #GTAVI #gta #games"] if x)
 
 
 def checar_clipe(mp4, texto, canal):
@@ -135,7 +139,13 @@ def avaliar_clipe(nome, pick):
     falha = [i["nome"] for i in checagem["itens"] if i["nivel"] == "erro"]
     gancho = (meta.get("hook") or "").strip()
     render = meta.get("render") or {}
-    pausas = max((float(b.get("s", 0)) - float(a.get("e", 0)) for a, b in zip(trecho, trecho[1:])), default=dur)
+    manter = (meta.get("render") or {}).get("manter")
+    if manter:                                           # pausas já cortadas no clipe: mede no clipe editado
+        import cut
+        trecho_ed = cut.palavras_editadas(trecho, inicio, fim, [tuple(x) for x in manter])
+    else:
+        trecho_ed = trecho
+    pausas = max((float(b.get("s", 0)) - float(a.get("e", 0)) for a, b in zip(trecho_ed, trecho_ed[1:])), default=dur)
     pontos = {"formato e áudio": 3.0 if checagem["ok"] and 29.9 <= fps <= 60.1 else 0.0,
               "duração": 1.0 if 15 <= dur <= 45 else 0.4 if 7 <= dur <= 60 else 0.0,
               "legenda": 1.0 if trecho and render.get("captions") in ("word", "bubble") else 0.0,
@@ -185,7 +195,8 @@ def detalhe(nome):
         clipes.append({"n": n, "arquivo": mp4.name if mp4.exists() else None, "mtime": mp4.stat().st_mtime if mp4.exists() else 0,
                        "inicio": meta.get("start"), "fim": meta.get("end"), "layout": meta.get("layout"),
                        "gancho": meta.get("hook"), "titulo": meta.get("title"), "traducoes": trad,
-                       "render": meta.get("render") or {},
+                       "render": meta.get("render") or {}, "pergunta": meta.get("pergunta") or "",
+                       "duracao": meta.get("duracao"), "tipo": meta.get("tipo"),
                        "legendas": _ler(j.parent / f"clip_{n}_legendas.json", {}), "legenda": leg,
                        "checagem": checar_clipe(mp4, leg, canal) if mp4.exists() else None,
                        "projetos": meta.get("projetos") or {},
@@ -299,6 +310,12 @@ def etapas_cortar(corpo):
             e += [arg, f"{float(corpo[k]):.2f}"]
     if corpo.get("palavroes"):
         e.append("--allow-profanity")
+    if isinstance(corpo.get("pergunta"), str):
+        e += ["--pergunta", corpo["pergunta"].strip()[:160]]
+    ed = corpo.get("edicao")
+    if isinstance(ed, (list, tuple)):
+        ed = [x for x in ed if x in ("pausas", "zoom", "voz", "loop")]
+        e += ["--edicao", ",".join(ed) if ed else "nenhuma"]
     return [e]
 
 
@@ -475,6 +492,15 @@ def ganchos(nome, pick):
             {"role": "user", "content": f"Vídeo: {info.get('title', '')} (canal {info.get('channel') or info.get('uploader') or '?'}).\n"
                                         f"Por que o trecho foi escolhido: {', '.join(c.get('why') or [])}.\n"
                                         f"Fala no trecho (pode estar em inglês): {c.get('text', '')[:900]}\n\n"
-                                        'Devolva SOMENTE JSON: {"ganchos": ["...", "...", "..."], "titulos": ["...", "...", "..."]}'}]
-    r = ia.chat_json(msgs, temperatura=0.8, max_tokens=800)
-    return {"ganchos": [str(x) for x in (r.get("ganchos") or [])][:3], "titulos": [str(x) for x in (r.get("titulos") or [])][:3]}
+                                        'Inclua também 3 perguntas abertas e curtas para os comentários, sobre o próprio momento '
+                                        '(nada de "curta e siga").\n'
+                                        'Devolva SOMENTE JSON: {"ganchos": ["...", "...", "..."], "titulos": ["...", "...", "..."], '
+                                        '"perguntas": ["...", "...", "..."]}'}]
+    r = ia.chat_json(msgs, temperatura=0.8, max_tokens=900)
+    ganchos_ = [str(x) for x in (r.get("ganchos") or [])][:3]
+    perguntas = [str(x) for x in (r.get("perguntas") or [])][:3]
+    if c.get("gancho_sugerido") and c["gancho_sugerido"] not in ganchos_:
+        ganchos_ = [c["gancho_sugerido"]] + ganchos_[:2]
+    if c.get("pergunta") and c["pergunta"] not in perguntas:
+        perguntas = [c["pergunta"]] + perguntas[:2]
+    return {"ganchos": ganchos_, "titulos": [str(x) for x in (r.get("titulos") or [])][:3], "perguntas": perguntas}

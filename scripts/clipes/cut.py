@@ -2,9 +2,13 @@
 
 1080x1920, 30 fps, word-by-word burned captions (slurs and swears masked), hook box in the first seconds,
 loudness normalised to -14 LUFS. Writes jobs/<id>/edits/clip_<n>.mp4 + .json (metadata for check.py).
+Edição para retenção (--edicao, padrão "pausas,zoom,voz"): tira pausas mortas entre falas (nunca a ação sem fala
+nem o pico), zoom leve alternado a cada ~4 s e mais forte no pico (layouts blur/fill), limpeza leve de voz e,
+com "loop", emenda o fim no começo. Legenda dentro da zona segura do TikTok/Reels/Shorts.
 
 usage: python cut.py jobs/<id> --pick 1 [--layout fill|blur|facecam|react] [--hook "TEXT"]
                      [--cam auto|x:y:w:h] [--title "TEXT" --title-style box|outline --title-secs 4] [--captions word|bubble|none]
+                     [--edicao pausas,zoom,voz,loop | --edicao nenhuma]
 """
 import argparse, sys
 from pathlib import Path
@@ -60,11 +64,11 @@ WrapStyle: 0
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Cap,Arial Black,92,&H00FFFFFF,&H0000E5FF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,7,3,5,60,60,0,1
+Style: Cap,Arial Black,92,&H00FFFFFF,&H0000E5FF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,7,3,5,90,150,0,1
 Style: Hook,Arial Black,68,&H00000000,&H00000000,&H00FFFFFF,&H00FFFFFF,-1,0,0,0,100,100,0,0,3,18,0,8,70,70,170,1
 Style: TitleBox,Arial Black,66,&H00000000,&H00000000,&H00FFFFFF,&H00FFFFFF,-1,0,0,0,100,100,0,0,1,0,0,5,40,40,0,1
 Style: TitleOut,Arial Black,80,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,9,2,8,50,50,0,1
-Style: Bubble,Arial,58,&H00000000,&H00000000,&H00FFFFFF,&H00FFFFFF,-1,0,0,0,100,100,0,0,3,16,0,5,60,60,0,1
+Style: Bubble,Arial,58,&H00000000,&H00000000,&H00FFFFFF,&H00FFFFFF,-1,0,0,0,100,100,0,0,3,16,0,5,90,150,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -96,9 +100,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 if k == 0:
                     txt = esc(' '.join(x['w'] for x in g)).strip()
                     txt = txt[:1].upper() + txt[1:]
-                    ev.append(f"Dialogue: 0,{ts(a)},{ts(g_end - s0)},Bubble,,0,0,0,,{{\\pos({W // 2},{cap_y})}}{pop}{txt}")
+                    ev.append(f"Dialogue: 0,{ts(a)},{ts(g_end - s0)},Bubble,,0,0,0,,{{\\pos({CAP_X},{cap_y})}}{pop}{txt}")
                 continue
-            ev.append(f"Dialogue: 0,{ts(a)},{ts(b)},Cap,,0,0,0,,{{\\pos({W // 2},{cap_y})}}{pop}{' '.join(parts)}")
+            ev.append(f"Dialogue: 0,{ts(a)},{ts(b)},Cap,,0,0,0,,{{\\pos({CAP_X},{cap_y})}}{pop}{' '.join(parts)}")
     if title:  # reaction title: (style, text, y, seconds)
         st, text, ty, secs, *opcoes = title
         tamanho = opcoes[0] if opcoes else 66
@@ -115,7 +119,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     return hdr + "\n".join(ev) + "\n"
 
 
-CAP_Y = {"fill": 1380, "blur": 1460, "facecam": 1120, "react": 1560}
+# Zona segura (TikTok/Reels/Shorts): a descrição e os botões ocupam ~20% de baixo e ~130 px da direita.
+CAP_Y = {"fill": 1380, "blur": 1420, "facecam": 1120, "react": 1440}
+CAP_X = 520
+ZONA_SEGURA = {"topo": 220, "baixo": 1500, "direita": 950}
 TOP = 730  # react layout: face panel height = seam y (even)
 GAME_H = H - TOP  # 1190
 
@@ -200,6 +207,180 @@ def game_offset(video, s0, e0, src, cam_box):
     return bx
 
 
+# ------------------------------------------------------------------ edição para retenção (v19)
+EDICAO_PADRAO = "pausas,zoom,voz"          # opções: pausas, zoom, voz, loop
+PAUSA_MIN = 0.6                            # pausa sem fala acima disso pode sair (se também estiver quieta)
+FOLGA = 0.15                               # mantém um respiro em volta das palavras
+LOOP_SECS = 0.4
+
+
+def db_por_decimo(wav):
+    """Volume (dB) a cada 0,1 s do audio.wav (16 kHz mono) que o moments.py já gravou."""
+    try:
+        import wave, numpy as np
+        with wave.open(str(wav)) as w:
+            x = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float32) / 32768
+        n = len(x) // 1600
+        return 20 * np.log10(np.sqrt((x[: n * 1600].reshape(n, 1600) ** 2).mean(1) + 1e-9))
+    except Exception:
+        return None
+
+
+def trechos_mantidos(words, s0, e0, db=None, pico=None, max_corte=0.35):
+    """Partes do clipe que ficam (tempos relativos ao começo do clipe). Sai só pausa entre falas que também é
+    silenciosa (ação sem fala fica), nunca perto do pico, e no máximo 35% do clipe."""
+    dur = e0 - s0
+    ws = [w for w in words if s0 <= w["s"] < e0 and w["w"]]
+    if len(ws) < 3 or db is None or len(db) == 0:
+        return [(0.0, round(dur, 3))]
+    ref = None
+    if db is not None and len(db):                       # nível da VOZ: mediana do volume enquanto alguém fala
+        import numpy as np
+        falas = [db[int(w["s"] * 10):max(int(w["s"] * 10) + 1, int(w["e"] * 10))] for w in ws]
+        falas = np.concatenate([f for f in falas if len(f)]) if any(len(f) for f in falas) else []
+        ref = float(np.median(falas)) if len(falas) else None
+    cortes = []
+    for a, b in zip(ws, ws[1:]):
+        g0, g1 = a["e"] + FOLGA, b["s"] - FOLGA
+        if b["s"] - a["e"] <= PAUSA_MIN or g1 - g0 < 0.35:
+            continue
+        if pico is not None and g1 > pico - 1.5 and g0 < pico + 1.5:
+            continue
+        if ref is not None:
+            seg = db[int(g0 * 10):int(g1 * 10)]
+            if len(seg) and float(seg.max()) > ref - 6:          # algo alto na pausa (ação, explosão): fica
+                continue
+        cortes.append((g0 - s0, g1 - s0))
+    total = 0.0
+    escolhidos = []
+    for c in sorted(cortes, key=lambda c: c[0] - c[1]):            # maiores pausas primeiro
+        if total + (c[1] - c[0]) > dur * max_corte:
+            continue
+        escolhidos.append(c); total += c[1] - c[0]
+    manter, t = [], 0.0
+    for c0, c1 in sorted(escolhidos):
+        if c0 > t:
+            manter.append((round(t, 3), round(c0, 3)))
+        t = c1
+    if t < dur:
+        manter.append((round(t, 3), round(dur, 3)))
+    return manter or [(0.0, round(dur, 3))]
+
+
+def mapear(t, manter):
+    """Tempo do clipe original (relativo) -> tempo no clipe editado."""
+    acc = 0.0
+    for a, b in manter:
+        if t < a:
+            return acc
+        if t <= b:
+            return acc + (t - a)
+        acc += b - a
+    return acc
+
+
+def duracao_editada(manter):
+    return sum(b - a for a, b in manter)
+
+
+def palavras_editadas(words, s0, e0, manter):
+    """Palavras com os tempos do clipe editado (absolutos a partir de s0, como o build_ass espera)."""
+    out = []
+    for w in words:
+        if s0 <= w["s"] < e0 and w["w"]:
+            a, b = mapear(w["s"] - s0, manter), mapear(min(w["e"], e0) - s0, manter)
+            if b > a:
+                out.append(dict(w, s=s0 + a, e=s0 + b))
+    return out
+
+
+def expr_zoom(dur, pico=None, passo=4.0, leve=0.06, forte=0.12):
+    """Zoom de leve a cada 'passo' segundos (alterna normal/zoom) e um zoom mais forte no pico da reação."""
+    rampa = 0.25
+    blocos = []
+    t, liga = passo, True
+    while t < dur - 1.0:
+        fim = min(dur, t + passo)
+        if liga:
+            blocos.append((t, fim, leve))
+        t, liga = fim, not liga
+    if pico is not None and 0.5 < pico < dur - 0.5:
+        blocos = [b for b in blocos if not (b[0] < pico + 1.2 and b[1] > pico - 0.6)]
+        blocos.append((max(0.0, pico - 0.4), min(dur, pico + 1.4), forte))
+    if not blocos:
+        return None
+    termos = [f"{z:.3f}*clip((t-{a:.2f})/{rampa},0,1)*clip(({b:.2f}-t)/{rampa},0,1)" for a, b, z in sorted(blocos)]
+    return "1+" + "+".join(termos)
+
+
+def filtro_edicao(v, manter, zoom=None, dur=None, loop=False):
+    """Encaixa no grafo do layout: corte de pausas no começo, zoom antes da legenda e emenda de loop no fim."""
+    if manter and len(manter) > 1:
+        sel = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in manter)
+        usos = v.count("[0:v]")
+        rot = [f"[vin{i}]" for i in range(usos)]
+        pre = f"[0:v]fps=30,select='{sel}',setpts=N/30/TB" + (f",split={usos}" if usos > 1 else "") + "".join(rot) + ";"
+        for r in rot:
+            v = v.replace("[0:v]", r, 1)
+        v = pre + v
+    if zoom:
+        corpo, fim = v.rsplit(";[v]", 1)                     # fim = "fps=30,subtitles=...[vo]" (ou scale,...)
+        v = (corpo + f";[v]scale=w='trunc({W}*({zoom})/2)*2':h='trunc({H}*({zoom})/2)*2':eval=frame,"
+             f"crop={W}:{H}[vz];[vz]" + fim)
+    if loop and dur and dur > 3:
+        v = v[:-4] + f"[vsub];[vsub]split[lx][ly];[ly]trim=0:{LOOP_SECS},setpts=PTS-STARTPTS[lh];" \
+                     f"[lx][lh]xfade=transition=fade:duration=0.3:offset={dur - 0.3:.3f}[vo]"
+    return v
+
+
+def filtro_audio(manter, voz=True, loop=False, dur=None, entrada="[0:a]", saida="[ao]"):
+    partes = []
+    if manter and len(manter) > 1:
+        sel = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in manter)
+        partes += [f"aselect='{sel}'", "asetpts=N/SR/TB"]
+    if voz:                                                   # limpeza leve de voz: tira ronco grave e chiado
+        partes += ["highpass=f=70", "afftdn=nr=10:nf=-30"]
+    partes.append("loudnorm=I=-14:TP=-1.5:LRA=11")
+    if loop and dur and dur > 3:
+        total = dur - 0.3 + LOOP_SECS
+        partes += ["afade=t=in:d=0.12", f"afade=t=out:st={dur - 0.35:.3f}:d=0.35", "apad", f"atrim=0:{total:.3f}"]
+    return f"{entrada}{','.join(partes)}{saida}"
+
+
+def tem_audio(src):
+    from common import ffprobe
+    return any(s.get("codec_type") == "audio" for s in ffprobe(src).get("streams", []))
+
+
+def comando_render(src, s0, e0, rp, ass, band, saida, voz_mp3=None, hook_secs=2.5):
+    """Comando ffmpeg completo (usado pelo cut.py e pelo traduzir.py, para as versões saírem iguais)."""
+    manter = [tuple(x) for x in (rp.get("manter") or [])]
+    dur = duracao_editada(manter) if manter else (e0 - s0)
+    v = video_filter(rp["layout"], rp["cam"], ass, band=band, cam_side=rp.get("side") or "right",
+                     src=tuple(rp["src"]) if rp.get("src") else None, game_x=rp.get("gx"),
+                     face_expr=tuple(rp["face_expr"]) if rp.get("face_expr") else None)
+    v = filtro_edicao(v, manter, rp.get("zoom"), dur, rp.get("loop"))
+    cmd = [tool("ffmpeg"), "-y", "-v", "error", "-ss", f"{s0:.2f}", "-to", f"{e0:.2f}", "-i", str(src)]
+    mapa = ["-map", "[vo]"]
+    if tem_audio(src):
+        if voz_mp3:
+            from common import ffprobe
+            dv = float(ffprobe(voz_mp3)["format"]["duration"])
+            tempo = f"atempo={min(2.0, dv / hook_secs):.3f}," if dv > hook_secs else ""
+            cmd += ["-i", str(voz_mp3)]
+            a = (filtro_audio(manter, rp.get("voz", True), rp.get("loop"), dur, saida="[base]") +
+                 f";[base]volume=0.2:enable='lt(t,{hook_secs})'[bed];"
+                 f"[1:a]{tempo}atrim=0:{hook_secs},afade=t=out:st={hook_secs - 0.15}:d=0.15,apad[tts];"
+                 f"[bed][tts]amix=inputs=2:duration=first:normalize=0[ao]")
+        else:
+            a = filtro_audio(manter, rp.get("voz", True), rp.get("loop"), dur)
+        v = v + ";" + a
+        mapa += ["-map", "[ao]"]
+    cmd += ["-filter_complex", v, *mapa, "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart", str(saida)]
+    return cmd
+
+
 def titulo_e_faixa(text, style, secs, layout, posicao=None, tamanho=66, cor='rosa'):
     """Gancho e faixa nos primeiros 3 a 5 segundos do clipe."""
     if not text:
@@ -231,6 +412,8 @@ def main():
     ap.add_argument("--cam", default="auto", help="auto (find the webcam) or x:y:w:h fractions")
     ap.add_argument("--game-x", type=int, default=None, help="enquadramento horizontal já calculado")
     ap.add_argument("--start", type=float); ap.add_argument("--end", type=float)
+    ap.add_argument("--edicao", default=EDICAO_PADRAO, help="pausas,zoom,voz,loop (ou 'nenhuma')")
+    ap.add_argument("--pergunta", default=None, help="pergunta aberta para o post (padrão: a sugerida pela IA)")
     a = ap.parse_args()
     d = Path(a.job); c = load_json(d / "candidates.json")
     print("(1/2) preparando legenda e enquadramento…", flush=True)
@@ -279,10 +462,22 @@ def main():
     texto = a.title or a.hook
     title, band = titulo_e_faixa(texto, a.title_style, a.title_secs, layout,
                                  a.texto_y, a.texto_tamanho, a.texto_cor)
+    ed = {x.strip() for x in (a.edicao or "").split(",")} - {"", "nenhuma"}
+    pico_abs = pick.get("peak")
+    manter = [(0.0, round(e0 - s0, 3))]
+    if "pausas" in ed:
+        manter = trechos_mantidos(words, s0, e0, db_por_decimo(d / "audio.wav"),
+                                  (pico_abs - s0) if pico_abs is not None else None)
+    dur = duracao_editada(manter)
+    pico_ed = mapear(pico_abs - s0, manter) if pico_abs is not None and s0 <= pico_abs <= e0 else None
+    zoom = expr_zoom(dur, pico_ed) if "zoom" in ed and layout in ("blur", "fill") else None
+    tirado = (e0 - s0) - dur
+    if tirado > 0.05:
+        print(f"   pausas: {len(manter) - 1} corte(s), {tirado:.1f} s a menos ({e0 - s0:.0f} s -> {dur:.0f} s)", flush=True)
     ass = out / f"clip_{a.pick}.ass"
     caps = a.captions
-    cap_words = words if caps != 'none' else []
-    ass.write_text(build_ass(cap_words, s0, e0, '', cap_y, title=title, caps=caps, profanity=a.allow_profanity), encoding="utf-8")
+    cap_words = palavras_editadas(words, s0, e0, manter) if caps != 'none' else []
+    ass.write_text(build_ass(cap_words, s0, s0 + dur, '', cap_y, title=title, caps=caps, profanity=a.allow_profanity), encoding="utf-8")
     src = None; gx = None
     if layout == 'react':
         from common import ffprobe
@@ -293,15 +488,13 @@ def main():
         else:
             largura_jogo = max(W, even(src[0] * GAME_H / src[1]))
             gx = max(0, min(largura_jogo - W, even(a.game_x)))
-    v = video_filter(layout, cam, ass, band=band, cam_side=side, src=src, game_x=gx, face_expr=face_expr)
+    rp = {"layout": layout, "cam": cam, "side": side, "src": src, "gx": gx, "face_expr": face_expr,
+          "manter": manter if len(manter) > 1 else None, "zoom": zoom, "voz": "voz" in ed, "loop": "loop" in ed}
     mp4 = out / f"clip_{a.pick}.mp4"
     parcial = out / f"clip_{a.pick}.parcial.mp4"
     meta_anterior = load_json(out / f"clip_{a.pick}.json") if (out / f"clip_{a.pick}.json").exists() else {}
-    print(f"(2/2) renderizando {e0 - s0:.0f}s em 1080x1920 ({layout})…", flush=True)
-    run([tool("ffmpeg"), "-y", "-v", "error", "-ss", f"{s0:.2f}", "-to", f"{e0:.2f}", "-i", c["source"],
-         "-filter_complex", v, "-map", "[vo]", "-map", "0:a?", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11",
-         "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
-         "-ar", "48000", "-movflags", "+faststart", str(parcial)])
+    print(f"(2/2) renderizando {dur:.0f}s em 1080x1920 ({layout}{', ' + ', '.join(sorted(ed)) if ed else ''})…", flush=True)
+    run(comando_render(c["source"], s0, e0, rp, ass, band, parcial))
     if mp4.exists():
         import shutil, time
         pasta_backup = out / "backup"; pasta_backup.mkdir(exist_ok=True)
@@ -309,6 +502,10 @@ def main():
     parcial.replace(mp4)
     info = c.get("info", {})
     save_json(out / f"clip_{a.pick}.json", {"file": str(mp4), "start": s0, "end": e0, "layout": layout, "hook": a.hook or a.title, "title": a.title, "cam": cam,
+                                            "duracao": round(dur, 2), "pico": round(pico_ed, 2) if pico_ed is not None else None,
+                                            "pergunta": (a.pergunta if a.pergunta is not None else (pick.get("pergunta") or meta_anterior.get("pergunta") or "")).strip()[:160],
+                                            "nota_momento": pick.get("nota"), "tipo": (pick.get("ia") or {}).get("tipo"),
+                                            "primeira_fala": round(cap_words[0]["s"] - s0, 2) if cap_words else None,
                                             "projetos": meta_anterior.get("projetos") or {},
                                             "source_url": info.get("webpage_url"), "source_title": info.get("title"),
                                             "source_channel": info.get("channel") or info.get("uploader"),
@@ -316,7 +513,10 @@ def main():
                                                        "face_expr": face_expr, "title_style": a.title_style,
                                                        "title_secs": a.title_secs, "captions": caps,
                                                        "texto_y": a.texto_y, "texto_tamanho": a.texto_tamanho, "texto_cor": a.texto_cor,
-                                                       "profanity": a.allow_profanity}})
+                                                       "profanity": a.allow_profanity, "cap_y": cap_y,
+                                                       "texto_y_final": title[2] if title else None,
+                                                       "manter": rp["manter"], "zoom": zoom, "voz": rp["voz"], "loop": rp["loop"],
+                                                       "edicao": sorted(ed)}})
     print(f"ok: {mp4}")
 
 

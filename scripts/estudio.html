@@ -343,7 +343,7 @@ async function lista() {
     || `<div class="vazio" style="margin:8px;padding:20px 14px">Nenhum vídeo ainda. Comece em <b>Novo vídeo</b> ou em <b>Cortes e lives</b>.</div>`;
   if ($("#filtro") && $("#filtro").value) filtrarLista();
 }
-const VERSAO_PAGINA = 20;
+const VERSAO_PAGINA = 21;
 function erroTela(e) {
   $("#main").innerHTML = `<div class="aviso-box"><b>Não consegui abrir esta tela.</b><br>${esc(e.message || e)}<br><br>
     Se você acabou de atualizar o Estúdio, feche a janela preta do Estúdio e abra o <b>estudio.bat</b> de novo.</div>`;
@@ -963,10 +963,13 @@ async function viewCorte(m) {
           ${Object.keys(c.projetos).length ? `<div style="font-size:13px">${ic("agenda")} no Agendar: ${Object.entries(c.projetos).map(([l, p]) => `<a href="#" data-proj="${esc(p)}">${l === "orig" ? "original" : l.toUpperCase()}</a>`).join(" · ")}</div>` : ""}
           <div class="linha" style="gap:6px"><button class="mini" data-avaliar="${c.n}">Avaliar</button><button class="mini prim" data-agendar="${c.n}">${ic("agenda")}Mandar para Agendar</button><button class="mini" data-traduzir="${c.n}" ${oc ? "disabled" : ""}>${ic("idioma")}Traduzir</button>
             <button class="mini" data-refazer="${c.n}" ${oc ? "disabled" : ""}>Refazer</button><a class="mini" href="/corte/${n}/edits/${c.arquivo}" download aria-label="Baixar clipe ${c.n}" title="Baixar">${ic("baixar")}</a></div></div></div>`).join("")}</div>` : ""}
-    <h3>Momentos (${d.momentos.length})</h3><p class="sub">Sinais usados: ${esc(sinais)}. Escolha os que entregam algo nos primeiros segundos; pule spoilers de história e qualquer coisa que pareça vazamento.</p>
+    <h3>Momentos (${d.momentos.length})</h3><p class="sub">Do melhor para o pior. Sinais: ${esc(sinais)}${d.sinais.ia ? " + notas da IA (gancho, emoção, se dá para entender sem contexto, risco)" : " (sem a IA: confira a chave em Ajustes)"}. Cada trecho começa um pouco antes da ação e termina quando a reação acaba.</p>
     ${d.momentos.length ? `<div class="mgrid">${d.momentos.map(c => `<div class="mcard">
         ${d.tem_fonte ? `<img src="/api/corte-quadro/${n}/${((c.start + c.end) / 2).toFixed(1)}.jpg" loading="lazy" data-previa="${c.n}">` : ""}
-        <div class="c"><div class="linha" style="gap:6px"><b>#${c.n}</b><span>${fmtT(c.start)}–${fmtT(c.end)}</span><span class="sub" style="margin:0">${Math.round(c.end - c.start)} s · nota ${c.score}</span></div>
+        <div class="c"><div class="linha" style="gap:6px"><b>#${c.n}</b><span>${fmtT(c.start)}–${fmtT(c.end)}</span><span class="sub" style="margin:0">${Math.round(c.end - c.start)} s</span>
+            <span style="flex:1"></span><span class="pill ${(c.nota ?? 0) >= 7 ? "ok" : (c.nota ?? 0) >= 4 ? "rodando" : ""}" title="0 a 10: metade sinais (volume com fala, risada, chat, mais repetido), metade IA">nota ${c.nota ?? c.score}</span></div>
+          ${c.ia ? `<div style="font-size:12px;color:var(--fraco)">${c.ia.tipo && c.ia.tipo !== "nenhum" ? `<span class="pill" style="color:var(--amarelo)">${esc(({ humor: "humor", surpresa: "surpresa", identificacao: "identificação", uau: "uau", tensao: "tensão", nenhum: "" })[c.ia.tipo] || c.ia.tipo)}</span> ` : ""}gancho ${c.ia.gancho} · emoção ${c.ia.emocao} · sem contexto ${c.ia.contexto}${c.ia.risco >= 4 ? ` · <b style="color:var(--erro)">risco ${c.ia.risco}</b>` : ""}${c.ia.motivo ? `<div>${esc(c.ia.motivo)}</div>` : ""}</div>` : ""}
+          ${c.gancho_sugerido ? `<div style="font-size:13px">${ic("brilho")} <b>${esc(c.gancho_sugerido)}</b></div>` : ""}
           <div>${(c.why || []).map(w => `<span class="pill">${esc(w)}</span> `).join("")}</div>
           <div style="font-size:12px;color:var(--fraco);max-height:62px;overflow:hidden">${esc(c.text || "")}</div>
           <div class="linha" style="gap:6px"><button class="mini" data-previa="${c.n}" ${d.tem_fonte ? "" : "disabled"}>▶ Prévia</button><button class="mini prim" data-cortar="${c.n}" ${oc ? "disabled" : ""}>${ic("tesoura")}Cortar</button></div></div></div>`).join("")}</div>`
@@ -1000,11 +1003,13 @@ function previaMomento(d, c) {
 function modalCortar(d, c, antigo, projetoAtualizar = null) {
   const ant = antigo || {}, lay0 = ant.layout || "blur";
   const rp = ant.render || {};
+  const ed0 = rp.edicao || ["pausas", "zoom", "voz"];
+  const sugerido = antigo ? "" : (c.gancho_sugerido || "");
   const md = abrirModal(`<div class="cab"><b style="flex:1">${projetoAtualizar ? "Editar gancho" : `Cortar o momento #${c.n} (${fmtT(c.start)}–${fmtT(c.end)})`}</b><button id="kfechar">Fechar</button></div>
     <div class="corpo"><label style="margin-top:0">Formato</label>
       <div class="lays">${LAYOUTS.map(([k, t, dsc]) => `<label class="lay ${k === lay0 ? "on" : ""}"><input type="radio" name="klay" value="${k}" ${k === lay0 ? "checked" : ""}><b>${t}</b><span>${dsc}</span></label>`).join("")}</div>
-      <div id="kgancho"><label>Gancho (aparece nos primeiros 4 segundos)</label><input id="kg" maxlength="90" value="${esc(ant.gancho || "")}" placeholder="Ex.: Ninguém viu esse carro escondido"></div>
-      <div id="ktitulo"><label>Título (aparece nos primeiros 4 segundos)</label><input id="kt" maxlength="110" value="${esc(ant.titulo || "")}" placeholder="Ex.: Speed FICOU CHOCADO com a polícia do GTA 6"></div>
+      <div id="kgancho"><label>Gancho (aparece nos primeiros 4 segundos)</label><input id="kg" maxlength="90" value="${esc(ant.gancho || sugerido)}" placeholder="Ex.: Ninguém viu esse carro escondido"></div>
+      <div id="ktitulo"><label>Título (aparece nos primeiros 4 segundos)</label><input id="kt" maxlength="110" value="${esc(ant.titulo || sugerido)}" placeholder="Ex.: Speed FICOU CHOCADO com a polícia do GTA 6"></div>
       <div class="linha" style="margin-top:8px"><button class="mini" id="kia">${ic("brilho")}Sugerir 3 com IA</button><span id="ksug" class="linha" style="gap:6px"></span></div>
       <label>Estilo da faixa</label><select id="kestilo" style="width:180px"><option value="box">faixa colorida</option><option value="outline">sem faixa</option></select>
       <div class="grid2" style="margin-top:12px;align-items:start"><div><div style="position:relative;width:216px;aspect-ratio:9/16;overflow:hidden;background:#000;border-radius:10px"><canvas id="kcanvas" width="270" height="480" style="display:block;width:100%;height:100%"></canvas><div id="ktexto" style="position:absolute;left:0;width:100%;transform:translateY(-50%);text-align:center;color:white;font-family:'Arial Black',sans-serif;font-weight:900;line-height:1.18;padding:5px 7px;white-space:normal;overflow-wrap:anywhere;text-shadow:1px 1px 3px #000"></div></div>
@@ -1014,6 +1019,12 @@ function modalCortar(d, c, antigo, projetoAtualizar = null) {
         <label>Cor da faixa</label><select id="kcor"><option value="rosa">Rosa Vice</option><option value="laranja">Pôr do sol</option><option value="roxo">Roxo neon</option><option value="escuro">Escuro</option></select></div></div>
       <div class="grid2" style="margin-top:4px"><div><label>Legenda</label><select id="kl"><option value="word">palavra por palavra (destaca a falada)</option><option value="bubble">frase em balão</option><option value="none">sem legenda</option></select></div>
         <div><label>Trecho (segundos do vídeo original)</label><div class="linha"><input id="ki" type="number" step="0.5" value="${(+(ant.inicio ?? c.start)).toFixed(1)}" style="width:100px"><span>até</span><input id="kf" type="number" step="0.5" value="${(+(ant.fim ?? c.end)).toFixed(1)}" style="width:100px"><span id="kdur" class="sub" style="margin:0"></span></div></div></div>
+      <label for="kq">Pergunta para os comentários (vai no texto do post)</label><input id="kq" maxlength="160" value="${esc(ant.pergunta ?? c.pergunta ?? "")}" placeholder="Ex.: Você teria fugido ou se rendido?">
+      <label>Edição para segurar quem assiste</label>
+      <div class="linha" style="gap:16px">${[["pausas", "Tirar pausas mortas", "só pausas sem fala e sem ação; o pico nunca é cortado"],
+        ["zoom", "Zoom nos picos", "zoom leve a cada ~4 s e mais forte na reação (Desfocado e Tela cheia)"],
+        ["voz", "Limpar a voz", "tira ronco grave e chiado"],
+        ["loop", "Loop", "o fim emenda no começo para assistirem de novo"]].map(([k, t, dica]) => `<label style="display:inline-flex;gap:6px;align-items:center;margin:0;color:var(--texto);font-weight:500" title="${dica}"><input type="checkbox" data-ed="${k}" ${ed0.includes(k) ? "checked" : ""}> ${t}</label>`).join("")}</div>
       <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="kp"> Manter palavrões na legenda (ofensas e preconceito são sempre censurados)</label>
       <p class="sub" style="font-size:12px;margin:8px 0">${projetoAtualizar ? "Ao salvar, o Estúdio refaz o vídeo e guarda uma cópia do anterior." : "Após cortar, o Estúdio avalia o clipe e agenda automaticamente os que passarem de 7,5 e da checagem."}</p>
       <div class="sub" style="margin:10px 0 0;font-size:12px">O "Reação" acha a câmera do streamer sozinho. Se no trecho não houver rosto sobre o jogo, ele avisa e você escolhe outro formato. Ideal: 7 a 30 s, terminando no clímax.</div>
@@ -1047,13 +1058,16 @@ function modalCortar(d, c, antigo, projetoAtualizar = null) {
   $("#kfechar", md).onclick = () => md.remove();
   $("#kia", md).onclick = async () => { const b = $("#kia", md); b.disabled = true; b.textContent = "pensando…";
     try { const r = await api("/api/cortes/ganchos", { nome: d.nome, pick: c.n }); const lista = lay() === "react" ? r.titulos : r.ganchos;
-      $("#ksug", md).innerHTML = lista.map(x => `<button class="mini" data-s="${esc(x)}">${esc(x)}</button>`).join("");
+      $("#ksug", md).innerHTML = lista.map(x => `<button class="mini" data-s="${esc(x)}">${esc(x)}</button>`).join("") +
+        (r.perguntas || []).map(x => `<button class="mini" data-q="${esc(x)}" title="usar como pergunta do post">${ic("pergunta")} ${esc(x)}</button>`).join("");
       $("#ksug", md).querySelectorAll("[data-s]").forEach(s => s.onclick = () => { (lay() === "react" ? $("#kt", md) : $("#kg", md)).value = s.dataset.s; atualizarTexto(); });
+      $("#ksug", md).querySelectorAll("[data-q]").forEach(s => s.onclick = () => { $("#kq", md).value = s.dataset.q; });
     } catch (e) { toast(e.message); } b.disabled = false; b.innerHTML = ic("brilho") + "Sugerir 3 com IA"; };
   $("#kok", md).onclick = async () => {
     const corpo = { nome: d.nome, pick: c.n, layout: lay(), gancho: $("#kg", md).value, titulo: $("#kt", md).value, estilo_titulo: $("#kestilo", md).value,
       legenda: $("#kl", md).value, inicio: +$("#ki", md).value, fim: +$("#kf", md).value, palavroes: $("#kp", md).checked,
-      texto_y: +$("#ky", md).value, texto_tamanho: +$("#ktam", md).value, texto_cor: $("#kcor", md).value, projeto_atualizar: projetoAtualizar };
+      texto_y: +$("#ky", md).value, texto_tamanho: +$("#ktam", md).value, texto_cor: $("#kcor", md).value, projeto_atualizar: projetoAtualizar,
+      pergunta: $("#kq", md).value, edicao: [...md.querySelectorAll("[data-ed]:checked")].map(x => x.dataset.ed) };
     if (corpo.fim - corpo.inicio < 3) return toast("Trecho curto demais");
     try { const r = await api("/api/cortes/cortar", corpo); S.trabalho = r.trabalho; md.remove(); toast("Cortando… o clipe aparece aqui quando terminar"); gaveta(true); } catch (e) { toast(e.message); } };
 }

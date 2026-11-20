@@ -29,7 +29,7 @@ sys.path.insert(0, str(AQUI))
 import cortes as CT  # noqa: E402  (tela Cortes e lives)
 import atualizar as ATU  # noqa: E402  (atualização automática pelo GitHub)
 
-VERSAO = 20
+VERSAO = 21
 
 
 def _versao_txt():
@@ -502,7 +502,10 @@ def checagem_projeto(p):
         return c["resultado"]
     try:
         import checar
-        r = checar.checar_video(v, texto, tipo, canal)
+        meta = None
+        if tipo == "clipe" and rot.get("corte"):
+            meta = ler(CT.CORTES / str(rot["corte"].get("trabalho") or "-") / "edits" / f"clip_{rot['corte'].get('pick')}.json")
+        r = checar.checar_video(v, texto, tipo, canal, meta)
     except BaseException as e:
         r = {"ok": False, "itens": [{"nome": "checagem", "ok": False, "nivel": "erro", "detalhe": str(e)[:200]}]}
     gravar(p / "out" / "checagem.json", {"chave": chave, "resultado": r})
