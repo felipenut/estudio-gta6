@@ -89,6 +89,7 @@ button, a.mini, a.botao { display:inline-flex; align-items:center; justify-conte
 button:hover:not(:disabled) { border-color:var(--linha-forte); background:var(--p3); }
 button:active:not(:disabled) { transform:translateY(1px); }
 button:disabled { opacity:.42; cursor:not-allowed; }
+button[hidden] { display:none !important; }
 button.prim { background:var(--sol); border-color:transparent; color:var(--tinta); }
 button.prim:hover:not(:disabled) { background:var(--sol); filter:brightness(1.08); border-color:transparent; }
 button.mini, a.mini { padding:4px 10px; min-height:30px; font-size:13px; border-radius:7px; }
@@ -171,6 +172,61 @@ td b { font-variant-numeric:tabular-nums; }
 .tema .t { flex:1; } .tema .g { color:var(--fraco); font-size:13px; margin-top:3px; }
 details > summary { cursor:pointer; color:var(--fraco); font-weight:600; } details > summary:hover { color:var(--texto); }
 
+/* ---- painel inicial e fluxo do projeto ---- */
+.boas-vindas { display:flex; gap:18px; justify-content:space-between; align-items:center; flex-wrap:wrap; padding:24px; border-radius:var(--r-painel); background:linear-gradient(120deg,#30213D,#211B36 72%); border:1px solid var(--linha-forte); margin-bottom:16px; }
+.boas-vindas h2 { font:32px/1.05 "Bangers",Impact,sans-serif; letter-spacing:.5px; margin:0 0 5px; }
+.boas-vindas p { margin:0; color:var(--fraco); }
+.resumo-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:18px; }
+.resumo { background:var(--p1); border:1px solid var(--linha); border-radius:var(--r-item); padding:14px 16px; }
+.resumo b { display:block; font:700 26px/1 var(--titulo); color:var(--amarelo); }
+.resumo span { color:var(--fraco); font-size:13px; }
+.continuar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+.continuar .texto { flex:1; min-width:220px; }
+.continuar .texto b { display:block; font:700 17px/1.2 var(--titulo); }
+.continuar .texto span { color:var(--fraco); font-size:13px; }
+.fluxo { display:flex; align-items:stretch; gap:6px; overflow:auto; padding:0 0 12px; margin:-2px 0 10px; }
+.fluxo button { min-width:130px; justify-content:flex-start; text-align:left; background:var(--p1); color:var(--fraco); padding:9px 12px; }
+.fluxo button.feito { border-color:#276C5D; color:var(--verde); }
+.fluxo button.atual { border-color:var(--rosa); background:var(--p2); color:var(--texto); }
+.fluxo button:disabled { opacity:.75; }
+.fluxo .n { font:20px/1 "Bangers",Impact,sans-serif; color:var(--amarelo); margin-right:2px; }
+
+/* ---- trilha visual do roteiro ---- */
+.linha-tempo { display:flex; gap:7px; overflow:auto; padding:3px 2px 12px; margin:0 0 8px; }
+.bloco-tempo { flex:1 0 90px; max-width:220px; min-width:90px; text-align:left; display:flex; flex-direction:column; align-items:flex-start; gap:4px; padding:8px 10px; min-height:62px; border-color:var(--linha-forte); }
+.bloco-tempo span { font-size:11px; color:var(--fraco); white-space:nowrap; }
+.bloco-tempo b { font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
+.seg[draggable="true"] { cursor:grab; }
+.seg.arrastando { opacity:.45; }
+.seg.destino { border-color:var(--amarelo); }
+.seg .ritmo { display:flex; gap:8px; align-items:center; grid-column:1/-1; padding:5px 8px; border:1px solid var(--linha); border-radius:7px; background:var(--bg); }
+.seg .ritmo label { margin:0; white-space:nowrap; }
+.seg .ritmo input { max-width:180px; }
+
+/* ---- prévia de área segura e atalhos de legenda ---- */
+.player-wrap { position:relative; width:340px; max-width:100%; }
+.player-wrap video { display:block; }
+.safe-area { position:absolute; inset:8% 7% 18%; border:1px dashed #3DDBC5; border-radius:8px; pointer-events:none; }
+.safe-area::after { content:"área segura aproximada"; position:absolute; top:4px; left:6px; padding:2px 5px; background:#071D1A; color:var(--verde); border-radius:4px; font-size:10px; }
+.atalhos-legenda { display:flex; gap:6px; overflow:auto; padding:8px 1px 4px; max-width:340px; }
+.atalhos-legenda button { flex:none; max-width:180px; min-height:32px; padding:5px 8px; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ---- calendário editorial ---- */
+.cal-cab { display:flex; align-items:center; gap:8px; margin:14px 0 8px; }
+.cal-cab b { flex:1; font:700 17px/1.2 var(--titulo); }
+.cal-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:5px; }
+.cal-dia-nome { text-align:center; color:var(--fraco); font-size:11px; font-weight:700; padding:3px; }
+.cal-dia { min-height:78px; display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-start; gap:4px; padding:6px; overflow:hidden; border-radius:8px; }
+.cal-dia.fora { visibility:hidden; }
+.cal-dia.selecionado { outline:2px solid var(--verde); outline-offset:-2px; }
+.cal-dia.hoje { border-color:var(--rosa); }
+.cal-dia .num { font-weight:700; font-size:12px; }
+.cal-evento { display:block; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; line-height:1.3; color:var(--azul); }
+.cal-evento.fila { color:var(--amarelo); }
+.cal-legenda { display:flex; gap:14px; color:var(--fraco); font-size:12px; margin-top:7px; }
+.cal-legenda i { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--azul); margin-right:4px; }
+.cal-legenda .f i { background:var(--amarelo); }
+
 /* ---- janelas, gaveta de log e avisos ---- */
 .modal { position:fixed; inset:0; background:#0B0916cc; backdrop-filter:blur(3px); display:flex; align-items:center; justify-content:center; z-index:10; animation:surge var(--t-media) var(--curva); }
 .modal .caixa { background:var(--p1); border:1px solid var(--linha-forte); border-radius:18px; width:min(1100px,94vw); max-height:88vh; display:flex; flex-direction:column; box-shadow:0 30px 80px -20px #000e; }
@@ -212,10 +268,12 @@ body.primeira aside { display:none; } body.primeira .app { grid-template-columns
   .app { grid-template-columns:220px 1fr; } #gaveta { left:220px; }
   .editor { grid-template-columns:1fr; } .painel { position:static; }
   .video-area { grid-template-columns:1fr; } .seg .campos { grid-template-columns:1fr 1fr; }
+  .resumo-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 @media (max-width:760px) {
   .app { grid-template-columns:1fr; } aside { display:none; } #gaveta { left:0; } .grid2 { grid-template-columns:1fr; }
   main { padding:18px 16px 120px; } header h1 { font-size:24px; }
+  .resumo-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .cal-dia { min-height:64px; padding:4px; } .cal-evento { font-size:9px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important; }
@@ -225,7 +283,7 @@ body.primeira aside { display:none; } body.primeira .app { grid-template-columns
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-plus" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></symbol><symbol id="i-play" viewBox="0 0 256 256"><path d="M232.4,114.49,88.32,26.35a16,16,0,0,0-16.2-.3A15.86,15.86,0,0,0,64,39.87V216.13A15.94,15.94,0,0,0,80,232a16.07,16.07,0,0,0,8.36-2.35L232.4,141.51a15.81,15.81,0,0,0,0-27ZM80,215.94V40l143.83,88Z"/></symbol><symbol id="i-stop" viewBox="0 0 256 256"><path d="M200,40H56A16,16,0,0,0,40,56V200a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,160H56V56H200V200Z"/></symbol><symbol id="i-tesoura" viewBox="0 0 256 256"><path d="M157.73,113.13A8,8,0,0,1,159.82,102L227.48,55.7a8,8,0,0,1,9,13.21l-67.67,46.3a7.92,7.92,0,0,1-4.51,1.4A8,8,0,0,1,157.73,113.13Zm80.87,85.09a8,8,0,0,1-11.12,2.08L136,137.7,93.49,166.78a36,36,0,1,1-9-13.19L121.83,128,84.44,102.41a35.86,35.86,0,1,1,9-13.19l143,97.87A8,8,0,0,1,238.6,198.22ZM80,180a20,20,0,1,0-5.86,14.14A19.85,19.85,0,0,0,80,180ZM74.14,90.13a20,20,0,1,0-28.28,0A19.85,19.85,0,0,0,74.14,90.13Z"/></symbol><symbol id="i-filme" viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40ZM40,88h80v80H40Zm96-16V56h32V72Zm-16,0H88V56h32Zm0,112v16H88V184Zm16,0h32v16H136Zm0-16V88h80v80Zm80-96H184V56h32ZM72,56V72H40V56ZM40,184H72v16H40Zm176,16H184V184h32v16Z"/></symbol><symbol id="i-ideia" viewBox="0 0 256 256"><path d="M176,232a8,8,0,0,1-8,8H88a8,8,0,0,1,0-16h80A8,8,0,0,1,176,232Zm40-128a87.55,87.55,0,0,1-33.64,69.21A16.24,16.24,0,0,0,176,186v6a16,16,0,0,1-16,16H96a16,16,0,0,1-16-16v-6a16,16,0,0,0-6.23-12.66A87.59,87.59,0,0,1,40,104.49C39.74,56.83,78.26,17.14,125.88,16A88,88,0,0,1,216,104Zm-16,0a72,72,0,0,0-73.74-72c-39,.92-70.47,33.39-70.26,72.39a71.65,71.65,0,0,0,27.64,56.3A32,32,0,0,1,96,186v6h64v-6a32.15,32.15,0,0,1,12.47-25.35A71.65,71.65,0,0,0,200,104Zm-16.11-9.34a57.6,57.6,0,0,0-46.56-46.55,8,8,0,0,0-2.66,15.78c16.57,2.79,30.63,16.85,33.44,33.45A8,8,0,0,0,176,104a9,9,0,0,0,1.35-.11A8,8,0,0,0,183.89,94.66Z"/></symbol><symbol id="i-agenda" viewBox="0 0 256 256"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z"/></symbol><symbol id="i-grafico" viewBox="0 0 256 256"><path d="M232,208a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V48a8,8,0,0,1,16,0V156.69l50.34-50.35a8,8,0,0,1,11.32,0L128,132.69,180.69,80H160a8,8,0,0,1,0-16h40a8,8,0,0,1,8,8v40a8,8,0,0,1-16,0V91.31l-58.34,58.35a8,8,0,0,1-11.32,0L96,123.31l-56,56V200H224A8,8,0,0,1,232,208Z"/></symbol><symbol id="i-ajustes" viewBox="0 0 256 256"><path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm109.94-52.79a8,8,0,0,0-3.89-5.4l-29.83-17-.12-33.62a8,8,0,0,0-2.83-6.08,111.91,111.91,0,0,0-36.72-20.67,8,8,0,0,0-6.46.59L128,41.85,97.88,25a8,8,0,0,0-6.47-.6A112.1,112.1,0,0,0,54.73,45.15a8,8,0,0,0-2.83,6.07l-.15,33.65-29.83,17a8,8,0,0,0-3.89,5.4,106.47,106.47,0,0,0,0,41.56,8,8,0,0,0,3.89,5.4l29.83,17,.12,33.62a8,8,0,0,0,2.83,6.08,111.91,111.91,0,0,0,36.72,20.67,8,8,0,0,0,6.46-.59L128,214.15,158.12,231a7.91,7.91,0,0,0,3.9,1,8.09,8.09,0,0,0,2.57-.42,112.1,112.1,0,0,0,36.68-20.73,8,8,0,0,0,2.83-6.07l.15-33.65,29.83-17a8,8,0,0,0,3.89-5.4A106.47,106.47,0,0,0,237.94,107.21Zm-15,34.91-28.57,16.25a8,8,0,0,0-3,3c-.58,1-1.19,2.06-1.81,3.06a7.94,7.94,0,0,0-1.22,4.21l-.15,32.25a95.89,95.89,0,0,1-25.37,14.3L134,199.13a8,8,0,0,0-3.91-1h-.19c-1.21,0-2.43,0-3.64,0a8.08,8.08,0,0,0-4.1,1l-28.84,16.1A96,96,0,0,1,67.88,201l-.11-32.2a8,8,0,0,0-1.22-4.22c-.62-1-1.23-2-1.8-3.06a8.09,8.09,0,0,0-3-3.06l-28.6-16.29a90.49,90.49,0,0,1,0-28.26L61.67,97.63a8,8,0,0,0,3-3c.58-1,1.19-2.06,1.81-3.06a7.94,7.94,0,0,0,1.22-4.21l.15-32.25a95.89,95.89,0,0,1,25.37-14.3L122,56.87a8,8,0,0,0,4.1,1c1.21,0,2.43,0,3.64,0a8.08,8.08,0,0,0,4.1-1l28.84-16.1A96,96,0,0,1,188.12,55l.11,32.2a8,8,0,0,0,1.22,4.22c.62,1,1.23,2,1.8,3.06a8.09,8.09,0,0,0,3,3.06l28.6,16.29A90.49,90.49,0,0,1,222.9,142.12Z"/></symbol><symbol id="i-idioma" viewBox="0 0 256 256"><path d="M247.15,212.42l-56-112a8,8,0,0,0-14.31,0l-21.71,43.43A88,88,0,0,1,108,126.93,103.65,103.65,0,0,0,135.69,64H160a8,8,0,0,0,0-16H104V32a8,8,0,0,0-16,0V48H32a8,8,0,0,0,0,16h87.63A87.76,87.76,0,0,1,96,116.35a87.74,87.74,0,0,1-19-31,8,8,0,1,0-15.08,5.34A103.63,103.63,0,0,0,84,127a87.55,87.55,0,0,1-52,17,8,8,0,0,0,0,16,103.46,103.46,0,0,0,64-22.08,104.18,104.18,0,0,0,51.44,21.31l-26.6,53.19a8,8,0,0,0,14.31,7.16L148.94,192h70.11l13.79,27.58A8,8,0,0,0,240,224a8,8,0,0,0,7.15-11.58ZM156.94,176,184,121.89,211.05,176Z"/></symbol><symbol id="i-busca" viewBox="0 0 256 256"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></symbol><symbol id="i-gravar" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm0-160a72,72,0,1,0,72,72A72.08,72.08,0,0,0,128,56Zm0,128a56,56,0,1,1,56-56A56.06,56.06,0,0,1,128,184Z"/></symbol><symbol id="i-live" viewBox="0 0 256 256"><path d="M128,88a40,40,0,1,0,40,40A40,40,0,0,0,128,88Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,152Zm73.71,7.14a80,80,0,0,1-14.08,22.2,8,8,0,0,1-11.92-10.67,63.95,63.95,0,0,0,0-85.33,8,8,0,1,1,11.92-10.67,80.08,80.08,0,0,1,14.08,84.47ZM69,103.09a64,64,0,0,0,11.26,67.58,8,8,0,0,1-11.92,10.67,79.93,79.93,0,0,1,0-106.67A8,8,0,1,1,80.29,85.34,63.77,63.77,0,0,0,69,103.09ZM248,128a119.58,119.58,0,0,1-34.29,84,8,8,0,1,1-11.42-11.2,103.9,103.9,0,0,0,0-145.56A8,8,0,1,1,213.71,44,119.58,119.58,0,0,1,248,128ZM53.71,200.78A8,8,0,1,1,42.29,212a119.87,119.87,0,0,1,0-168,8,8,0,1,1,11.42,11.2,103.9,103.9,0,0,0,0,145.56Z"/></symbol><symbol id="i-baixar" viewBox="0 0 256 256"><path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,124.69V32a8,8,0,0,0-16,0v92.69L93.66,98.34a8,8,0,0,0-11.32,11.32Z"/></symbol><symbol id="i-atualizar" viewBox="0 0 256 256"><path d="M224,48V96a8,8,0,0,1-8,8H168a8,8,0,0,1,0-16h28.69L182.06,73.37a79.56,79.56,0,0,0-56.13-23.43h-.45A79.52,79.52,0,0,0,69.59,72.71,8,8,0,0,1,58.41,61.27a96,96,0,0,1,135,.79L208,76.69V48a8,8,0,0,1,16,0ZM186.41,183.29a80,80,0,0,1-112.47-.66L59.31,168H88a8,8,0,0,0,0-16H40a8,8,0,0,0-8,8v48a8,8,0,0,0,16,0V179.31l14.63,14.63A95.43,95.43,0,0,0,130,222.06h.53a95.36,95.36,0,0,0,67.07-27.33,8,8,0,0,0-11.18-11.44Z"/></symbol><symbol id="i-ferramenta" viewBox="0 0 256 256"><path d="M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,187,29.24,72,72,0,0,0,88,96,72.34,72.34,0,0,0,94,124.94L33.79,177c-.15.12-.29.26-.43.39a32,32,0,0,0,45.26,45.26c.13-.13.27-.28.39-.42L131.06,162A72,72,0,0,0,232,96,71.56,71.56,0,0,0,226.76,69ZM160,152a56.14,56.14,0,0,1-27.07-7,8,8,0,0,0-9.92,1.77L67.11,211.51a16,16,0,0,1-22.62-22.62L109.18,133a8,8,0,0,0,1.77-9.93,56,56,0,0,1,58.36-82.31l-31.2,33.81a8,8,0,0,0-1.94,7.1L141.83,108a8,8,0,0,0,6.14,6.14l26.35,5.66a8,8,0,0,0,7.1-1.94l33.81-31.2A56.06,56.06,0,0,1,160,152Z"/></symbol><symbol id="i-fogo" viewBox="0 0 256 256"><path d="M183.89,153.34a57.6,57.6,0,0,1-46.56,46.55A8.75,8.75,0,0,1,136,200a8,8,0,0,1-1.32-15.89c16.57-2.79,30.63-16.85,33.44-33.45a8,8,0,0,1,15.78,2.68ZM216,144a88,88,0,0,1-176,0c0-27.92,11-56.47,32.66-84.85a8,8,0,0,1,11.93-.89l24.12,23.41,22-60.41a8,8,0,0,1,12.63-3.41C165.21,36,216,84.55,216,144Zm-16,0c0-46.09-35.79-85.92-58.21-106.33L119.52,98.74a8,8,0,0,1-13.09,3L80.06,76.16C64.09,99.21,56,122,56,144a72,72,0,0,0,144,0Z"/></symbol><symbol id="i-foguete" viewBox="0 0 256 256"><path d="M223.85,47.12a16,16,0,0,0-15-15c-12.58-.75-44.73.4-71.41,27.07L132.69,64H74.36A15.91,15.91,0,0,0,63,68.68L28.7,103a16,16,0,0,0,9.07,27.16l38.47,5.37,44.21,44.21,5.37,38.49a15.94,15.94,0,0,0,10.78,12.92,16.11,16.11,0,0,0,5.1.83A15.91,15.91,0,0,0,153,227.3L187.32,193A15.91,15.91,0,0,0,192,181.64V123.31l4.77-4.77C223.45,91.86,224.6,59.71,223.85,47.12ZM74.36,80h42.33L77.16,119.52,40,114.34Zm74.41-9.45a76.65,76.65,0,0,1,59.11-22.47,76.46,76.46,0,0,1-22.42,59.16L128,164.68,91.32,128ZM176,181.64,141.67,216l-5.19-37.17L176,139.31Zm-74.16,9.5C97.34,201,82.29,224,40,224a8,8,0,0,1-8-8c0-42.29,23-57.34,32.86-61.85a8,8,0,0,1,6.64,14.56c-6.43,2.93-20.62,12.36-23.12,38.91,26.55-2.5,36-16.69,38.91-23.12a8,8,0,1,1,14.56,6.64Z"/></symbol><symbol id="i-serie" viewBox="0 0 256 256"><path d="M248,128a56,56,0,0,1-95.6,39.6l-.33-.35L92.12,99.55a40,40,0,1,0,0,56.9l8.52-9.62a8,8,0,1,1,12,10.61l-8.69,9.81-.33.35a56,56,0,1,1,0-79.2l.33.35,59.95,67.7a40,40,0,1,0,0-56.9l-8.52,9.62a8,8,0,1,1-12-10.61l8.69-9.81.33-.35A56,56,0,0,1,248,128Z"/></symbol><symbol id="i-pergunta" viewBox="0 0 256 256"><path d="M140,180a12,12,0,1,1-12-12A12,12,0,0,1,140,180ZM128,72c-22.06,0-40,16.15-40,36v4a8,8,0,0,0,16,0v-4c0-11,10.77-20,24-20s24,9,24,20-10.77,20-24,20a8,8,0,0,0-8,8v8a8,8,0,0,0,16,0v-.72c18.24-3.35,32-17.9,32-35.28C168,88.15,150.06,72,128,72Zm104,56A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></symbol><symbol id="i-mapa" viewBox="0 0 256 256"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-5.52-.6l-64,16A8,8,0,0,0,24,56V200a8,8,0,0,0,9.94,7.76l61.13-15.28,61.35,30.68A8.15,8.15,0,0,0,160,224a8,8,0,0,0,1.94-.24l64-16A8,8,0,0,0,232,200V56A8,8,0,0,0,228.92,49.69ZM104,52.94l48,24V203.06l-48-24ZM40,62.25l48-12v127.5l-48,12Zm176,131.5-48,12V78.25l48-12Z"/></symbol><symbol id="i-controle" viewBox="0 0 256 256"><path d="M176,112H152a8,8,0,0,1,0-16h24a8,8,0,0,1,0,16ZM104,96H96V88a8,8,0,0,0-16,0v8H72a8,8,0,0,0,0,16h8v8a8,8,0,0,0,16,0v-8h8a8,8,0,0,0,0-16ZM241.48,200.65a36,36,0,0,1-54.94,4.81c-.12-.12-.24-.24-.35-.37L146.48,160h-37L69.81,205.09l-.35.37A36.08,36.08,0,0,1,44,216,36,36,0,0,1,8.56,173.75a.68.68,0,0,1,0-.14L24.93,89.52A59.88,59.88,0,0,1,83.89,40H172a60.08,60.08,0,0,1,59,49.25c0,.06,0,.12,0,.18l16.37,84.17a.68.68,0,0,1,0,.14A35.74,35.74,0,0,1,241.48,200.65ZM172,144a44,44,0,0,0,0-88H83.89A43.9,43.9,0,0,0,40.68,92.37l0,.13L24.3,176.59A20,20,0,0,0,58,194.3l41.92-47.59a8,8,0,0,1,6-2.71Zm59.7,32.59-8.74-45A60,60,0,0,1,172,160h-4.2L198,194.31a20.09,20.09,0,0,0,17.46,5.39,20,20,0,0,0,16.23-23.11Z"/></symbol><symbol id="i-brilho" viewBox="0 0 256 256"><path d="M197.58,129.06,146,110l-19-51.62a15.92,15.92,0,0,0-29.88,0L78,110l-51.62,19a15.92,15.92,0,0,0,0,29.88L78,178l19,51.62a15.92,15.92,0,0,0,29.88,0L146,178l51.62-19a15.92,15.92,0,0,0,0-29.88ZM137,164.22a8,8,0,0,0-4.74,4.74L112,223.85,91.78,169A8,8,0,0,0,87,164.22L32.15,144,87,123.78A8,8,0,0,0,91.78,119L112,64.15,132.22,119a8,8,0,0,0,4.74,4.74L191.85,144ZM144,40a8,8,0,0,1,8-8h16V16a8,8,0,0,1,16,0V32h16a8,8,0,0,1,0,16H184V64a8,8,0,0,1-16,0V48H152A8,8,0,0,1,144,40ZM248,88a8,8,0,0,1-8,8h-8v8a8,8,0,0,1-16,0V96h-8a8,8,0,0,1,0-16h8V72a8,8,0,0,1,16,0v8h8A8,8,0,0,1,248,88Z"/></symbol><symbol id="i-check" viewBox="0 0 256 256"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></symbol><symbol id="i-x" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></symbol><symbol id="i-aviso" viewBox="0 0 256 256"><path d="M236.8,188.09,149.35,36.22h0a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM222.93,203.8a8.5,8.5,0,0,1-7.48,4.2H40.55a8.5,8.5,0,0,1-7.48-4.2,7.59,7.59,0,0,1,0-7.72L120.52,44.21a8.75,8.75,0,0,1,15,0l87.45,151.87A7.59,7.59,0,0,1,222.93,203.8ZM120,144V104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,180Z"/></symbol><symbol id="i-log" viewBox="0 0 256 256"><path d="M128,128a8,8,0,0,1-3,6.25l-40,32a8,8,0,1,1-10-12.5L107.19,128,75,102.25a8,8,0,1,1,10-12.5l40,32A8,8,0,0,1,128,128Zm48,24H136a8,8,0,0,0,0,16h40a8,8,0,0,0,0-16Zm56-96V200a16,16,0,0,1-16,16H40a16,16,0,0,1-16-16V56A16,16,0,0,1,40,40H216A16,16,0,0,1,232,56ZM216,200V56H40V200H216Z"/></symbol><symbol id="i-lixo" viewBox="0 0 256 256"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></symbol><symbol id="i-camera" viewBox="0 0 256 256"><path d="M251.77,73a8,8,0,0,0-8.21.39L208,97.05V72a16,16,0,0,0-16-16H32A16,16,0,0,0,16,72V184a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V159l35.56,23.71A8,8,0,0,0,248,184a8,8,0,0,0,8-8V80A8,8,0,0,0,251.77,73ZM192,184H32V72H192V184Zm48-22.95-32-21.33V116.28L240,95Z"/></symbol><symbol id="i-pilha" viewBox="0 0 256 256"><path d="M230.91,172A8,8,0,0,1,228,182.91l-96,56a8,8,0,0,1-8.06,0l-96-56A8,8,0,0,1,36,169.09l92,53.65,92-53.65A8,8,0,0,1,230.91,172ZM220,121.09l-92,53.65L36,121.09A8,8,0,0,0,28,134.91l96,56a8,8,0,0,0,8.06,0l96-56A8,8,0,1,0,220,121.09ZM24,80a8,8,0,0,1,4-6.91l96-56a8,8,0,0,1,8.06,0l96,56a8,8,0,0,1,0,13.82l-96,56a8,8,0,0,1-8.06,0l-96-56A8,8,0,0,1,24,80Zm23.88,0L128,126.74,208.12,80,128,33.26Z"/></symbol><symbol id="i-pasta" viewBox="0 0 256 256"><path d="M245,110.64A16,16,0,0,0,232,104H216V88a16,16,0,0,0-16-16H130.67L102.94,51.2a16.14,16.14,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V208h0a8,8,0,0,0,8,8H211.1a8,8,0,0,0,7.59-5.47l28.49-85.47A16.05,16.05,0,0,0,245,110.64ZM93.34,64,123.2,86.4A8,8,0,0,0,128,88h72v16H69.77a16,16,0,0,0-15.18,10.94L40,158.7V64Zm112,136H43.1l26.67-80H232Z"/></symbol><symbol id="i-seta" viewBox="0 0 256 256"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></symbol><symbol id="i-video" viewBox="0 0 256 256"><path d="M164.44,105.34l-48-32A8,8,0,0,0,104,80v64a8,8,0,0,0,12.44,6.66l48-32a8,8,0,0,0,0-13.32ZM120,129.05V95l25.58,17ZM216,40H40A16,16,0,0,0,24,56V168a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,128H40V56H216V168Zm16,40a8,8,0,0,1-8,8H32a8,8,0,0,1,0-16H224A8,8,0,0,1,232,208Z"/></symbol><symbol id="i-ondas" viewBox="0 0 256 256"><path d="M56,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM88,24a8,8,0,0,0-8,8V224a8,8,0,0,0,16,0V32A8,8,0,0,0,88,24Zm40,32a8,8,0,0,0-8,8V192a8,8,0,0,0,16,0V64A8,8,0,0,0,128,56Zm40,32a8,8,0,0,0-8,8v64a8,8,0,0,0,16,0V96A8,8,0,0,0,168,88Zm40-16a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V80A8,8,0,0,0,208,72Z"/></symbol><symbol id="i-lista" viewBox="0 0 256 256"><path d="M80,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H88A8,8,0,0,1,80,64Zm136,56H88a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm0,64H88a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16ZM44,52A12,12,0,1,0,56,64,12,12,0,0,0,44,52Zm0,64a12,12,0,1,0,12,12A12,12,0,0,0,44,116Zm0,64a12,12,0,1,0,12,12A12,12,0,0,0,44,180Z"/></symbol><symbol id="i-olho" viewBox="0 0 256 256"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></symbol><symbol id="i-trofeu" viewBox="0 0 256 256"><path d="M232,64H208V48a8,8,0,0,0-8-8H56a8,8,0,0,0-8,8V64H24A16,16,0,0,0,8,80V96a40,40,0,0,0,40,40h3.65A80.13,80.13,0,0,0,120,191.61V216H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16H136V191.58c31.94-3.23,58.44-25.64,68.08-55.58H208a40,40,0,0,0,40-40V80A16,16,0,0,0,232,64ZM48,120A24,24,0,0,1,24,96V80H48v32q0,4,.39,8Zm144-8.9c0,35.52-29,64.64-64,64.9a64,64,0,0,1-64-64V56H192ZM232,96a24,24,0,0,1-24,24h-.5a81.81,81.81,0,0,0,.5-8.9V80h24Z"/></symbol><symbol id="i-abrir" viewBox="0 0 256 256"><path d="M224,104a8,8,0,0,1-16,0V59.32l-66.33,66.34a8,8,0,0,1-11.32-11.32L196.68,48H152a8,8,0,0,1,0-16h64a8,8,0,0,1,8,8Zm-40,24a8,8,0,0,0-8,8v72H48V80h72a8,8,0,0,0,0-16H48A16,16,0,0,0,32,80V208a16,16,0,0,0,16,16H176a16,16,0,0,0,16-16V136A8,8,0,0,0,184,128Z"/></symbol><symbol id="i-copiar" viewBox="0 0 256 256"><path d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z"/></symbol><symbol id="i-fechar" viewBox="0 0 256 256"><path d="M165.66,101.66,139.31,128l26.35,26.34a8,8,0,0,1-11.32,11.32L128,139.31l-26.34,26.35a8,8,0,0,1-11.32-11.32L116.69,128,90.34,101.66a8,8,0,0,1,11.32-11.32L128,116.69l26.34-26.35a8,8,0,0,1,11.32,11.32ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></symbol></svg>
 <header>
-  <h1 onclick="ir('novo')" title="Novo vídeo">Estúdio GTA 6 Shorts</h1>
+  <h1 onclick="ir('inicio')" title="Visão geral">Estúdio GTA 6 Shorts</h1>
   <div id="job" role="button" tabindex="0" aria-label="Trabalho atual: abrir o log" onclick="gaveta()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();gaveta()}"><span class="bolinha"></span><span id="jobpct"></span><span id="jobtxt" aria-live="polite">Livre</span></div>
   <div id="barra"><i></i></div>
 </header>
@@ -233,6 +291,7 @@ body.primeira aside { display:none; } body.primeira .app { grid-template-columns
   <aside>
     <nav class="topo" aria-label="Criar"><button class="prim" style="width:100%" onclick="ir('novo')"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Novo vídeo</button>
       <button id="blote" style="width:100%" onclick="botaoLote()" title="Gera, em fila, todos os projetos com roteiro e sem vídeo pronto">▶ Gerar lote</button></nav>
+    <div class="nav" role="link" tabindex="0" data-v="inicio" onclick="ir('inicio')"><svg class="ic" aria-hidden="true"><use href="#i-grafico"/></svg>Visão geral</div>
     <div class="grupo" id="glista">Projetos</div>
     <input class="filtro" id="filtro" type="search" placeholder="Buscar projeto" aria-label="Buscar projeto" oninput="filtrarLista()">
     <div class="lista" id="lista" role="list"></div>
@@ -247,12 +306,12 @@ body.primeira aside { display:none; } body.primeira .app { grid-template-columns
   </aside>
   <main id="main" tabindex="-1"></main>
 </div>
-<div id="gaveta"><div class="cab"><b id="gtit">Log</b><span style="flex:1"></span><button class="mini" onclick="gaveta(false)">Fechar</button></div><pre class="log" id="glog"></pre></div>
+<div id="gaveta"><div class="cab"><b id="gtit">Log</b><span id="gjobdetail" class="sub" style="margin:0;font-size:12px"></span><span style="flex:1"></span><button class="mini" id="gcancel" hidden>Interromper</button><button class="mini" id="grepeat" hidden>Tentar novamente</button><button class="mini" onclick="gaveta(false)">Fechar</button></div><pre class="log" id="glog"></pre></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const S = { view: "novo", projeto: null, aba: "roteiro", dados: null, rot: null, midia: null, trabalho: null, ultimoId: null, bibFiltro: { filtro: "pendentes", video: "", q: "" } };
+const S = { view: "inicio", projeto: null, aba: "roteiro", dados: null, rot: null, midia: null, trabalho: null, ultimoId: null, calMes: null, calDia: null, bibFiltro: { filtro: "pendentes", video: "", q: "" } };
 const TIPOS = ["gancho", "promessa", "historia", "curiosidade", "piada", "duplo_sentido", "comparacao", "pergunta", "cta", "payoff"];
 
 const ic = (n) => `<svg class="ic" aria-hidden="true"><use href="#i-${n}"/></svg>`;
@@ -284,7 +343,7 @@ async function lista() {
     || `<div class="vazio" style="margin:8px;padding:20px 14px">Nenhum vídeo ainda. Comece em <b>Novo vídeo</b> ou em <b>Cortes e lives</b>.</div>`;
   if ($("#filtro") && $("#filtro").value) filtrarLista();
 }
-const VERSAO_PAGINA = 18;
+const VERSAO_PAGINA = 19;
 function erroTela(e) {
   $("#main").innerHTML = `<div class="aviso-box"><b>Não consegui abrir esta tela.</b><br>${esc(e.message || e)}<br><br>
     Se você acabou de atualizar o Estúdio, feche a janela preta do Estúdio e abra o <b>estudio.bat</b> de novo.</div>`;
@@ -295,6 +354,7 @@ async function render() {
   marcarNav();
   const m = $("#main");
   try {
+    if (S.view === "inicio") return await viewInicio(m);
     if (S.view === "novo") return await viewNovo(m);
     if (S.view === "biblioteca") return await viewBiblioteca(m);
     if (S.view === "temas") return await viewTemas(m);
@@ -323,6 +383,18 @@ async function atualizarLog() {
   const j = await api("/api/log" + q); const pre = $("#glog"); const fim = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 40;
   pre.textContent = j.log; if (fim) pre.scrollTop = pre.scrollHeight; $("#gtit").textContent = `Log — ${t.rotulo || ""} ${t.projeto || t.corte || ""}`;
   const logAba = $("#logproj"); if (logAba && t.projeto === S.projeto) { logAba.textContent = j.log; logAba.scrollTop = logAba.scrollHeight; }
+}
+async function interromperTrabalho() {
+  const t = S.trabalho || {}; if (!rodando(t)) return;
+  const lote = t.acao === "lote", pergunta = lote ? "O lote vai parar depois do vídeo que está sendo processado. Quer continuar?" : "Interromper o trabalho atual? O arquivo parcial não será usado como vídeo pronto.";
+  if (!confirm(pergunta)) return;
+  try { const j = await api("/api/trabalho/cancelar", {}); toast(j.depois ? "O lote vai parar após o vídeo atual" : "Interrupção solicitada"); tick(); }
+  catch (e) { toast(e.message); }
+}
+async function repetirTrabalho() {
+  if (!confirm("Tentar novamente o último trabalho com os mesmos parâmetros?")) return;
+  try { const j = await api("/api/trabalho/repetir", {}); S.trabalho = j.trabalho; toast("Tentando novamente…"); gaveta(true); tick(); }
+  catch (e) { toast(e.message); }
 }
 async function botaoLote() {
   try {
@@ -357,13 +429,20 @@ async function tick() {
     $("#jobpct").textContent = on ? pct + "%" : "";
     if (on && t.inicio && pct >= 3) { const gasto = Date.now() / 1000 - t.inicio, resta = gasto * (100 - pct) / pct; S.eta = resta > 60 ? ` · ~${Math.round(resta / 60)} min` : " · <1 min"; } else S.eta = "";
     $("#jobtxt").textContent = on ? `${t.rotulo}${t.etapa ? " · " + t.etapa : ""}${t.projeto ? " · " + t.projeto : ""}${S.eta}` : (t.acao ? `Último: ${t.rotulo} ${t.codigo === 0 ? "✓" : "✗"}` : "Livre");
+    const gc = $("#gcancel"), gr = $("#grepeat"), envioLote = t.acao === "lote" && t.rotulo === "LOTE → ZERNIO";
+    gc.hidden = !on || t.acao === "zernio" || envioLote;
+    gc.textContent = t.acao === "lote" ? (S.lote?.parar ? "Parando…" : "Parar após este vídeo") : "Interromper";
+    gc.disabled = !!t.cancelando || !!(t.acao === "lote" && S.lote?.parar); gc.onclick = interromperTrabalho;
+    gr.hidden = on || !t.acao || t.codigo === 0 || !t.repetivel; gr.onclick = repetirTrabalho;
+    $("#gjobdetail").textContent = on ? `${pct}%${S.eta || ""}${t.etapa ? " · " + t.etapa : ""}` : (t.cancelado ? "Interrompido" : t.acao && t.codigo !== 0 ? "O trabalho não terminou" : "");
     if (rodando(t) && ($("#gaveta").classList.contains("aberta") || (S.view === "projeto" && S.aba === "log"))) atualizarLog();
     if (antes && rodando(antes) && !rodando(t) && t.id === antes.id) aoTerminar(t);
     const nl = $("#navlive"); if (nl) nl.innerHTML = j.live && j.live.rodando ? `<span class="pill erro" title="Gravando live">● REC ${j.live.trechos}</span>` : "";
   } catch (e) {}
 }
 async function aoTerminar(t) {
-  toast(`${t.rotulo}: ${t.codigo === 0 ? "pronto ✓" : "deu erro ✗ (veja o log)"}`); await lista();
+  const resumo = t.cancelado ? "interrompido" : (t.acao === "lote" && S.lote?.parar ? "parado após o vídeo atual" : t.codigo === 0 ? "pronto ✓" : "deu erro ✗ (veja o log)");
+  toast(`${t.rotulo}: ${resumo}`); await lista();
   if (S.view === "projeto" && t.projeto === S.projeto) { await carregarProjeto(); if (t.codigo === 0) S.aba = { gerar: "revisao", previa: "enquadramento", capa: "video", narrar: "roteiro" }[t.acao] || S.aba; render(); }
   if (S.view === "biblioteca") render();
   if (["tendencias", "perguntas"].includes(t.acao) && S.view === "temas") render();
@@ -375,6 +454,37 @@ async function aoTerminar(t) {
   if (["zernio", "lote"].includes(t.acao)) { if (S.view === "projeto" && S.projeto) { await carregarProjeto(); render(); } else if (S.view === "agendar") render(); }
 }
 setInterval(tick, 2000);
+
+/* ---------- visão geral ---------- */
+function proximaEtapa(p) {
+  if (/^ERRO/i.test(p.status || "") && p.tem_roteiro && !p.tem_video) return { titulo: "Projeto com erro", texto: p.status, botao: "Ver log e corrigir", aba: "log" };
+  if (!p.tem_roteiro) return { titulo: "Pedido criado", texto: "Abra o pedido para continuar o roteiro.", botao: "Abrir pedido", aba: "pedido" };
+  if (!p.tem_video) return { titulo: "Roteiro pronto", texto: "Confira o roteiro e gere o vídeo.", botao: "Continuar roteiro", aba: "roteiro" };
+  if (p.tipo === "clipe" && !p.checagem_ok) return { titulo: "Clipe aguardando checagem", texto: "Confira o formato e o crédito antes de agendar.", botao: "Conferir clipe", aba: "video" };
+  if (p.tipo !== "clipe" && !p.aprovado) return { titulo: "Vídeo aguardando revisão", texto: "Assista ao vídeo e aprove antes de agendar.", botao: "Revisar vídeo", aba: "revisao" };
+  if (!p.agendado && !p.postado) return { titulo: "Vídeo pronto para publicar", texto: "Tudo revisado. Escolha o horário de publicação.", botao: "Agendar vídeo", aba: "video" };
+  if (p.agendado && !p.postado) return { titulo: "Publicação agendada", texto: "Acompanhe o envio e os resultados.", botao: "Ver agendamento", view: "agendar" };
+  return { titulo: "Publicado", texto: "Projeto concluído. Veja o vídeo e os resultados.", botao: "Abrir projeto", aba: "video" };
+}
+async function viewInicio(m) {
+  const j = await api("/api/projetos"), ps = j.projetos || [];
+  const pendentes = ps.filter(p => !p.postado && !p.agendado), revisar = ps.filter(p => p.tem_video && (p.tipo === "clipe" ? !p.checagem_ok : !p.aprovado) && !p.agendado && !p.postado).length;
+  const prontos = ps.filter(p => p.tem_video && (p.tipo === "clipe" ? p.checagem_ok : p.aprovado) && !p.agendado && !p.postado).length;
+  const primeiro = pendentes[0] || ps[0], etapa = primeiro && proximaEtapa(primeiro);
+  m.innerHTML = `<div class="boas-vindas"><div><h2>Seu estúdio, em um só lugar</h2><p>Veja o que falta, retome um projeto ou comece o próximo vídeo.</p></div>
+      <div class="linha"><button class="prim" onclick="ir('novo')">${ic("plus")}Novo vídeo</button><button onclick="ir('cortes')">${ic("tesoura")}Cortes e lives</button></div></div>
+    <div class="resumo-grid"><div class="resumo"><b>${ps.length}</b><span>projetos</span></div><div class="resumo"><b>${revisar}</b><span>aguardando revisão</span></div>
+      <div class="resumo"><b>${prontos}</b><span>prontos para agendar</span></div><div class="resumo"><b>${ps.filter(p => p.agendado && !p.postado).length}</b><span>agendados</span></div></div>
+    ${primeiro ? `<div class="cartao continuar"><div class="texto"><span>CONTINUAR DE ONDE PAREI</span><b>${esc(primeiro.titulo)}</b><span>${esc(etapa.texto)} · ${esc(primeiro.nome)}</span></div>
+      <span class="pill ${primeiro.tem_video ? "ok" : ""}">${esc(etapa.titulo)}</span><button class="prim" id="continuar">${esc(etapa.botao)}</button></div>`
+      : `<div class="vazio"><b>Seu primeiro vídeo começa aqui.</b><br>Crie um pedido ou encontre um momento de uma live.</div>`}
+    <div class="linha" style="margin:22px 0 8px"><h3 style="margin:0">Projetos recentes</h3><span style="flex:1"></span><button class="mini" onclick="ir('temas')">Explorar temas</button></div>
+    ${ps.length ? ps.slice(0, 8).map(p => { const e = proximaEtapa(p); return `<div class="cartao continuar" style="padding:12px 16px"><div class="texto"><b>${esc(p.titulo)}</b><span>${esc(p.nome)} · ${esc(e.titulo)}</span></div>
+      <span class="pill ${p.tem_video ? "ok" : ""}">${p.tem_video ? "vídeo pronto" : p.tem_roteiro ? "em produção" : "pedido"}</span><button class="mini" data-abrir="${esc(p.nome)}" data-aba="${esc(e.aba || "video")}" data-view="${esc(e.view || "")}">${esc(e.botao)}</button></div>`; }).join("")
+      : `<p class="sub">Os projetos que você criar aparecerão aqui para continuar de onde parou.</p>`}`;
+  if (primeiro) $("#continuar").onclick = () => etapa.view ? ir(etapa.view) : abrirProjeto(primeiro.nome, etapa.aba);
+  m.querySelectorAll("[data-abrir]").forEach(b => b.onclick = () => b.dataset.view ? ir(b.dataset.view) : abrirProjeto(b.dataset.abrir, b.dataset.aba));
+}
 
 /* ---------- NOVO VÍDEO ---------- */
 async function viewNovo(m) {
@@ -424,6 +534,20 @@ function painelPedido(c) {
 }
 
 /* ---------- PROJETO ---------- */
+function etapasGuiadas(d, r) {
+  if (!r) return [];
+  if (r.tipo === "clipe") {
+    const etapas = [{ id: "video", nome: "Vídeo e crédito", feito: d.video_pronto },
+      { id: "revisao", nome: "Checagem", feito: !!(d.checagem && d.checagem.ok) },
+      { id: "agendar", nome: "Agendar", feito: !!(d.zernio || d.postado) }];
+    const atual = etapas.findIndex(x => !x.feito); return etapas.map((x, i) => ({ ...x, atual: i === atual }));
+  }
+  const etapas = [{ id: "roteiro", nome: "Roteiro", feito: !!r.segmentos?.length },
+    { id: "gerar", nome: "Gerar vídeo", feito: d.video_pronto },
+    { id: "revisao", nome: "Revisar", feito: d.aprovado || !!(d.zernio || d.postado) },
+    { id: "agendar", nome: "Agendar", feito: !!(d.zernio || d.postado) }];
+  const atual = etapas.findIndex(x => !x.feito); return etapas.map((x, i) => ({ ...x, atual: i === atual }));
+}
 function viewProjeto(m) {
   const d = S.dados, oc = rodando(S.trabalho), r = S.rot, clipe = r && r.tipo === "clipe";
   if (clipe && !["video", "log"].includes(S.aba)) S.aba = "video";
@@ -440,10 +564,18 @@ function viewProjeto(m) {
         : `<button id="bagendar" ${oc || !d.video_pronto || d.postado ? "disabled" : ""} title="${d.video_pronto ? "Agendar este vídeo no Zernio" : "Gere o vídeo primeiro"}">${ic("agenda")}Agendar</button>`) : ""}
       <button id="bpost" title="Projetos postados não entram no Gerar lote">${d.postado ? "✓ Postado (desfazer)" : "Marcar como postado"}</button>
       <span style="flex:1"></span><span class="pill ${classeStatus(d.status)}">${esc(d.status || "—")}</span></div>
+    ${r ? `<div class="fluxo" aria-label="Próximas etapas">${etapasGuiadas(d, r).map((x, i, a) => `<button class="${x.feito ? "feito" : x.atual ? "atual" : ""}" data-fluxo="${x.id}" ${oc || (!x.feito && !x.atual) ? "disabled" : ""} aria-current="${x.atual ? "step" : "false"}"><span class="n">${x.feito ? "✓" : i + 1}</span>${esc(x.nome)}</button>`).join("")}</div>` : ""}
     <div class="abas" role="tablist">${(clipe ? [["video", "Vídeo e post"], ["log", "Log"]] : r ? [["roteiro", "Roteiro"], ["enquadramento", "Enquadramento e cenas"], ["video", "Vídeo, capa e post"], ["revisao", d.aprovado ? "Revisão ✓" : "Revisão"], ["log", "Log"]] : [["pedido", "Pedido"], ["log", "Log"]]).map(([k, n]) =>
       `<div class="aba ${S.aba === k ? "ativa" : ""}" role="tab" tabindex="0" aria-selected="${S.aba === k}" data-aba="${k}">${n}</div>`).join("")}</div><div id="conteudo"></div>`;
   m.querySelectorAll("[data-a]").forEach(b => b.onclick = () => acao(b.dataset.a));
-  if ($("#bagendar")) $("#bagendar").onclick = () => { if (!d.aprovado && !confirm("Este vídeo ainda não foi revisado (aba Revisão). Agendar mesmo assim?")) return; agendarUm(d.nome, r.titulo || d.nome, d.zernio_cancelado && d.zernio_cancelado.horario); };
+  m.querySelectorAll("[data-fluxo]").forEach(b => b.onclick = async () => {
+    const alvo = b.dataset.fluxo;
+    if (S.sujo && alvo !== "roteiro" && alvo !== "pedido") { if (!confirm("Há mudanças no roteiro não salvas. Salvar antes de continuar?")) return; await salvarRoteiro(true); }
+    if (alvo === "gerar") return acao("gerar");
+    if (alvo === "agendar") { if (r.tipo !== "clipe" && !d.aprovado && !confirm("Este vídeo ainda não foi revisado. Agendar mesmo assim?")) return; return agendarUm(d.nome, r.titulo || d.nome, d.zernio_cancelado && d.zernio_cancelado.horario); }
+    S.aba = alvo === "pedido" ? "pedido" : alvo; render();
+  });
+  if ($("#bagendar")) $("#bagendar").onclick = () => { if (r.tipo !== "clipe" && !d.aprovado && !confirm("Este vídeo ainda não foi revisado (aba Revisão). Agendar mesmo assim?")) return; agendarUm(d.nome, r.titulo || d.nome, d.zernio_cancelado && d.zernio_cancelado.horario); };
   if ($("#bcancelar")) $("#bcancelar").onclick = () => cancelarAgendamento(d.nome, r.titulo || d.nome, async () => { await carregarProjeto(); await lista(); render(); });
   $("#bpost").onclick = async () => { try { const j = await api("/api/postado", { projeto: d.nome, valor: !d.postado }); toast(j.postado ? "Marcado como postado: fica fora do lote" : "Desmarcado"); await carregarProjeto(); await lista(); render(); } catch (e) { toast(e.message); } };
   m.querySelectorAll("[data-aba]").forEach(b => b.onclick = () => { if (S.sujo && !confirm("Há mudanças no roteiro não salvas. Sair mesmo assim?")) return; S.sujo = false; S.aba = b.dataset.aba; render(); });
@@ -459,15 +591,50 @@ function abaLog(c) { c.innerHTML = `<pre class="log" id="logproj">carregando…<
 
 /* ---- roteiro ---- */
 let tChecar = null;
+function presetsSerie() { try { const x = JSON.parse(localStorage.getItem("estudio-gta6-series") || "{}"); return x && typeof x === "object" ? x : {}; } catch (e) { return {}; } }
+function salvarPresetSerie() {
+  const nome = (S.rot.serie || "").trim(); if (!nome) return toast("Dê um nome à série antes de salvar o padrão");
+  const e = S.rot.estilo || {}, todos = presetsSerie();
+  todos[nome] = { voz: S.rot.voz || "", velocidade: S.rot.velocidade || "+12%", musica: S.rot.musica || "",
+    volume_musica: e.volume_musica ?? .13, ritmo_corte: e.ritmo_corte ?? 2.4 };
+  try { localStorage.setItem("estudio-gta6-series", JSON.stringify(todos)); } catch (err) { return toast("Não consegui salvar o padrão neste computador"); }
+  const sel = $("#presetSerie"); sel.innerHTML = `<option value="">Escolha um padrão salvo</option>` + Object.keys(todos).sort((a,b)=>a.localeCompare(b,"pt-BR")).map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join(""); sel.value = nome;
+  toast(`Padrão salvo: ${nome}`);
+}
+function aplicarPresetSerie() {
+  const nome = $("#presetSerie").value, p = presetsSerie()[nome]; if (!p) return toast("Escolha um padrão salvo");
+  const r = S.rot; r.serie = nome; r.voz = p.voz || ""; r.velocidade = p.velocidade || "+12%"; r.musica = p.musica || "";
+  r.estilo = r.estilo || {}; r.estilo.volume_musica = p.volume_musica ?? .13; r.estilo.ritmo_corte = p.ritmo_corte ?? 2.4;
+  const f = (k) => document.querySelector(`[data-f="${k}"]`);
+  if (f("serie")) f("serie").value = nome; if (f("voz")) f("voz").value = r.voz; if (f("musica")) f("musica").value = r.musica;
+  $("#vel").value = parseInt(String(r.velocidade).replace("%", "")) || 0; $("#velv").textContent = r.velocidade;
+  $("#vol").value = Math.round(r.estilo.volume_musica * 100); $("#volv").textContent = $("#vol").value + "%";
+  previewMus(); sujo(); toast(`Padrão aplicado: ${nome}`);
+}
+function focarSegmento(i) {
+  const el = document.querySelector(`.seg[data-i="${i}"] textarea[data-k="texto"]`); if (!el) return;
+  el.closest(".seg").scrollIntoView({ behavior: "smooth", block: "center" }); el.focus();
+}
+function atualizarLinhaTempo(i) {
+  const s = S.rot.segmentos[i], b = document.querySelector(`#lt${i} b`), l = document.querySelector(`#lt${i} span`);
+  if (b) b.textContent = (s.texto || "Segmento sem texto").slice(0, 42);
+  if (l) l.textContent = `${i + 1} · ${s.tipo || "segmento"} · ${(s.texto || "").trim().split(/\s+/).filter(Boolean).length} palavras`;
+}
+function renderLinhaTempo() {
+  const el = $("#linhaTempo"); if (!el) return;
+  el.innerHTML = S.rot.segmentos.map((s,i)=>`<button class="bloco-tempo" id="lt${i}" data-lt="${i}" style="flex-grow:${Math.max(3,Math.min(18,(s.texto||"").trim().split(/\s+/).filter(Boolean).length))}"><span>${i+1} · ${esc(s.tipo||"segmento")} · ${(s.texto||"").trim().split(/\s+/).filter(Boolean).length} palavras</span><b>${esc((s.texto||"Segmento sem texto").slice(0,42))}</b></button>`).join("") || `<span class="sub">Adicione segmentos para montar o roteiro.</span>`;
+  el.querySelectorAll("[data-lt]").forEach(b => b.onclick = () => focarSegmento(+b.dataset.lt));
+}
 function abaRoteiro(c) {
   const r = S.rot, M = S.midia; if (!M) { c.innerHTML = "carregando…"; api("/api/midia").then(x => { S.midia = x; abaRoteiro(c); }).catch(erroTela); return; }
-  const est = r.estilo || {}; const vel = parseInt(String(r.velocidade || "+12%").replace("%", "")) || 0;
+  const est = r.estilo || {}; const vel = parseInt(String(r.velocidade || "+12%").replace("%", "")) || 0, perfis = presetsSerie();
   c.innerHTML = `<div class="editor"><div>
     <div class="cartao"><div class="grid2"><div><label>Título</label><input data-f="titulo" value="${esc(r.titulo || "")}"></div>
       <div><label>Texto da capa</label><input data-f="capa" value="${esc(r.capa || "")}"></div></div>
       <div class="grid2"><div><label>Voz</label><div class="linha"><select data-f="voz" style="flex:1"><option value="" ${!r.voz ? "selected" : ""}>Automática (Ajustes › voz e música)</option>${M.vozes.map(([v, n]) => `<option value="${v}" ${r.voz === v ? "selected" : ""}>${n}</option>`).join("")}</select>
         <button class="mini" id="amostra">▶ amostra</button></div>
-        <label>Série (vídeos da mesma série mantêm voz e música)</label><input data-f="serie" value="${esc(r.serie || "")}" placeholder="ex.: mitos-e-verdades"></div>
+        <label>Série (vídeos da mesma série mantêm voz e música)</label><input data-f="serie" value="${esc(r.serie || "")}" placeholder="ex.: mitos-e-verdades">
+        <div class="linha" style="margin-top:6px"><button class="mini" id="salvarPreset">Salvar padrão desta série</button><select id="presetSerie" aria-label="Padrão salvo" style="flex:1"><option value="">Aplicar padrão salvo…</option>${Object.keys(perfis).sort((a,b)=>a.localeCompare(b,"pt-BR")).map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join("")}</select><button class="mini" id="aplicarPreset">Aplicar</button></div></div>
         <div><label>Velocidade da fala: <b id="velv">${vel >= 0 ? "+" : ""}${vel}%</b></label><input type="range" min="-10" max="35" value="${vel}" id="vel"></div></div>
       <div class="grid2"><div><label>Música de fundo</label><select data-f="musica"><option value="" ${!r.musica ? "selected" : ""}>Automática (Ajustes › voz e música)</option><option value="nenhuma" ${r.musica === "nenhuma" ? "selected" : ""}>Sem música</option>
         ${M.musicas.map(n => `<option value="musicas/${esc(n)}" ${r.musica && r.musica.endsWith(n) ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>
@@ -476,6 +643,7 @@ function abaRoteiro(c) {
         <audio id="ouvirmus" controls style="width:100%;height:30px;margin-top:4px;display:none"></audio></div></div>
       ${S.dados.arquivos["narracao.mp3"] ? `<label>Narração atual</label><div class="linha"><audio controls src="/arquivo/${encodeURIComponent(S.projeto)}/narracao.mp3?v=${S.dados.mtimes["narracao.mp3"]}" style="flex:1;height:34px"></audio><button class="mini" onclick="acao('narrar')">Refazer narração</button></div>` : ""}
     </div>
+    <div class="cartao"><b>Ordem do vídeo</b><p class="sub" style="margin:2px 0 8px;font-size:12px">Arraste os segmentos para mudar a ordem ou selecione um bloco para editar.</p><div class="linha-tempo" id="linhaTempo"></div></div>
     <div id="segs"></div>
     <button onclick="addSeg()">+ Adicionar segmento</button>
   </div>
@@ -484,10 +652,13 @@ function abaRoteiro(c) {
     <div class="sub" style="margin:10px 0 0;font-size:12px">Alvo: 150–185 palavras (60–70 s). Os números dos cortes do enquadramento mudam quando o texto muda: depois de editar, gere a prévia de novo.</div></div>
     ${r.fontes && r.fontes.length ? `<div class="cartao"><b>Fontes</b><ul style="padding-left:18px;margin:6px 0 0;font-size:12px">${r.fontes.map(f => `<li>${esc(f)}</li>`).join("")}</ul></div>` : ""}</div></div>`;
   c.querySelectorAll("[data-f]").forEach(el => el.oninput = () => { r[el.dataset.f] = el.value; sujo(); if (el.dataset.f === "musica") previewMus(); });
+  $("#salvarPreset").onclick = salvarPresetSerie; $("#aplicarPreset").onclick = aplicarPresetSerie;
+  c.querySelectorAll("[data-lt]").forEach(b => b.onclick = () => focarSegmento(+b.dataset.lt));
   $("#vel").oninput = (e) => { const v = +e.target.value; r.velocidade = (v >= 0 ? "+" : "") + v + "%"; $("#velv").textContent = r.velocidade; sujo(); };
   $("#vol").oninput = (e) => { r.estilo = r.estilo || {}; r.estilo.volume_musica = +e.target.value / 100; $("#volv").textContent = e.target.value + "%"; sujo(); const a = $("#ouvirmus"); a.volume = Math.min(1, +e.target.value / 40); };
   $("#amostra").onclick = async () => { try { toast("Gerando amostra…"); const j = await api("/api/voz-amostra", { voz: r.voz || "pt-BR-AntonioNeural", velocidade: r.velocidade || "+12%" }); new Audio(j.url).play(); } catch (e) { toast(e.message); } };
   previewMus(); renderSegs(); checarJa();
+  if (S.focarSeg !== undefined) { const i = S.focarSeg; S.focarSeg = undefined; requestAnimationFrame(() => focarSegmento(i)); }
 }
 function previewMus() { const a = $("#ouvirmus"); if (!a) return; const v = S.rot.musica; if (v && v !== "nenhuma") { a.src = "/musica/" + encodeURIComponent(v.split("/").pop()); a.style.display = "block"; } else a.style.display = "none"; }
 function sujo() { S.sujo = true; clearTimeout(tChecar); tChecar = setTimeout(checarJa, 700); }
@@ -519,10 +690,12 @@ async function corrigirComChat() {
 }
 function renderSegs() {
   const r = S.rot, M = S.midia;
+  renderLinhaTempo();
   $("#segs").innerHTML = r.segmentos.map((s, i) => {
     const cart = typeof s.cartela === "object" && s.cartela ? s.cartela.texto : (s.cartela || "");
     const img = s.imagem ? (Array.isArray(s.imagem) ? s.imagem[0] : s.imagem) : null;
-    return `<div class="seg" data-i="${i}"><div class="cab"><span class="num">${i + 1}</span>
+    const ritmo = s.ritmo_corte ?? r.estilo?.ritmo_corte ?? 2.4;
+    return `<div class="seg" data-i="${i}" draggable="true"><div class="cab"><span class="num">${i + 1}</span><span class="arraste" data-arraste draggable="true" role="button" tabindex="0" aria-label="Arrastar segmento ${i + 1}" title="Arraste para reorganizar">⠿</span>
       <select data-k="tipo">${TIPOS.map(t => `<option ${s.tipo === t ? "selected" : ""}>${t}</option>`).join("")}</select><span class="esp"></span>
       <button class="mini" data-m="-1" title="subir">↑</button><button class="mini" data-m="1" title="descer">↓</button><button class="mini" data-del title="apagar">✕</button></div>
       <textarea data-k="texto">${esc(s.texto)}</textarea>
@@ -530,7 +703,8 @@ function renderSegs() {
         <div><label>Cartela (texto grande)</label><input data-k="cartela" value="${esc(cart)}" placeholder="EX.: 212 GB"></div>
         <div><label>Efeito</label><select data-k="sfx"><option value="">—</option>${["impacto", "whoosh", "pop"].map(x => `<option ${s.sfx === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
         <div><label>Imagem</label><select data-k="imagem"><option value="">—</option>${M.imagens.map(x => `<option ${img && img.arquivo === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
-        <div><label>Posição</label><select data-k="imgpos"><option value="250" ${img && img.y < 900 ? "selected" : ""}>acima</option><option value="1520" ${img && img.y >= 900 ? "selected" : ""}>abaixo</option></select></div></div>
+        <div><label>Posição</label><select data-k="imgpos"><option value="250" ${img && img.y < 900 ? "selected" : ""}>acima</option><option value="1520" ${img && img.y >= 900 ? "selected" : ""}>abaixo</option></select></div>
+      <div class="ritmo"><label>Trocar cena a cada <b data-ritmo>${Number(ritmo).toFixed(1)}s</b></label><input data-k="ritmo_corte" type="range" min="1" max="5" step="0.1" value="${ritmo}" aria-label="Ritmo de corte do segmento ${i + 1}"></div></div>
       <div class="clipes">${(s.clipes || []).map((c, k) => `<div class="chip" title="${esc(c.cena)}"><img src="${thumbDe(c.cena)}" loading="lazy"><span class="x" data-rm="${k}">✕</span></div>`).join("")}
         <div class="chip add" data-add title="adicionar cena">+ cena</div>${(s.clipes || []).length ? "" : `<span class="sub" style="margin:0;font-size:11px">sem cenas: o vídeo busca sozinho pelas palavras</span>`}</div></div>`;
   }).join("");
@@ -543,13 +717,22 @@ function renderSegs() {
       else if (k === "sfx") { if (v) s.sfx = v; else delete s.sfx; }
       else if (k === "imagem") { if (v) s.imagem = { arquivo: v, escala: v.startsWith("seta") ? 0.22 : 0.3, y: +el.querySelector('[data-k="imgpos"]').value }; else delete s.imagem; }
       else if (k === "imgpos") { if (s.imagem) { const im = Array.isArray(s.imagem) ? s.imagem[0] : s.imagem; im.y = +v; } }
+      else if (k === "ritmo_corte") { s.ritmo_corte = +v; el.querySelector("[data-ritmo]").textContent = Number(v).toFixed(1) + "s"; }
       else s[k] = v;
+      if (k === "texto" || k === "tipo") atualizarLinhaTempo(i);
       sujo();
     });
     el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { const j = i + +b.dataset.m; if (j < 0 || j >= S.rot.segmentos.length) return; const a = S.rot.segmentos; [a[i], a[j]] = [a[j], a[i]]; sujo(); renderSegs(); });
     el.querySelector("[data-del]").onclick = () => { if (confirm("Apagar este segmento?")) { S.rot.segmentos.splice(i, 1); sujo(); renderSegs(); } };
     el.querySelectorAll("[data-rm]").forEach(x => x.onclick = () => { s.clipes.splice(+x.dataset.rm, 1); sujo(); renderSegs(); });
     el.querySelector("[data-add]").onclick = () => escolherCena(s.texto, (id) => { s.clipes = s.clipes || []; s.clipes.push({ cena: id }); sujo(); renderSegs(); });
+    el.addEventListener("dragstart", e => { if (!e.target.closest("[data-arraste]")) { e.preventDefault(); return; }
+      S.arrastando = i; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(i)); el.classList.add("arrastando"); });
+    el.addEventListener("dragover", e => { if (S.arrastando !== undefined) { e.preventDefault(); el.classList.add("destino"); } });
+    el.addEventListener("dragleave", () => el.classList.remove("destino"));
+    el.addEventListener("drop", e => { e.preventDefault(); el.classList.remove("destino"); const de = S.arrastando; S.arrastando = undefined;
+      if (de === undefined || de === i) return; const a = S.rot.segmentos, [item] = a.splice(de, 1); a.splice(i, 0, item); sujo(); renderSegs(); });
+    el.addEventListener("dragend", () => { S.arrastando = undefined; document.querySelectorAll(".seg").forEach(x => x.classList.remove("arrastando", "destino")); });
   });
 }
 function addSeg() { S.rot.segmentos.push({ tipo: "curiosidade", texto: "", destaque: [], clipes: [] }); sujo(); renderSegs(); }
@@ -653,7 +836,10 @@ function abaVideo(c) {
   const d = S.dados, a = d.arquivos, r = S.rot || {}, v = (n) => `/arquivo/${encodeURIComponent(d.nome)}/${n}?v=${d.mtimes[n] || 0}`;
   if (r.tipo === "clipe") return abaVideoClipe(c);
   if (!a["final.mp4"]) { c.innerHTML = `<div class="vazio">Ainda não há vídeo. Clique em <b>Gerar vídeo</b>.</div>`; return; }
-  c.innerHTML = `<div class="video-area"><div><video id="vid" src="${v("final.mp4")}" controls></video>
+  const segmentosVideo = [...new Map((d.cortes || []).map(x => [x.seg, x])).entries()];
+  c.innerHTML = `<div class="video-area"><div><div class="player-wrap"><video id="vid" src="${v("final.mp4")}" controls></video><div class="safe-area" id="areaSegura" aria-hidden="true"></div></div>
+      <div class="linha" style="margin-top:6px"><button class="mini on" id="toggleSeguro" aria-pressed="true">Área segura</button><span class="sub" style="margin:0;font-size:11px">Confere se o texto não encosta nas bordas.</span></div>
+      ${segmentosVideo.length ? `<div class="atalhos-legenda" aria-label="Atalhos por segmento do roteiro">${segmentosVideo.map(([i,x])=>`<button data-editar-seg="${i}" data-t="${x.t0}" title="Ir ao trecho e editar a legenda">${i+1}. ${esc((r.segmentos?.[i]?.texto||"Segmento").slice(0,34))}</button>`).join("")}</div><div class="sub" style="max-width:340px;margin:0;font-size:11px">Selecione um trecho para ir a esse momento e editar a legenda.</div>` : ""}
       <div class="linha" style="margin-top:8px"><a href="${v("final.mp4")}" download class="botao">${ic("baixar")}Baixar vídeo</a>${a["legenda.srt"] ? `<a href="${v("legenda.srt")}" download>Legenda .srt</a>` : ""}${a["projeto_ae.jsx"] ? `<a href="${v("projeto_ae.jsx")}" download>Script After Effects</a>` : ""}</div></div>
     <div><div class="cartao"><h3 style="margin-top:0">Capa</h3><div class="linha" style="align-items:flex-start;gap:16px">
         ${a["capa.jpg"] ? `<a href="${v("capa.jpg")}" target="_blank"><img class="capa" src="${v("capa.jpg")}"></a>` : ""}
@@ -667,6 +853,9 @@ function abaVideo(c) {
         <button onclick="acao('gerar')" ${rodando(S.trabalho) ? "disabled" : ""}>Gerar de novo</button></div>
       ${cartaoChecagem(d.checagem)}${cartaoTraducao(d)}</div></div>`;
   ligarTraducao(c, d);
+  $("#toggleSeguro").onclick = () => { const area = $("#areaSegura"), b = $("#toggleSeguro"), mostrar = area.hidden; area.hidden = !mostrar; b.classList.toggle("on", mostrar); b.setAttribute("aria-pressed", String(mostrar)); };
+  c.querySelectorAll("[data-editar-seg]").forEach(b => b.onclick = async () => { if (S.sujo) { if (!confirm("Salvar as mudanças do roteiro antes de abrir a legenda?")) return; await salvarRoteiro(true); }
+    const vid = $("#vid"); vid.currentTime = +b.dataset.t || 0; S.aba = "roteiro"; S.focarSeg = +b.dataset.editarSeg; render(); });
   $("#copiar").onclick = () => { navigator.clipboard.writeText($("#post").value); toast("Copiado"); };
   $("#salvarPost").onclick = async () => { await api("/api/post", { projeto: d.nome, texto: $("#post").value }); toast("Post salvo"); await carregarProjeto(); render(); };
   $("#ctexto").oninput = (e) => { r.capa = e.target.value; S.sujo = true; };
@@ -720,6 +909,8 @@ async function viewCortes(m) {
         <td><b>${esc(x.canal)}</b> <span style="color:var(--fraco);font-size:12px">${esc((x.titulo || "").slice(0, 110))}</span></td><td>${noAr(x.inicio)}</td>
         <td><button class="mini" data-gravar="${esc(x.url)}" ${lv.rodando ? "disabled" : ""}>${ic("gravar")}Gravar</button> <a class="mini" href="${esc(x.url)}" target="_blank" rel="noopener">abrir</a></td></tr>`).join("")}</table>`
       : `<p class="sub" style="margin:8px 0 0">Clique em Buscar para ver quem está jogando GTA 6 agora, por número de espectadores (sem precisar de conta).</p>`}</div>
+    <h3>Melhores clipes</h3><p class="sub">Ranking dos clipes avaliados de todos os trabalhos. Abra um trabalho para avaliar clipes antigos e ver os critérios.</p>
+    ${(j.ranking || []).length ? `<table><tr><th>Nota</th><th>Clipe</th><th>Canal</th><th></th></tr>${j.ranking.slice(0,20).map((x,i)=>`<tr><td><b>${i+1}º · ${x.nota.toFixed(1)}</b></td><td>${esc(x.titulo)} · clipe ${x.n}</td><td>${esc(x.canal)}</td><td><button class="mini" data-ranking="${esc(x.trabalho)}">Abrir</button></td></tr>`).join("")}</table>` : `<div class="vazio">Os clipes avaliados aparecem aqui.</div>`}
     <h3>Trabalhos (${j.trabalhos.length})</h3>
     ${j.trabalhos.length ? `<table><tr><th>Vídeo / live</th><th style="width:90px">Momentos</th><th style="width:70px">Clipes</th><th style="width:80px">Trechos</th><th style="width:80px"></th></tr>${j.trabalhos.map(t => `<tr class="click" data-t="${esc(t.nome)}">
       <td>${t.live ? ic("gravar") + " " : ""}${esc(t.titulo)}<div class="sub" style="margin:0;font-size:11px">${esc(t.canal)}</div></td><td>${t.momentos || "—"}</td><td>${t.clipes || "—"}</td><td>${t.live ? t.trechos : "—"}</td>
@@ -736,6 +927,7 @@ async function viewCortes(m) {
   if ($("#llog")) $("#llog").onclick = async () => { const r = await api("/api/log?live=1"); $("#glog").textContent = r.log; $("#gtit").textContent = "Log — modo ao vivo"; $("#gaveta").classList.add("aberta"); };
   $("#lbuscar").onclick = async () => { try { const r = await api("/api/cortes/lives", { consulta: "gta 6" }); S.trabalho = r.trabalho; toast("Procurando lives…"); } catch (e) { toast(e.message); } };
   m.querySelectorAll("[data-gravar]").forEach(b => b.onclick = () => { const min = prompt("Gravar por quantos minutos?", "60"); if (min) gravar(b.dataset.gravar, +min || 60); });
+  m.querySelectorAll("[data-ranking]").forEach(b => b.onclick = () => { S.corte = b.dataset.ranking; ir("corte"); });
   m.querySelectorAll("tr[data-t]").forEach(tr => tr.onclick = (e) => { if (e.target.closest("button")) return; S.corte = tr.dataset.t; ir("corte"); });
   m.querySelectorAll("[data-apagar]").forEach(b => b.onclick = async () => { if (!confirm("Apagar este trabalho? Some o vídeo baixado e os clipes dele (projetos já mandados para o Agendar continuam).")) return;
     try { await api("/api/cortes/apagar", { nome: b.dataset.apagar }); toast("Apagado"); render(); } catch (e) { toast(e.message); } });
@@ -755,13 +947,14 @@ async function viewCorte(m) {
         <div class="c"><div class="id"><span>#${s.n} · ${esc(s.offset || "")} · ${s.msgs} msgs/10s</span></div><div style="font-size:12px;color:var(--fraco)">${esc((s.palavras || []).join(", "))}</div>
         ${s.existe ? (s.trabalho ? `<button class="mini" data-abrirt="${esc(s.trabalho)}">Abrir momentos</button>` : `<button class="mini prim" data-trecho="${esc(s.arquivo)}" ${oc ? "disabled" : ""}>Achar o momento e cortar</button>`) : ""}</div></div>`).join("")}</div>`
         : `<p class="sub" style="margin:8px 0 0">${d.live_rodando ? "Esperando o chat explodir… (os primeiros minutos servem para medir o normal do chat)" : "Nenhum pico de chat nesta gravação."}</p>`}</div>` : ""}
-    ${d.clipes.length ? `<h3>Clipes prontos (${d.clipes.length})</h3><div class="mgrid">${d.clipes.map(c => `<div class="mcard clipe">
+    ${d.clipes.length ? `<h3>Clipes prontos (${d.clipes.length}) · ranking</h3><p class="sub">Ordenados pela nota estimada. Acima de 7,5, clipes novos com checagem aprovada são enviados automaticamente para agendar. A nota não garante viralização.</p><div class="mgrid">${d.clipes.map(c => `<div class="mcard clipe">
         ${c.arquivo ? `<video src="/corte/${n}/edits/${c.arquivo}?v=${c.mtime}" controls preload="metadata"></video>` : ""}
         <div class="c"><div class="linha" style="gap:6px"><b>Clipe ${c.n}</b><span class="pill">${esc((LAYOUTS.find(l => l[0] === c.layout) || [0, c.layout])[1])}</span>${ckPill(c.checagem)}</div>
+          ${c.avaliacao ? `<div><b style="color:var(--amarelo)">${c.avaliacao.nota.toFixed(1)} / 10</b><div class="sub" style="margin:2px 0;font-size:12px">${esc(c.avaliacao.detalhes)}${!c.avaliacao.ia_ok ? " · Análise de conteúdo indisponível; não agenda automaticamente." : ""}</div>${c.avaliacao.erros.length ? `<div class="msg e">${esc(c.avaliacao.erros.join(" · "))}</div>` : ""}<details><summary>Ver critérios</summary>${Object.entries(c.avaliacao.pontos).map(([k,v])=>`<div>${esc(k)}: ${v}</div>`).join("")}<p class="sub">${esc(c.avaliacao.nao_medidos)}</p></details></div>` : `<div class="sub" style="margin:0">Ainda não avaliado.</div>`}
           <div style="font-size:13px">${esc(c.titulo || c.gancho || "(sem gancho)")}</div><div class="sub" style="margin:0;font-size:11px">${fmtT(c.inicio)}–${fmtT(c.fim)} · ${Math.round(c.fim - c.inicio)} s</div>
           ${Object.keys(c.traducoes).length ? `<div style="font-size:13px">${ic("idioma")} ${Object.entries(c.traducoes).map(([l, t]) => `<a href="/corte/${n}/edits/${t.arquivo}?v=${t.mtime}" target="_blank">${l.toUpperCase()}</a>`).join(" · ")}</div>` : ""}
           ${Object.keys(c.projetos).length ? `<div style="font-size:13px">${ic("agenda")} no Agendar: ${Object.entries(c.projetos).map(([l, p]) => `<a href="#" data-proj="${esc(p)}">${l === "orig" ? "original" : l.toUpperCase()}</a>`).join(" · ")}</div>` : ""}
-          <div class="linha" style="gap:6px"><button class="mini prim" data-agendar="${c.n}">${ic("agenda")}Mandar para Agendar</button><button class="mini" data-traduzir="${c.n}" ${oc ? "disabled" : ""}>${ic("idioma")}Traduzir</button>
+          <div class="linha" style="gap:6px"><button class="mini" data-avaliar="${c.n}">Avaliar</button><button class="mini prim" data-agendar="${c.n}">${ic("agenda")}Mandar para Agendar</button><button class="mini" data-traduzir="${c.n}" ${oc ? "disabled" : ""}>${ic("idioma")}Traduzir</button>
             <button class="mini" data-refazer="${c.n}" ${oc ? "disabled" : ""}>Refazer</button><a class="mini" href="/corte/${n}/edits/${c.arquivo}" download aria-label="Baixar clipe ${c.n}" title="Baixar">${ic("baixar")}</a></div></div></div>`).join("")}</div>` : ""}
     <h3>Momentos (${d.momentos.length})</h3><p class="sub">Sinais usados: ${esc(sinais)}. Escolha os que entregam algo nos primeiros segundos; pule spoilers de história e qualquer coisa que pareça vazamento.</p>
     ${d.momentos.length ? `<div class="mgrid">${d.momentos.map(c => `<div class="mcard">
@@ -777,6 +970,7 @@ async function viewCorte(m) {
   m.querySelectorAll("[data-refazer]").forEach(b => b.onclick = () => { const c = d.clipes.find(x => x.n === +b.dataset.refazer); modalCortar(d, mom(c.n) || { n: c.n, start: c.inicio, end: c.fim }, c); });
   m.querySelectorAll("[data-traduzir]").forEach(b => b.onclick = () => modalTraduzir(d, +b.dataset.traduzir));
   m.querySelectorAll("[data-agendar]").forEach(b => b.onclick = () => modalAgendarClipe(d, d.clipes.find(x => x.n === +b.dataset.agendar)));
+  m.querySelectorAll("[data-avaliar]").forEach(b => b.onclick = async () => { b.disabled = true; b.textContent = "Avaliando…"; try { await api("/api/cortes/avaliar", { nome: d.nome, pick: +b.dataset.avaliar }); render(); } catch (e) { toast(e.message); b.disabled = false; b.textContent = "Avaliar"; } });
   m.querySelectorAll("[data-proj]").forEach(a => a.onclick = (e) => { e.preventDefault(); abrirProjeto(a.dataset.proj, "video"); });
   m.querySelectorAll("[data-abrirt]").forEach(b => b.onclick = () => { S.corte = b.dataset.abrirt; render(); });
   m.querySelectorAll("[data-trecho]").forEach(b => b.onclick = async () => { try { const r = await api("/api/cortes/momentos", { trabalho: d.nome, trecho: b.dataset.trecho, top: 3, min: 12, max: 35 });
@@ -808,6 +1002,7 @@ function modalCortar(d, c, antigo) {
       <div class="grid2" style="margin-top:4px"><div><label>Legenda</label><select id="kl"><option value="word">palavra por palavra (destaca a falada)</option><option value="bubble">frase em balão</option><option value="none">sem legenda</option></select></div>
         <div><label>Trecho (segundos do vídeo original)</label><div class="linha"><input id="ki" type="number" step="0.5" value="${(+c.start).toFixed(1)}" style="width:100px"><span>até</span><input id="kf" type="number" step="0.5" value="${(+c.end).toFixed(1)}" style="width:100px"><span id="kdur" class="sub" style="margin:0"></span></div></div></div>
       <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="kp"> Manter palavrões na legenda (ofensas e preconceito são sempre censurados)</label>
+      <p class="sub" style="font-size:12px;margin:8px 0">Após cortar, o Estúdio avalia o clipe e agenda automaticamente os que passarem de 7,5 e da checagem.</p>
       <div class="sub" style="margin:10px 0 0;font-size:12px">O "Reação" acha a câmera do streamer sozinho. Se no trecho não houver rosto sobre o jogo, ele avisa e você escolhe outro formato. Ideal: 7 a 30 s, terminando no clímax.</div>
       <div class="linha" style="margin-top:12px"><span style="flex:1"></span><button class="prim" id="kok">Cortar</button></div></div>`);
   const lay = () => md.querySelector("[name=klay]:checked").value;
@@ -916,20 +1111,26 @@ async function agendarUm(nome, titulo, horarioAnterior) {
 async function viewAgendar(m) {
   const z = await api("/api/zernio"), oc = rodando(S.trabalho);
   const fmt = (iso) => { const d = new Date(iso); return d.toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); };
+  if (!(S.calMes instanceof Date) || Number.isNaN(+S.calMes)) S.calMes = new Date(z.sugestao_inicio);
+  if (Number.isNaN(+S.calMes)) S.calMes = new Date();
+  S.calMes = new Date(S.calMes.getFullYear(), S.calMes.getMonth(), 1); S.calDia = S.calDia || z.sugestao_inicio.slice(0, 10);
   m.innerHTML = `<h2>Agendar no Zernio</h2><p class="sub">Envia os vídeos prontos para o Zernio, que publica sozinho nas contas escolhidas, um a cada ${z.intervalo_h}h. O horário é o de Brasília/Bahia (${esc(z.fuso)}).</p>
     <div class="cartao"><b>1. Chave da API</b> <span class="sub" style="margin:0">(zernio.com → Dashboard → API Keys). Fica salva só no seu PC.</span>
-      <div class="linha" style="margin-top:8px"><input id="zkey" type="password" placeholder="${z.configurado ? "chave salva: " + esc(z.chave) + " (cole outra para trocar)" : "cole a chave aqui"}" style="flex:1">
+      <div class="linha" style="margin-top:8px"><input id="zkey" type="password" placeholder="${z.configurado ? "chave salva (cole outra para trocar)" : "cole a chave aqui"}" style="flex:1">
       <button id="zsalvar">Salvar e carregar contas</button></div>
       <div id="zcontas" style="margin-top:10px"></div></div>
     <div class="cartao"><b>2. Vídeos prontos para agendar</b> <span class="sub" style="margin:0">(com vídeo gerado, sem marca de postado e ainda não agendados)</span>
       <div class="linha" style="margin-top:8px"><label style="margin:0">Primeiro horário</label><input type="datetime-local" id="zini" value="${z.sugestao_inicio}">
         <label style="margin:0">a cada</label><input type="number" id="zint" min="0.5" step="0.5" value="${z.intervalo_h}" style="width:80px"><span>horas</span></div>
       <div id="zlista" style="margin-top:10px"></div>
+      <div class="cal-cab"><b>Calendário de publicação</b><button class="mini" id="calAnterior" aria-label="Mês anterior">←</button><button class="mini" id="calHoje">Hoje</button><button class="mini" id="calProximo" aria-label="Próximo mês">→</button></div>
+      <div id="calendario"></div><div class="cal-legenda"><span><i></i>já agendado</span><span class="f"><i></i>selecionado para envio</span></div>
+      <p class="sub" style="font-size:12px;margin:5px 0 0">Clique em um dia para usá-lo como primeiro horário. Os vídeos marcados aparecem como previsão até você confirmar o agendamento.</p>
       <div class="linha" style="margin-top:10px"><span style="flex:1"></span><button class="prim" id="zagendar" ${oc ? "disabled" : ""}>Agendar</button></div></div>
-    <div class="cartao"><div class="linha"><b>Já agendados</b><span style="flex:1"></span><button id="zconf" ${oc ? "disabled" : ""} title="Consulta no Zernio o status real de cada post">${ic("atualizar")}Conferir no Zernio</button></div>${z.agendados.length ? `<table style="margin-top:8px">${z.agendados.map(a => `<tr><td style="width:170px">${fmt(a.horario)}</td><td>${esc(a.titulo)}</td>
+    <div class="cartao"><div class="linha"><b>Já agendados</b><span style="flex:1"></span><button id="zconf" ${oc ? "disabled" : ""} title="Consulta no Zernio o status real de cada post">${ic("atualizar")}Conferir no Zernio</button></div>${z.agendados.length ? `<details style="margin-top:8px"><summary>Ver lista completa e cancelar uma publicação</summary><table style="margin-top:8px">${z.agendados.map(a => `<tr><td style="width:170px">${fmt(a.horario)}</td><td>${esc(a.titulo)}</td>
       <td><span class="pill ${a.status === "published" ? "ok" : /fail|partial/.test(a.status || "") ? "erro" : "rodando"}">${esc({ scheduled: "agendado", published: "publicado", failed: "falhou", draft: "rascunho", partial: "parcial" }[a.status] || a.status || "?")}</span></td>
       <td class="sub" style="margin:0;font-size:12px">${esc((a.plataformas || a.contas || []).join(" · "))}${a.conferido_em ? `<br>conferido ${esc(fmt(a.conferido_em))}` : " · não conferido"}</td>
-      <td style="width:90px"><button class="mini" data-cancel="${esc(a.nome)}" data-tit="${esc(a.titulo)}" ${oc ? "disabled" : ""}>Cancelar</button></td></tr>`).join("")}</table>` : `<p class="sub">Nenhum ainda.</p>`}</div>`;
+      <td style="width:90px"><button class="mini" data-cancel="${esc(a.nome)}" data-tit="${esc(a.titulo)}" ${oc ? "disabled" : ""}>Cancelar</button></td></tr>`).join("")}</table></details>` : `<p class="sub">Nenhum ainda.</p>`}</div>`;
   m.querySelectorAll("[data-cancel]").forEach(b => b.onclick = () => cancelarAgendamento(b.dataset.cancel, b.dataset.tit, async () => { await lista(); render(); }));
   $("#zconf").onclick = async () => { try { const j = await api("/api/zernio/conferir", {}); S.trabalho = j.trabalho; toast("Conferindo no Zernio…"); if (!$("#gaveta").classList.contains("aberta")) gaveta(); } catch (e) { toast(e.message); } };
   const pintarContas = (lista, escolhidas) => {
@@ -945,10 +1146,28 @@ async function viewAgendar(m) {
   $("#zsalvar").onclick = async () => { const k = $("#zkey").value.trim();
     try { const j = await api("/api/zernio/contas", { api_key: k }); if (k) await api("/api/zernio/config", { api_key: k });
       $("#zkey").value = ""; pintarContas(j.contas, z.contas); toast(`${j.contas.length} conta(s) encontrada(s)`); } catch (e) { toast(e.message); } };
+  const renderCal = (marc = []) => {
+    const ano = S.calMes.getFullYear(), mes = S.calMes.getMonth(), primeiro = new Date(ano, mes, 1), dias = new Date(ano, mes + 1, 0).getDate();
+    const antes = (primeiro.getDay() + 6) % 7, total = Math.ceil((antes + dias) / 7) * 7, eventos = new Map();
+    const colocar = (dia, item) => { if (!eventos.has(dia)) eventos.set(dia, []); eventos.get(dia).push(item); };
+    z.agendados.forEach(a => { if (a.horario) colocar(a.horario.slice(0,10), { titulo: a.titulo, hora: new Date(a.horario).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), fila: false }); });
+    const inicio = new Date($("#zini").value), intervalo = parseFloat($("#zint").value) || 4;
+    marc.forEach((nome, i) => { const d = new Date(inicio.getTime() + i * intervalo * 36e5), p = z.prontos.find(x => x.nome === nome);
+      colocar(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`, { titulo: p?.titulo || nome, hora: d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), fila: true }); });
+    const data = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    const agora = new Date(), hoje = data(agora), mesNome = S.calMes.toLocaleDateString("pt-BR", { month: "long", year: "numeric" }), horaBase = $("#zini").value.slice(11,16) || "12:00";
+    const nomes = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map(n => `<div class="cal-dia-nome">${n}</div>`).join("");
+    const celulas = Array.from({ length: total }, (_, n) => { const dia = n - antes + 1; if (dia < 1 || dia > dias) return `<div class="cal-dia fora" aria-hidden="true"></div>`;
+      const d = new Date(ano, mes, dia), chave = data(d), lista = eventos.get(chave) || [];
+      const passado = chave < hoje || (chave === hoje && new Date(`${chave}T${horaBase}`) < agora);
+      return `<button class="cal-dia ${chave === hoje ? "hoje" : ""} ${chave === S.calDia ? "selecionado" : ""}" data-dia="${chave}" ${passado ? "disabled title=\"Esse horário já passou\"" : ""} aria-label="${dia} de ${mesNome}${lista.length ? `, ${lista.length} publicação(ões)` : ""}"><span class="num">${dia}</span>${lista.slice(0,2).map(x=>`<span class="cal-evento ${x.fila ? "fila" : ""}" title="${esc(x.titulo)} · ${x.hora}">${x.hora} ${esc(x.titulo)}</span>`).join("")}${lista.length > 2 ? `<span class="cal-evento">+${lista.length-2} vídeos</span>` : ""}</button>`; }).join("");
+    $("#calendario").innerHTML = `<div class="cal-cab" style="margin-top:0"><b style="text-transform:capitalize">${esc(mesNome)}</b></div><div class="cal-grid">${nomes}${celulas}</div>`;
+    $("#calendario").querySelectorAll("[data-dia]").forEach(b => b.onclick = () => { if (b.disabled) return; S.calDia = b.dataset.dia; $("#zini").value = `${S.calDia}T${horaBase}`; planejar(); });
+  };
   const planejar = () => { const marc = [...$("#zlista").querySelectorAll("[data-p]:checked")].map(cb => cb.dataset.p);
     let t = new Date($("#zini").value), h = parseFloat($("#zint").value) || 4;
     $("#zlista").querySelectorAll("[data-h]").forEach(el => { const k = marc.indexOf(el.dataset.h); el.textContent = k < 0 ? "—" : fmt(new Date(t.getTime() + k * h * 36e5)); });
-    $("#zagendar").textContent = `Agendar ${marc.length} vídeo(s)`; return marc; };
+    $("#zagendar").textContent = `Agendar ${marc.length} vídeo(s)`; renderCal(marc); return marc; };
   const chk = (p) => { const c = p.checagem; if (!c) return ""; const ruins = c.itens.filter(i => !i.ok);
     const dica = ruins.map(i => `${i.nivel.toUpperCase()}: ${i.nome}${i.detalhe ? " (" + i.detalhe + ")" : ""}`).join("\n") || "tudo certo";
     return `<span class="pill ${c.ok ? (ruins.length ? "rodando" : "ok") : "erro"}" title="${esc(dica)}" style="cursor:help">${c.ok ? (ruins.length ? "checagem: avisos" : "checagem ✓") : "✗ checagem: " + esc(ruins.filter(i => i.nivel === "erro").map(i => i.nome).join(", "))}</span>`; };
@@ -956,7 +1175,12 @@ async function viewAgendar(m) {
       <td>${p.tipo === "clipe" ? ic("tesoura") + " " : ""}<a href="#" data-ver="${esc(p.nome)}">${esc(p.titulo)}</a> ${p.aprovado ? `<span class="pill ok">revisado</span>` : (p.tipo === "clipe" ? "" : `<span class="pill" title="Abra o projeto > Revisão">não revisado</span>`)} ${chk(p)}<div class="sub" style="margin:0;font-size:11px">${esc(p.nome)}</div></td><td style="width:170px" data-h="${esc(p.nome)}"></td></tr>`).join("")}</table>`
     : `<p class="sub">Nenhum vídeo pronto para agendar. Gere os vídeos (ou o lote) primeiro.</p>`;
   $("#zlista").querySelectorAll("[data-p]").forEach(cb => cb.onchange = planejar);
-  $("#zlista").querySelectorAll("[data-ver]").forEach(a => a.onclick = (e) => { e.preventDefault(); abrirProjeto(a.dataset.ver, "video"); }); $("#zini").oninput = planejar; $("#zint").oninput = planejar; planejar();
+  $("#zlista").querySelectorAll("[data-ver]").forEach(a => a.onclick = (e) => { e.preventDefault(); abrirProjeto(a.dataset.ver, "video"); });
+  $("#zini").oninput = () => { const d = new Date($("#zini").value); if (!Number.isNaN(+d)) { S.calDia = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; S.calMes = new Date(d.getFullYear(), d.getMonth(), 1); } planejar(); };
+  $("#zint").oninput = planejar; planejar();
+  $("#calAnterior").onclick = () => { S.calMes = new Date(S.calMes.getFullYear(), S.calMes.getMonth()-1, 1); planejar(); };
+  $("#calProximo").onclick = () => { S.calMes = new Date(S.calMes.getFullYear(), S.calMes.getMonth()+1, 1); planejar(); };
+  $("#calHoje").onclick = () => { const h = new Date(); S.calMes = new Date(h.getFullYear(), h.getMonth(), 1); planejar(); };
   $("#zagendar").onclick = async () => { const projetos = planejar(); if (!projetos.length) return toast("Marque pelo menos um vídeo");
     const contas = [...$("#zcontas").querySelectorAll("[data-c]:checked")].length; if (!contas && !z.contas.length) return toast("Escolha pelo menos uma conta");
     if (!confirm(`Enviar ${projetos.length} vídeo(s) para o Zernio, a partir de ${fmt($("#zini").value)}, um a cada ${$("#zint").value}h?\n\nO envio leva alguns minutos por vídeo (upload).`)) return;
@@ -1169,8 +1393,8 @@ async function viewAjustes(m, primeira) {
 async function porHash() {
   const h = new URLSearchParams(location.hash.slice(1));
   if (h.get("p")) return abrirProjeto(h.get("p"), h.get("aba") || "roteiro");
-  const v = location.hash.slice(1); if (["novo", "biblioteca", "temas", "agendar", "resultados", "ajustes", "cortes"].includes(v)) return ir(v);
-  return ir("novo");
+  const v = location.hash.slice(1); if (["inicio", "novo", "biblioteca", "temas", "agendar", "resultados", "ajustes", "cortes"].includes(v)) return ir(v);
+  return ir("inicio");
 }
 window.addEventListener("hashchange", porHash);
 (async () => { await conferirVersao();

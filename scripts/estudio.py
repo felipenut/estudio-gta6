@@ -29,7 +29,7 @@ sys.path.insert(0, str(AQUI))
 import cortes as CT  # noqa: E402  (tela Cortes e lives)
 import atualizar as ATU  # noqa: E402  (atualização automática pelo GitHub)
 
-VERSAO = 18
+VERSAO = 19
 
 
 def _versao_txt():
@@ -41,8 +41,12 @@ def _versao_txt():
 
 VERSAO_INICIO = _versao_txt()          # se mudar enquanto o programa roda, a tela avisa "atualização disponível"
 TRABALHO = {"id": 0, "projeto": None, "acao": None, "rotulo": None, "log": None, "inicio": None, "fim": None,
-            "codigo": None, "resultado": None, "progresso": 0.0, "etapa": "", "corte": None}
+            "codigo": None, "resultado": None, "progresso": 0.0, "etapa": "", "corte": None,
+            "cancelando": False, "cancelado": False, "repetivel": False}
 TRAVA = threading.Lock()
+TRAVA_PROCESSO = threading.Lock()
+PROCESSO_ATUAL = None
+REPETIR = None
 SEM_JANELA = {"creationflags": 0x08000000} if sys.platform.startswith("win") else {}   # sem piscar console no Windows
 PORTA = 8765
 VOZES = [("pt-BR-AntonioNeural", "Antonio (masculina)"), ("pt-BR-FranciscaNeural", "Francisca (feminina)"),
@@ -96,6 +100,48 @@ def ocupado():
     return TRABALHO["acao"] is not None and TRABALHO["fim"] is None
 
 
+def _encerrar_processo(proc):
+    if not proc or proc.poll() is not None:
+        return
+    if sys.platform.startswith("win"):
+        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL, **SEM_JANELA)
+    else:
+        proc.terminate()
+
+
+def cancelar_trabalho():
+    """Interrompe a etapa local atual; lotes param após o vídeo atual e envios ao Zernio terminam com segurança."""
+    with TRAVA:
+        if not ocupado():
+            raise ValueError("não há trabalho rodando")
+        acao = TRABALHO["acao"]
+        if acao == "zernio":
+            raise ValueError("o envio ao Zernio não pode ser interrompido com segurança; confira o status no Zernio")
+        if acao == "lote":
+            if TRABALHO.get("rotulo") == "LOTE → ZERNIO":
+                raise ValueError("o lote já está enviando vídeos ao Zernio; confira o status no Zernio")
+            LOTE["parar"] = True
+            return {"ok": True, "depois": "do vídeo atual"}
+        TRABALHO["cancelando"] = True
+    with TRAVA_PROCESSO:
+        proc = PROCESSO_ATUAL
+    _encerrar_processo(proc)
+    return {"ok": True}
+
+
+def repetir_trabalho():
+    """Repete o último trabalho local elegível, usando os mesmos parâmetros."""
+    with TRAVA:
+        if ocupado():
+            raise ValueError("espere o trabalho atual terminar")
+        if not TRABALHO.get("repetivel") or not REPETIR:
+            raise ValueError("este trabalho não pode ser repetido automaticamente")
+        args = REPETIR
+    iniciar(**args)
+    return {"ok": True, "trabalho": TRABALHO}
+
+
 # ---------------------------------------------------------------- trabalhos (etapas fixas do pipeline)
 def etapas_projeto(acao, p):
     rot, out, lib = str(p / "roteiro.json"), str(p / "out"), str(LIB)
@@ -142,12 +188,17 @@ def _progresso(base, span, etapas, n, sub):
 
 
 def _executar(etapas, log, status, rotulo, base=0.0, span=1.0):
+    global PROCESSO_ATUAL
     env = dict(os.environ, PYTHONUNBUFFERED="1", PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
     codigo, saida_total = 0, []
     log.parent.mkdir(parents=True, exist_ok=True)
     with open(log, "a", encoding="utf-8") as f:
         f.write(f"\n===== {time.strftime('%H:%M:%S')} {rotulo} =====\n")
         for n, etapa in enumerate(etapas, 1):
+            if TRABALHO.get("cancelando"):
+                if status:
+                    status.write_text("CANCELADO", encoding="utf-8")
+                return 130, "".join(saida_total)
             if status:
                 status.write_text(f"{n}-{etapa[0].replace('.py', '')}", encoding="utf-8")
             TRABALHO["etapa"] = f"{NOMES.get(etapa[0], etapa[0])} ({n}/{len(etapas)})" if len(etapas) > 1 else NOMES.get(etapa[0], etapa[0])
@@ -156,18 +207,32 @@ def _executar(etapas, log, status, rotulo, base=0.0, span=1.0):
             proc = subprocess.Popen([sys.executable, str(AQUI / etapa[0])] + etapa[1:], cwd=str(RAIZ), env=env,
                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                                     encoding="utf-8", errors="replace", **SEM_JANELA)
-            for linha in proc.stdout:
-                f.write(linha); f.flush()
-                saida_total.append(linha)
-                for rx, fr in RE_SUB:
-                    m = rx.search(linha)
-                    if m:
-                        try:
-                            _progresso(base, span, etapas, n, fr(m))
-                        except (ValueError, ZeroDivisionError):
-                            pass
-                        break
-            codigo = proc.wait()
+            with TRAVA_PROCESSO:
+                PROCESSO_ATUAL = proc
+                cancelar_agora = TRABALHO.get("cancelando")
+            if cancelar_agora:
+                _encerrar_processo(proc)
+            try:
+                for linha in proc.stdout:
+                    f.write(linha); f.flush()
+                    saida_total.append(linha)
+                    for rx, fr in RE_SUB:
+                        m = rx.search(linha)
+                        if m:
+                            try:
+                                _progresso(base, span, etapas, n, fr(m))
+                            except (ValueError, ZeroDivisionError):
+                                pass
+                            break
+            finally:
+                codigo = proc.wait()
+                with TRAVA_PROCESSO:
+                    if PROCESSO_ATUAL is proc:
+                        PROCESSO_ATUAL = None
+            if TRABALHO.get("cancelando"):
+                if status:
+                    status.write_text("CANCELADO", encoding="utf-8")
+                return 130, "".join(saida_total)
             if codigo:
                 if status:
                     status.write_text(f"ERRO: {etapa[0]} (veja o log)", encoding="utf-8")
@@ -177,18 +242,22 @@ def _executar(etapas, log, status, rotulo, base=0.0, span=1.0):
 
 def iniciar(acao, etapas_fn, log, status=None, projeto=None, depois=None, corte=None):
     """etapas_fn(): lista de etapas (calculada na thread). depois(codigo, saida): encadeia mais trabalho."""
+    global REPETIR
     with TRAVA:
         if ocupado():
             raise RuntimeError(f"já rodando: {TRABALHO['rotulo']} ({TRABALHO['projeto'] or 'biblioteca'})")
         TRABALHO.update(id=TRABALHO["id"] + 1, projeto=projeto, acao=acao, rotulo=ROTULOS.get(acao, acao),
                         log=str(log), inicio=time.time(), fim=None, codigo=None, resultado=None,
-                        progresso=0.0, etapa="", corte=corte)
+                        progresso=0.0, etapa="", corte=corte, cancelando=False, cancelado=False,
+                        repetivel=acao not in ("zernio", "lote", "traduzir_video"))
+        REPETIR = ({"acao": acao, "etapas_fn": etapas_fn, "log": log, "status": status, "projeto": projeto,
+                    "depois": depois, "corte": corte} if TRABALHO["repetivel"] else None)
 
     def corre():
         codigo = 1
         try:
             codigo, saida = _executar(etapas_fn(), Path(log), status, ROTULOS.get(acao, acao))
-            if depois:
+            if depois and not TRABALHO.get("cancelando"):
                 codigo = depois(codigo, saida) or codigo
             elif status and codigo == 0:
                 status.write_text("PRÉVIA PRONTA" if acao == "previa" else "PRONTO", encoding="utf-8")
@@ -197,7 +266,11 @@ def iniciar(acao, etapas_fn, log, status=None, projeto=None, depois=None, corte=
                 f.write(f"ERRO interno: {e}\n")
             if status:
                 status.write_text(f"ERRO: {e}", encoding="utf-8")
-        TRABALHO.update(fim=time.time(), codigo=codigo, progresso=1.0 if codigo == 0 else TRABALHO["progresso"])
+        cancelado = bool(TRABALHO.get("cancelando"))
+        if cancelado and status:
+            status.write_text("CANCELADO", encoding="utf-8")
+        TRABALHO.update(fim=time.time(), codigo=130 if cancelado else codigo, cancelado=cancelado, cancelando=False,
+                        progresso=1.0 if codigo == 0 else TRABALHO["progresso"])
 
     threading.Thread(target=corre, daemon=True).start()
 
@@ -222,6 +295,7 @@ def fila_lote():
 
 def iniciar_lote(agendar=False):
     """agendar=True: ao terminar, manda os vídeos feitos para o Zernio (a partir do próximo horário livre)."""
+    global REPETIR
     log = VIDEOS / "_lote_log.txt"
     if agendar:
         c = _zernio().config()
@@ -235,7 +309,8 @@ def iniciar_lote(agendar=False):
             raise ValueError("nenhum projeto com roteiro e sem vídeo pronto")
         TRABALHO.update(id=TRABALHO["id"] + 1, projeto=fila[0], acao="lote", rotulo=f"LOTE 1/{len(fila)}",
                         log=str(VIDEOS / fila[0] / "log.txt"), inicio=time.time(), fim=None, codigo=None, resultado=None,
-                        progresso=0.0, etapa="")
+                        progresso=0.0, etapa="", cancelando=False, cancelado=False, repetivel=False)
+        REPETIR = None
         LOTE.update(ativo=True, parar=False, fila=fila, feitos=[], erros=[], atual=fila[0], agendar=bool(agendar))
 
     def corre():
@@ -458,8 +533,7 @@ def zernio_estado():
     if agendados:
         ult = max(datetime.datetime.strptime(a["horario"][:16], "%Y-%m-%dT%H:%M") for a in agendados if a.get("horario"))
         sug = max(sug, ult + datetime.timedelta(hours=float(c["intervalo_h"])))
-    k = c["api_key"]
-    return {"configurado": bool(k), "chave": (k[:4] + "…" + k[-4:]) if len(k) > 10 else ("•••" if k else ""),
+    return {"configurado": bool(c["api_key"]),
             "contas": c["contas"], "intervalo_h": c["intervalo_h"], "fuso": c["fuso"],
             "prontos": prontos, "agendados": sorted(agendados, key=lambda a: a.get("horario", "")),
             "sugestao_inicio": sug.strftime("%Y-%m-%dT%H:%M")}
@@ -496,6 +570,58 @@ def zernio_agendar(corpo):
     etapa = ["zernio.py", "agendar", "--projetos", ",".join(projetos), "--inicio", ini.strftime("%Y-%m-%dT%H:%M"),
              "--intervalo", str(intervalo)]
     iniciar("zernio", lambda: [etapa], VIDEOS / "_zernio_log.txt", None, None)
+
+
+def finalizar_corte(nome, pick, codigo):
+    """Avalia e envia o clipe elegível na mesma fila."""
+    if codigo:
+        return codigo
+    log = CT.trabalho_dir(nome) / "log.txt"
+    def registrar(msg):
+        with log.open("a", encoding="utf-8") as f:
+            f.write(msg + "\n")
+    try:
+        TRABALHO.update(etapa="avaliando clipe", progresso=0.92)
+        nota = CT.avaliar_clipe(nome, pick)
+        registrar(f"Avaliação: {nota['nota']:.2f}/10. {nota['detalhes']}")
+        if nota["nota"] <= 7.5 or not nota["checagem_ok"] or not nota["ia_ok"]:
+            registrar("Agendamento automático não realizado: nota, checagem ou análise pendente.")
+            return 0
+        # Não repetir um envio nem sobrescrever um projeto já criado.
+        for p in VIDEOS.iterdir() if VIDEOS.exists() else []:
+            if not p.is_dir():
+                continue
+            r = ler(p / "roteiro.json") or {}
+            c = r.get("corte") or {}
+            if r.get("tipo") == "clipe" and c.get("trabalho") == nome and c.get("pick") == pick and not r.get("idioma"):
+                registrar("Já existe um projeto para este clipe; confira em Agendar.")
+                return 0
+        estado = zernio_estado()
+        if not estado["configurado"] or not estado["contas"]:
+            registrar("Configure o Zernio e as contas antes de agendar automaticamente.")
+            return 0
+        if TRABALHO.get("cancelando"):
+            return 130
+        projeto = CT.para_projeto({"nome": nome, "pick": pick})
+        ch = checagem_projeto(projeto_dir(projeto, False))
+        if not ch or not ch.get("ok"):
+            registrar("Projeto criado; a checagem impediu o agendamento automático.")
+            return 0
+        with TRAVA:
+            if TRABALHO.get("cancelando"):
+                registrar("Agendamento interrompido antes do envio.")
+                return 130
+            TRABALHO.update(acao="zernio", rotulo="AGENDAMENTO AUTOMÁTICO", etapa="enviando ao Zernio", projeto=projeto,
+                            repetivel=False, progresso=0.0)
+        etapas = [["zernio.py", "agendar", "--projetos", projeto, "--inicio", estado["sugestao_inicio"],
+                   "--intervalo", str(estado["intervalo_h"])]]
+        registrar(f"Clipe elegível: enviando {projeto} para o Zernio.")
+        cod, _ = _executar(etapas, VIDEOS / "_zernio_log.txt", None, "AGENDAMENTO AUTOMÁTICO")
+        registrar("Enviado ao Zernio." if cod == 0 else "Falha no envio; confira o status no Zernio antes de tentar novamente.")
+        return cod
+    except Exception as e:
+        registrar(f"Avaliação ou agendamento não concluído: {type(e).__name__}: {e}")
+        return 1
 
 
 def slug(txt, n=40):
@@ -577,10 +703,14 @@ def lista_projetos():
             rot = ler(d / "roteiro.json") or {}
             ped = ler(d / "pedido.json") or {}
             segs = rot.get("segmentos", [])
+            chk = checagem_projeto(d) if rot.get("tipo") == "clipe" and video_final(d) else None
             lista.append({"nome": d.name, "titulo": rot.get("titulo", "") or ped.get("tema", "") or d.name, "status": status_de(d),
                           "tem_video": bool(video_final(d)), "postado": (d / "postado.txt").exists(), "mtime": d.stat().st_mtime,
                           "gancho": segs[0]["texto"] if segs else "", "cta": segs[-1]["texto"] if segs else "",
-                          "data_post": rot.get("data_post", d.name[:10])})
+                          "data_post": rot.get("data_post", d.name[:10]), "tem_roteiro": bool(rot),
+                          "aprovado": aprovado(d) if video_final(d) else False,
+                          "agendado": bool(ler(d / "out" / "zernio.json")), "tipo": rot.get("tipo") or "narrado",
+                          "checagem_ok": bool(chk and chk.get("ok")) if rot.get("tipo") == "clipe" else None})
     return sorted(lista, key=lambda x: -x["mtime"])
 
 
@@ -1101,7 +1231,7 @@ class H(BaseHTTPRequestHandler):
                 c = ATU.config(); c.pop("token", None)
                 return self._json({"config": c, "local": ATU.versao_local(), "ultimo": ATU.ultimo()})
             if partes == ["api", "cortes"]:
-                return self._json({"trabalhos": CT.lista(), "lives": CT.lives(), "live": CT.live_estado(), "trabalho": TRABALHO})
+                return self._json({"trabalhos": CT.lista(), "ranking": CT.ranking(), "lives": CT.lives(), "live": CT.live_estado(), "trabalho": TRABALHO})
             if partes[:2] == ["api", "corte"] and len(partes) == 3:
                 return self._json(CT.detalhe(partes[2]))
             if partes[:2] == ["api", "corte-quadro"] and len(partes) == 4:
@@ -1201,8 +1331,12 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"ok": True, "nome": nome, "trabalho": TRABALHO})
             if u == "/api/cortes/cortar":
                 etapas = CT.etapas_cortar(corpo)
-                iniciar("cortar", lambda: etapas, CT.trabalho_dir(corpo["nome"]) / "log.txt", corte=corpo["nome"])
+                nome, pick = corpo["nome"], int(corpo["pick"])
+                iniciar("cortar", lambda: etapas, CT.trabalho_dir(nome) / "log.txt", corte=nome,
+                        depois=lambda codigo, saida: finalizar_corte(nome, pick, codigo))
                 return self._json({"ok": True, "trabalho": TRABALHO})
+            if u == "/api/cortes/avaliar":
+                return self._json({"ok": True, "avaliacao": CT.avaliar_clipe(corpo["nome"], int(corpo["pick"]))})
             if u == "/api/cortes/traduzir":
                 etapas = CT.etapas_traduzir(corpo)
                 iniciar("traduzir_clipe", lambda: etapas, CT.trabalho_dir(corpo["nome"]) / "log.txt", corte=corpo["nome"])
@@ -1243,6 +1377,10 @@ class H(BaseHTTPRequestHandler):
                     return self._json({"erro": "ação inválida"}, 400)
                 acao_projeto(corpo["projeto"], corpo["acao"])
                 return self._json({"ok": True, "trabalho": TRABALHO})
+            if u == "/api/trabalho/cancelar":
+                return self._json(cancelar_trabalho())
+            if u == "/api/trabalho/repetir":
+                return self._json(repetir_trabalho())
             if u == "/api/criar":
                 nome = criar_video(corpo)
                 return self._json({"ok": True, "projeto": nome})
