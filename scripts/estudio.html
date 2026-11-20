@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Estúdio GTA 6 Shorts</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* ===== Estúdio GTA 6 — "Leonida ao anoitecer" (v18) =====
+   Tokens: céu ao anoitecer (fundo), pôr do sol de Vice (só marca, ação principal e progresso),
+   mar (foco/sucesso), amarelo-legenda (destaques, igual aos vídeos). Fontes locais (sem internet). */
+@font-face { font-family:"Bangers"; src:url("/fonte") format("truetype"); font-display:swap; }
+@font-face { font-family:"Barlow"; src:url("/fonte/barlow-latin-400-normal.woff2") format("woff2"); font-weight:400; font-display:swap; }
+@font-face { font-family:"Barlow"; src:url("/fonte/barlow-latin-500-normal.woff2") format("woff2"); font-weight:500; font-display:swap; }
+@font-face { font-family:"Barlow"; src:url("/fonte/barlow-latin-600-normal.woff2") format("woff2"); font-weight:600; font-display:swap; }
+@font-face { font-family:"Barlow"; src:url("/fonte/barlow-latin-700-normal.woff2") format("woff2"); font-weight:700; font-display:swap; }
+@font-face { font-family:"Barlow Semi Condensed"; src:url("/fonte/barlow-semi-condensed-latin-600-normal.woff2") format("woff2"); font-weight:600; font-display:swap; }
+@font-face { font-family:"Barlow Semi Condensed"; src:url("/fonte/barlow-semi-condensed-latin-700-normal.woff2") format("woff2"); font-weight:700; font-display:swap; }
+:root {
+  color-scheme: dark;
+  --bg:#161224; --p1:#1E1830; --p2:#272040; --p3:#322A50; --linha:#3A3157; --linha-forte:#5A4E80;
+  --texto:#F4F0FF; --fraco:#ABA3C7;
+  --rosa:#FF5C96; --laranja:#FF8A3D; --amarelo:#FFD84D; --verde:#3DDBC5; --azul:#8FB8FF; --erro:#FF7A7A; --aviso:#FFB547;
+  --sol: linear-gradient(90deg, #FF5C96 0%, #FF8A3D 100%);
+  --tinta:#1A0F1F;                         /* texto sobre o pôr do sol */
+  --r-painel:16px; --r-item:10px; --r-campo:8px;
+  --t-rapida:120ms; --t-media:200ms; --curva:cubic-bezier(.2,.7,.2,1);
+  --corpo:"Barlow", system-ui, "Segoe UI", sans-serif; --titulo:"Barlow Semi Condensed", "Barlow", system-ui, sans-serif;
+}
+* { box-sizing:border-box; }
+html, body { height:100%; }
+body { margin:0; background:var(--bg); color:var(--texto); font:400 15px/1.5 var(--corpo); -webkit-font-smoothing:antialiased; }
+a { color:var(--azul); text-underline-offset:2px; } a:hover { color:#B9D2FF; }
+::selection { background:#FF5C9655; }
+:focus-visible { outline:2px solid var(--verde); outline-offset:2px; border-radius:6px; }
+.ic { width:1.15em; height:1.15em; fill:currentColor; flex:none; vertical-align:-.2em; }
+.sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+
+/* ---- cabeçalho: a linha do horizonte é a barra de progresso ---- */
+header { position:relative; display:flex; align-items:center; gap:16px; padding:0 20px; height:58px; background:var(--bg); border-bottom:1px solid var(--linha); }
+header h1 { font:30px/1 "Bangers", Impact, sans-serif; letter-spacing:1.2px; margin:0; background:var(--sol); -webkit-background-clip:text; background-clip:text; color:transparent; cursor:pointer; padding-top:3px; }
+#job { margin-left:auto; display:flex; align-items:center; gap:9px; cursor:pointer; font:600 13px/1 var(--corpo); color:var(--fraco);
+  padding:9px 14px; border-radius:999px; border:1px solid var(--linha); background:var(--p1); min-height:38px; transition:border-color var(--t-rapida); }
+#job:hover { border-color:var(--linha-forte); color:var(--texto); }
+#job.rodando { color:var(--texto); border-color:#7A3F57; }
+#jobpct { font-variant-numeric:tabular-nums; font-weight:700; color:var(--laranja); }
+#job .bolinha { width:8px; height:8px; border-radius:50%; background:var(--linha-forte); }
+#job.rodando .bolinha { background:var(--laranja); animation:pulsa 1.1s ease-in-out infinite; }
+@keyframes pulsa { 50% { opacity:.35 } }
+#barra { position:absolute; left:0; right:0; bottom:-1px; height:3px; background:transparent; overflow:hidden; pointer-events:none; }
+#barra i { display:block; height:100%; width:0; background:var(--sol); box-shadow:0 0 12px #FF7A6A88; transition:width .6s var(--curva); }
+#barra.on { background:#ffffff0d; }
+
+/* ---- estrutura ---- */
+.app { display:grid; grid-template-columns:264px 1fr; height:calc(100vh - 58px); }
+aside { border-right:1px solid var(--linha); background:var(--p1); display:flex; flex-direction:column; min-height:0; }
+aside .topo { padding:14px 12px 10px; display:flex; flex-direction:column; gap:8px; }
+aside .grupo { font:600 12px/1 var(--corpo); color:var(--fraco); padding:14px 14px 6px; display:flex; align-items:center; gap:8px; }
+aside .filtro { margin:0 12px 8px; width:calc(100% - 24px); padding:7px 10px 7px 32px; font-size:13px;
+  background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='%23ABA3C7'%3E%3Cpath d='M229.66 218.34l-50.07-50.06a88.11 88.11 0 1 0-11.31 11.31l50.06 50.07a8 8 0 0 0 11.32-11.32ZM40 112a72 72 0 1 1 72 72 72.08 72.08 0 0 1-72-72Z'/%3E%3C/svg%3E") 10px center / 15px no-repeat; }
+aside .lista { flex:1; overflow:auto; padding:0 8px 8px; }
+aside .rodape { border-top:1px solid var(--linha); padding:8px; display:flex; flex-direction:column; gap:2px; }
+.nav { position:relative; display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:var(--r-campo); cursor:pointer; color:var(--fraco);
+  font-weight:600; min-height:40px; transition:background var(--t-rapida), color var(--t-rapida); }
+.nav .ic { width:19px; height:19px; }
+.nav:hover { background:var(--p2); color:var(--texto); }
+.nav.ativo { background:var(--p2); color:var(--texto); }
+.nav.ativo::before { content:""; position:absolute; left:0; top:9px; bottom:9px; width:3px; border-radius:3px; background:var(--sol); }
+.nav .pill { margin:0 0 0 auto; }
+.proj { position:relative; padding:9px 10px 9px 24px; border-radius:var(--r-campo); cursor:pointer; margin-bottom:2px; border:1px solid transparent; transition:background var(--t-rapida); }
+.proj::before { content:""; position:absolute; left:10px; top:15px; width:7px; height:7px; border-radius:50%; background:var(--linha-forte); }
+.proj:has(.pill.ok)::before { background:var(--verde); } .proj:has(.pill.erro)::before { background:var(--erro); } .proj:has(.pill.rodando)::before { background:var(--aviso); }
+.proj:hover { background:var(--p2); } .proj.ativo { background:var(--p2); border-color:var(--linha-forte); }
+.proj .t { font-weight:600; font-size:14px; line-height:1.3; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.proj .n { color:var(--fraco); font-size:12px; margin-top:2px; }
+.proj .pill { margin-top:4px; text-transform:lowercase; }
+.pill { display:inline-flex; align-items:center; gap:4px; font:600 11px/1.5 var(--corpo); padding:1px 8px; border-radius:999px; background:var(--p3); color:var(--fraco); white-space:nowrap; }
+.pill.ok { background:#12382F; color:var(--verde); } .pill.erro { background:#40192A; color:var(--erro); } .pill.rodando { background:#3D2A14; color:var(--aviso); }
+main { overflow:auto; padding:24px 28px 140px; scroll-padding-top:20px; }
+main > * { max-width:1480px; }
+h2 { margin:0 0 6px; font:700 26px/1.15 var(--titulo); letter-spacing:.1px; }
+h3 { margin:22px 0 10px; font:700 18px/1.25 var(--titulo); }
+b, strong { font-weight:600; }
+.sub { color:var(--fraco); margin:0 0 18px; max-width:82ch; }
+
+/* ---- controles ---- */
+button, a.mini, a.botao { display:inline-flex; align-items:center; justify-content:center; gap:7px; background:var(--p2); color:var(--texto);
+  border:1px solid var(--linha); border-radius:var(--r-campo); padding:8px 15px; min-height:38px; font:600 14px/1.1 var(--corpo); cursor:pointer;
+  transition:background var(--t-rapida), border-color var(--t-rapida), transform var(--t-rapida); text-decoration:none; }
+button:hover:not(:disabled) { border-color:var(--linha-forte); background:var(--p3); }
+button:active:not(:disabled) { transform:translateY(1px); }
+button:disabled { opacity:.42; cursor:not-allowed; }
+button.prim { background:var(--sol); border-color:transparent; color:var(--tinta); }
+button.prim:hover:not(:disabled) { background:var(--sol); filter:brightness(1.08); border-color:transparent; }
+button.mini, a.mini { padding:4px 10px; min-height:30px; font-size:13px; border-radius:7px; }
+button.on { background:var(--rosa); border-color:var(--rosa); color:var(--tinta); }
+input, select, textarea { background:var(--bg); color:var(--texto); border:1px solid var(--linha); border-radius:var(--r-campo); padding:9px 11px;
+  font:400 14px/1.4 var(--corpo); width:100%; min-height:38px; transition:border-color var(--t-rapida); }
+input:hover, select:hover, textarea:hover { border-color:var(--linha-forte); }
+input:focus, select:focus, textarea:focus { outline:none; border-color:var(--verde); box-shadow:0 0 0 3px #3DDBC52b; }
+input::placeholder, textarea::placeholder { color:#7F779C; }
+textarea { resize:vertical; } input[type=checkbox], input[type=radio] { width:18px; height:18px; min-height:0; accent-color:var(--rosa); }
+input[type=range] { padding:0; min-height:0; border:0; background:transparent; accent-color:var(--rosa); box-shadow:none; }
+label { display:block; font-size:13px; color:var(--fraco); margin:12px 0 5px; font-weight:600; }
+.linha { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.cartao { background:var(--p1); border:1px solid var(--linha); border-radius:var(--r-painel); padding:18px 20px; margin-bottom:16px; }
+.cartao > b:first-child, .cartao > .linha:first-child > b:first-child { font:700 17px/1.3 var(--titulo); }
+.topo-proj { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.topo-proj h2 { margin:0 12px 0 0; }
+.abas { display:flex; gap:2px; border-bottom:1px solid var(--linha); margin-bottom:18px; overflow-x:auto; }
+.aba { padding:10px 16px; cursor:pointer; color:var(--fraco); border-bottom:2px solid transparent; font-weight:600; white-space:nowrap; margin-bottom:-1px; transition:color var(--t-rapida); }
+.aba:hover { color:var(--texto); }
+.aba { position:relative; }
+.aba.ativa { color:var(--texto); }
+.aba.ativa::after { content:""; position:absolute; left:10px; right:10px; bottom:-1px; height:3px; border-radius:3px 3px 0 0; background:var(--sol); }
+.vazio { color:var(--fraco); padding:36px 24px; text-align:center; border:1px dashed var(--linha-forte); border-radius:var(--r-painel); background:#1E18307a; }
+.aviso-box { background:#33240F; border:1px solid #6B4A16; color:#FFDCA6; border-radius:var(--r-item); padding:12px 16px; margin-bottom:16px; }
+
+/* ---- roteiro ---- */
+.editor { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:18px; align-items:start; }
+.seg { background:var(--p1); border:1px solid var(--linha); border-radius:var(--r-item); padding:14px; margin-bottom:10px; transition:border-color var(--t-rapida); }
+.seg:focus-within { border-color:var(--linha-forte); }
+.seg .cab { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+.seg .cab .num { font:24px/1 "Bangers", Impact; color:var(--amarelo); width:30px; }
+.seg .cab select { width:160px; } .seg .cab .esp { flex:1; }
+.seg textarea { min-height:58px; font-size:15px; line-height:1.5; }
+.seg .campos { display:grid; grid-template-columns:1.2fr 1.2fr .8fr 1fr .9fr; gap:8px; margin-top:8px; }
+.seg .campos label { margin:0 0 4px; font-size:12px; }
+.clipes { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; align-items:center; }
+.chip { position:relative; width:96px; height:54px; border-radius:7px; overflow:hidden; border:1px solid var(--linha); background:#000; }
+.chip img { width:100%; height:100%; object-fit:cover; }
+.chip .x { position:absolute; top:3px; right:3px; background:#000b; border-radius:5px; padding:0 6px; cursor:pointer; font-size:12px; }
+.chip.add { display:flex; align-items:center; justify-content:center; color:var(--fraco); cursor:pointer; font-weight:600; border-style:dashed; background:transparent; }
+.chip.add:hover { color:var(--texto); border-color:var(--linha-forte); }
+.painel { position:sticky; top:0; }
+.painel .num { font:40px/1 "Bangers", Impact; color:var(--amarelo); letter-spacing:.5px; }
+.msg { font-size:13px; padding:8px 10px; border-radius:7px; margin:5px 0; border-left:3px solid transparent; }
+.msg.e { background:#3A1626; color:#FFC2C8; border-color:var(--erro); } .msg.a { background:#33270F; color:#FFE2A8; border-color:var(--aviso); }
+
+/* ---- enquadramento ---- */
+.grade { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:14px; }
+.card { background:var(--p1); border:1px solid var(--linha); border-radius:var(--r-item); overflow:hidden; }
+.card.manual { border-color:#7A5A1E; }
+.card canvas { display:block; width:100%; cursor:ew-resize; background:#000; }
+.card .info { padding:8px 10px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:13px; }
+.card .info .id { font-weight:700; color:var(--amarelo); }
+.card .info .cena { color:var(--fraco); flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.modos { display:flex; gap:4px; padding:0 10px 10px; flex-wrap:wrap; }
+
+/* ---- vídeo ---- */
+.video-area { display:grid; grid-template-columns:340px minmax(0,1fr); gap:24px; align-items:start; }
+video { width:340px; aspect-ratio:9/16; background:#000; border-radius:14px; box-shadow:0 18px 50px -18px #000c; }
+img.capa { width:170px; border-radius:9px; border:1px solid var(--linha); }
+pre.log { background:#0F0C1A; border:1px solid var(--linha); border-radius:var(--r-item); padding:14px; height:60vh; overflow:auto;
+  font:12.5px/1.5 "Cascadia Mono", Consolas, monospace; color:#D6D0EA; white-space:pre-wrap; margin:0; }
+
+/* ---- biblioteca ---- */
+.bgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(232px,1fr)); gap:12px; }
+.bcard { background:var(--p1); border:1px solid var(--linha); border-radius:var(--r-item); overflow:hidden; }
+.bcard.ruim { opacity:.5; } .bcard.pend { border-color:#6B4A16; }
+.bcard img { width:100%; aspect-ratio:16/9; object-fit:cover; display:block; background:#000; }
+.bcard .c { padding:9px; display:flex; flex-direction:column; gap:6px; }
+.bcard .c .id { font-size:12px; color:var(--fraco); display:flex; justify-content:space-between; }
+.bcard input { padding:6px 8px; font-size:13px; min-height:32px; }
+table { width:100%; border-collapse:collapse; }
+td, th { text-align:left; padding:10px 10px; border-bottom:1px solid var(--linha); font-size:14px; vertical-align:middle; }
+th { color:var(--fraco); font-size:12px; font-weight:600; }
+tr.click { cursor:pointer; transition:background var(--t-rapida); } tr.click:hover { background:var(--p2); }
+td b { font-variant-numeric:tabular-nums; }
+.tema { background:var(--p1); border:1px solid var(--linha); border-radius:var(--r-item); padding:12px 14px; margin-bottom:8px; display:flex; gap:12px; align-items:center; }
+.tema .t { flex:1; } .tema .g { color:var(--fraco); font-size:13px; margin-top:3px; }
+details > summary { cursor:pointer; color:var(--fraco); font-weight:600; } details > summary:hover { color:var(--texto); }
+
+/* ---- janelas, gaveta de log e avisos ---- */
+.modal { position:fixed; inset:0; background:#0B0916cc; backdrop-filter:blur(3px); display:flex; align-items:center; justify-content:center; z-index:10; animation:surge var(--t-media) var(--curva); }
+.modal .caixa { background:var(--p1); border:1px solid var(--linha-forte); border-radius:18px; width:min(1100px,94vw); max-height:88vh; display:flex; flex-direction:column; box-shadow:0 30px 80px -20px #000e; }
+.modal .caixa .cab { padding:16px 20px; display:flex; gap:10px; align-items:center; border-bottom:1px solid var(--linha); }
+.modal .caixa .cab b { font:700 18px/1.25 var(--titulo); }
+.modal .caixa .corpo { padding:16px 20px 20px; overflow:auto; }
+@keyframes surge { from { opacity:0 } }
+.pick { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; }
+.pick div { cursor:pointer; border:1px solid var(--linha); border-radius:var(--r-campo); overflow:hidden; background:var(--p2); transition:border-color var(--t-rapida); }
+.pick div:hover { border-color:var(--rosa); } .pick img { width:100%; aspect-ratio:16/9; object-fit:cover; display:block; }
+.pick span { display:block; padding:6px 8px; font-size:12px; color:var(--fraco); }
+#gaveta { position:fixed; left:264px; right:0; bottom:0; background:var(--p1); border-top:1px solid var(--linha-forte); transform:translateY(100%);
+  transition:transform var(--t-media) var(--curva); z-index:5; }
+#gaveta.aberta { transform:none; box-shadow:0 -20px 40px -20px #000a; }
+#gaveta .cab { display:flex; gap:10px; align-items:center; padding:8px 16px; } #gaveta pre { height:34vh; border-radius:0; border:0; border-top:1px solid var(--linha); }
+.toast { position:fixed; bottom:20px; left:50%; transform:translate(-50%, 12px); background:var(--p3); border:1px solid var(--linha-forte); border-left:4px solid var(--verde);
+  padding:11px 16px; border-radius:10px; opacity:0; pointer-events:none; transition:opacity var(--t-media), transform var(--t-media) var(--curva);
+  z-index:20; max-width:min(560px,90vw); font-weight:500; box-shadow:0 16px 40px -12px #000c; }
+.toast.on { opacity:1; transform:translate(-50%, 0); pointer-events:auto; }
+.toast.erro { border-left-color:var(--erro); }
+
+/* ---- cortes ---- */
+.mgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-bottom:12px; }
+.mcard { background:var(--p1); border:1px solid var(--linha); border-radius:var(--r-item); overflow:hidden; display:flex; flex-direction:column; transition:border-color var(--t-rapida); }
+.mcard:hover { border-color:var(--linha-forte); }
+.mcard img { width:100%; aspect-ratio:16/9; object-fit:cover; display:block; background:#000; cursor:pointer; }
+.mcard video { width:100%; aspect-ratio:9/16; max-height:440px; background:#000; border-radius:0; display:block; box-shadow:none; }
+.mcard .c { padding:11px 12px; display:flex; flex-direction:column; gap:7px; }
+.mcard.clipe { border-color:#4A3770; }
+.lays { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.lay { display:flex !important; flex-direction:column; gap:3px; border:1px solid var(--linha); border-radius:var(--r-item); padding:10px 12px; margin:0 !important; cursor:pointer; color:var(--texto) !important; transition:border-color var(--t-rapida), background var(--t-rapida); }
+.lay:hover { border-color:var(--linha-forte); }
+.lay.on { border-color:var(--rosa); background:var(--p2); } .lay input { position:absolute; opacity:0; pointer-events:none; } .lay span { color:var(--fraco); font-weight:400; font-size:12px; }
+.lay:focus-within { outline:2px solid var(--verde); outline-offset:2px; }
+
+/* ---- primeira abertura, telas menores e movimento reduzido ---- */
+body.primeira aside { display:none; } body.primeira .app { grid-template-columns:1fr !important; } body.primeira #gaveta { left:0; }
+@media (max-width:1100px) {
+  .app { grid-template-columns:220px 1fr; } #gaveta { left:220px; }
+  .editor { grid-template-columns:1fr; } .painel { position:static; }
+  .video-area { grid-template-columns:1fr; } .seg .campos { grid-template-columns:1fr 1fr; }
+}
+@media (max-width:760px) {
+  .app { grid-template-columns:1fr; } aside { display:none; } #gaveta { left:0; } .grid2 { grid-template-columns:1fr; }
+  main { padding:18px 16px 120px; } header h1 { font-size:24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important; }
+}
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-plus" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></symbol><symbol id="i-play" viewBox="0 0 256 256"><path d="M232.4,114.49,88.32,26.35a16,16,0,0,0-16.2-.3A15.86,15.86,0,0,0,64,39.87V216.13A15.94,15.94,0,0,0,80,232a16.07,16.07,0,0,0,8.36-2.35L232.4,141.51a15.81,15.81,0,0,0,0-27ZM80,215.94V40l143.83,88Z"/></symbol><symbol id="i-stop" viewBox="0 0 256 256"><path d="M200,40H56A16,16,0,0,0,40,56V200a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,160H56V56H200V200Z"/></symbol><symbol id="i-tesoura" viewBox="0 0 256 256"><path d="M157.73,113.13A8,8,0,0,1,159.82,102L227.48,55.7a8,8,0,0,1,9,13.21l-67.67,46.3a7.92,7.92,0,0,1-4.51,1.4A8,8,0,0,1,157.73,113.13Zm80.87,85.09a8,8,0,0,1-11.12,2.08L136,137.7,93.49,166.78a36,36,0,1,1-9-13.19L121.83,128,84.44,102.41a35.86,35.86,0,1,1,9-13.19l143,97.87A8,8,0,0,1,238.6,198.22ZM80,180a20,20,0,1,0-5.86,14.14A19.85,19.85,0,0,0,80,180ZM74.14,90.13a20,20,0,1,0-28.28,0A19.85,19.85,0,0,0,74.14,90.13Z"/></symbol><symbol id="i-filme" viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40ZM40,88h80v80H40Zm96-16V56h32V72Zm-16,0H88V56h32Zm0,112v16H88V184Zm16,0h32v16H136Zm0-16V88h80v80Zm80-96H184V56h32ZM72,56V72H40V56ZM40,184H72v16H40Zm176,16H184V184h32v16Z"/></symbol><symbol id="i-ideia" viewBox="0 0 256 256"><path d="M176,232a8,8,0,0,1-8,8H88a8,8,0,0,1,0-16h80A8,8,0,0,1,176,232Zm40-128a87.55,87.55,0,0,1-33.64,69.21A16.24,16.24,0,0,0,176,186v6a16,16,0,0,1-16,16H96a16,16,0,0,1-16-16v-6a16,16,0,0,0-6.23-12.66A87.59,87.59,0,0,1,40,104.49C39.74,56.83,78.26,17.14,125.88,16A88,88,0,0,1,216,104Zm-16,0a72,72,0,0,0-73.74-72c-39,.92-70.47,33.39-70.26,72.39a71.65,71.65,0,0,0,27.64,56.3A32,32,0,0,1,96,186v6h64v-6a32.15,32.15,0,0,1,12.47-25.35A71.65,71.65,0,0,0,200,104Zm-16.11-9.34a57.6,57.6,0,0,0-46.56-46.55,8,8,0,0,0-2.66,15.78c16.57,2.79,30.63,16.85,33.44,33.45A8,8,0,0,0,176,104a9,9,0,0,0,1.35-.11A8,8,0,0,0,183.89,94.66Z"/></symbol><symbol id="i-agenda" viewBox="0 0 256 256"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z"/></symbol><symbol id="i-grafico" viewBox="0 0 256 256"><path d="M232,208a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V48a8,8,0,0,1,16,0V156.69l50.34-50.35a8,8,0,0,1,11.32,0L128,132.69,180.69,80H160a8,8,0,0,1,0-16h40a8,8,0,0,1,8,8v40a8,8,0,0,1-16,0V91.31l-58.34,58.35a8,8,0,0,1-11.32,0L96,123.31l-56,56V200H224A8,8,0,0,1,232,208Z"/></symbol><symbol id="i-ajustes" viewBox="0 0 256 256"><path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm109.94-52.79a8,8,0,0,0-3.89-5.4l-29.83-17-.12-33.62a8,8,0,0,0-2.83-6.08,111.91,111.91,0,0,0-36.72-20.67,8,8,0,0,0-6.46.59L128,41.85,97.88,25a8,8,0,0,0-6.47-.6A112.1,112.1,0,0,0,54.73,45.15a8,8,0,0,0-2.83,6.07l-.15,33.65-29.83,17a8,8,0,0,0-3.89,5.4,106.47,106.47,0,0,0,0,41.56,8,8,0,0,0,3.89,5.4l29.83,17,.12,33.62a8,8,0,0,0,2.83,6.08,111.91,111.91,0,0,0,36.72,20.67,8,8,0,0,0,6.46-.59L128,214.15,158.12,231a7.91,7.91,0,0,0,3.9,1,8.09,8.09,0,0,0,2.57-.42,112.1,112.1,0,0,0,36.68-20.73,8,8,0,0,0,2.83-6.07l.15-33.65,29.83-17a8,8,0,0,0,3.89-5.4A106.47,106.47,0,0,0,237.94,107.21Zm-15,34.91-28.57,16.25a8,8,0,0,0-3,3c-.58,1-1.19,2.06-1.81,3.06a7.94,7.94,0,0,0-1.22,4.21l-.15,32.25a95.89,95.89,0,0,1-25.37,14.3L134,199.13a8,8,0,0,0-3.91-1h-.19c-1.21,0-2.43,0-3.64,0a8.08,8.08,0,0,0-4.1,1l-28.84,16.1A96,96,0,0,1,67.88,201l-.11-32.2a8,8,0,0,0-1.22-4.22c-.62-1-1.23-2-1.8-3.06a8.09,8.09,0,0,0-3-3.06l-28.6-16.29a90.49,90.49,0,0,1,0-28.26L61.67,97.63a8,8,0,0,0,3-3c.58-1,1.19-2.06,1.81-3.06a7.94,7.94,0,0,0,1.22-4.21l.15-32.25a95.89,95.89,0,0,1,25.37-14.3L122,56.87a8,8,0,0,0,4.1,1c1.21,0,2.43,0,3.64,0a8.08,8.08,0,0,0,4.1-1l28.84-16.1A96,96,0,0,1,188.12,55l.11,32.2a8,8,0,0,0,1.22,4.22c.62,1,1.23,2,1.8,3.06a8.09,8.09,0,0,0,3,3.06l28.6,16.29A90.49,90.49,0,0,1,222.9,142.12Z"/></symbol><symbol id="i-idioma" viewBox="0 0 256 256"><path d="M247.15,212.42l-56-112a8,8,0,0,0-14.31,0l-21.71,43.43A88,88,0,0,1,108,126.93,103.65,103.65,0,0,0,135.69,64H160a8,8,0,0,0,0-16H104V32a8,8,0,0,0-16,0V48H32a8,8,0,0,0,0,16h87.63A87.76,87.76,0,0,1,96,116.35a87.74,87.74,0,0,1-19-31,8,8,0,1,0-15.08,5.34A103.63,103.63,0,0,0,84,127a87.55,87.55,0,0,1-52,17,8,8,0,0,0,0,16,103.46,103.46,0,0,0,64-22.08,104.18,104.18,0,0,0,51.44,21.31l-26.6,53.19a8,8,0,0,0,14.31,7.16L148.94,192h70.11l13.79,27.58A8,8,0,0,0,240,224a8,8,0,0,0,7.15-11.58ZM156.94,176,184,121.89,211.05,176Z"/></symbol><symbol id="i-busca" viewBox="0 0 256 256"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></symbol><symbol id="i-gravar" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm0-160a72,72,0,1,0,72,72A72.08,72.08,0,0,0,128,56Zm0,128a56,56,0,1,1,56-56A56.06,56.06,0,0,1,128,184Z"/></symbol><symbol id="i-live" viewBox="0 0 256 256"><path d="M128,88a40,40,0,1,0,40,40A40,40,0,0,0,128,88Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,152Zm73.71,7.14a80,80,0,0,1-14.08,22.2,8,8,0,0,1-11.92-10.67,63.95,63.95,0,0,0,0-85.33,8,8,0,1,1,11.92-10.67,80.08,80.08,0,0,1,14.08,84.47ZM69,103.09a64,64,0,0,0,11.26,67.58,8,8,0,0,1-11.92,10.67,79.93,79.93,0,0,1,0-106.67A8,8,0,1,1,80.29,85.34,63.77,63.77,0,0,0,69,103.09ZM248,128a119.58,119.58,0,0,1-34.29,84,8,8,0,1,1-11.42-11.2,103.9,103.9,0,0,0,0-145.56A8,8,0,1,1,213.71,44,119.58,119.58,0,0,1,248,128ZM53.71,200.78A8,8,0,1,1,42.29,212a119.87,119.87,0,0,1,0-168,8,8,0,1,1,11.42,11.2,103.9,103.9,0,0,0,0,145.56Z"/></symbol><symbol id="i-baixar" viewBox="0 0 256 256"><path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,124.69V32a8,8,0,0,0-16,0v92.69L93.66,98.34a8,8,0,0,0-11.32,11.32Z"/></symbol><symbol id="i-atualizar" viewBox="0 0 256 256"><path d="M224,48V96a8,8,0,0,1-8,8H168a8,8,0,0,1,0-16h28.69L182.06,73.37a79.56,79.56,0,0,0-56.13-23.43h-.45A79.52,79.52,0,0,0,69.59,72.71,8,8,0,0,1,58.41,61.27a96,96,0,0,1,135,.79L208,76.69V48a8,8,0,0,1,16,0ZM186.41,183.29a80,80,0,0,1-112.47-.66L59.31,168H88a8,8,0,0,0,0-16H40a8,8,0,0,0-8,8v48a8,8,0,0,0,16,0V179.31l14.63,14.63A95.43,95.43,0,0,0,130,222.06h.53a95.36,95.36,0,0,0,67.07-27.33,8,8,0,0,0-11.18-11.44Z"/></symbol><symbol id="i-ferramenta" viewBox="0 0 256 256"><path d="M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,187,29.24,72,72,0,0,0,88,96,72.34,72.34,0,0,0,94,124.94L33.79,177c-.15.12-.29.26-.43.39a32,32,0,0,0,45.26,45.26c.13-.13.27-.28.39-.42L131.06,162A72,72,0,0,0,232,96,71.56,71.56,0,0,0,226.76,69ZM160,152a56.14,56.14,0,0,1-27.07-7,8,8,0,0,0-9.92,1.77L67.11,211.51a16,16,0,0,1-22.62-22.62L109.18,133a8,8,0,0,0,1.77-9.93,56,56,0,0,1,58.36-82.31l-31.2,33.81a8,8,0,0,0-1.94,7.1L141.83,108a8,8,0,0,0,6.14,6.14l26.35,5.66a8,8,0,0,0,7.1-1.94l33.81-31.2A56.06,56.06,0,0,1,160,152Z"/></symbol><symbol id="i-fogo" viewBox="0 0 256 256"><path d="M183.89,153.34a57.6,57.6,0,0,1-46.56,46.55A8.75,8.75,0,0,1,136,200a8,8,0,0,1-1.32-15.89c16.57-2.79,30.63-16.85,33.44-33.45a8,8,0,0,1,15.78,2.68ZM216,144a88,88,0,0,1-176,0c0-27.92,11-56.47,32.66-84.85a8,8,0,0,1,11.93-.89l24.12,23.41,22-60.41a8,8,0,0,1,12.63-3.41C165.21,36,216,84.55,216,144Zm-16,0c0-46.09-35.79-85.92-58.21-106.33L119.52,98.74a8,8,0,0,1-13.09,3L80.06,76.16C64.09,99.21,56,122,56,144a72,72,0,0,0,144,0Z"/></symbol><symbol id="i-foguete" viewBox="0 0 256 256"><path d="M223.85,47.12a16,16,0,0,0-15-15c-12.58-.75-44.73.4-71.41,27.07L132.69,64H74.36A15.91,15.91,0,0,0,63,68.68L28.7,103a16,16,0,0,0,9.07,27.16l38.47,5.37,44.21,44.21,5.37,38.49a15.94,15.94,0,0,0,10.78,12.92,16.11,16.11,0,0,0,5.1.83A15.91,15.91,0,0,0,153,227.3L187.32,193A15.91,15.91,0,0,0,192,181.64V123.31l4.77-4.77C223.45,91.86,224.6,59.71,223.85,47.12ZM74.36,80h42.33L77.16,119.52,40,114.34Zm74.41-9.45a76.65,76.65,0,0,1,59.11-22.47,76.46,76.46,0,0,1-22.42,59.16L128,164.68,91.32,128ZM176,181.64,141.67,216l-5.19-37.17L176,139.31Zm-74.16,9.5C97.34,201,82.29,224,40,224a8,8,0,0,1-8-8c0-42.29,23-57.34,32.86-61.85a8,8,0,0,1,6.64,14.56c-6.43,2.93-20.62,12.36-23.12,38.91,26.55-2.5,36-16.69,38.91-23.12a8,8,0,1,1,14.56,6.64Z"/></symbol><symbol id="i-serie" viewBox="0 0 256 256"><path d="M248,128a56,56,0,0,1-95.6,39.6l-.33-.35L92.12,99.55a40,40,0,1,0,0,56.9l8.52-9.62a8,8,0,1,1,12,10.61l-8.69,9.81-.33.35a56,56,0,1,1,0-79.2l.33.35,59.95,67.7a40,40,0,1,0,0-56.9l-8.52,9.62a8,8,0,1,1-12-10.61l8.69-9.81.33-.35A56,56,0,0,1,248,128Z"/></symbol><symbol id="i-pergunta" viewBox="0 0 256 256"><path d="M140,180a12,12,0,1,1-12-12A12,12,0,0,1,140,180ZM128,72c-22.06,0-40,16.15-40,36v4a8,8,0,0,0,16,0v-4c0-11,10.77-20,24-20s24,9,24,20-10.77,20-24,20a8,8,0,0,0-8,8v8a8,8,0,0,0,16,0v-.72c18.24-3.35,32-17.9,32-35.28C168,88.15,150.06,72,128,72Zm104,56A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></symbol><symbol id="i-mapa" viewBox="0 0 256 256"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-5.52-.6l-64,16A8,8,0,0,0,24,56V200a8,8,0,0,0,9.94,7.76l61.13-15.28,61.35,30.68A8.15,8.15,0,0,0,160,224a8,8,0,0,0,1.94-.24l64-16A8,8,0,0,0,232,200V56A8,8,0,0,0,228.92,49.69ZM104,52.94l48,24V203.06l-48-24ZM40,62.25l48-12v127.5l-48,12Zm176,131.5-48,12V78.25l48-12Z"/></symbol><symbol id="i-controle" viewBox="0 0 256 256"><path d="M176,112H152a8,8,0,0,1,0-16h24a8,8,0,0,1,0,16ZM104,96H96V88a8,8,0,0,0-16,0v8H72a8,8,0,0,0,0,16h8v8a8,8,0,0,0,16,0v-8h8a8,8,0,0,0,0-16ZM241.48,200.65a36,36,0,0,1-54.94,4.81c-.12-.12-.24-.24-.35-.37L146.48,160h-37L69.81,205.09l-.35.37A36.08,36.08,0,0,1,44,216,36,36,0,0,1,8.56,173.75a.68.68,0,0,1,0-.14L24.93,89.52A59.88,59.88,0,0,1,83.89,40H172a60.08,60.08,0,0,1,59,49.25c0,.06,0,.12,0,.18l16.37,84.17a.68.68,0,0,1,0,.14A35.74,35.74,0,0,1,241.48,200.65ZM172,144a44,44,0,0,0,0-88H83.89A43.9,43.9,0,0,0,40.68,92.37l0,.13L24.3,176.59A20,20,0,0,0,58,194.3l41.92-47.59a8,8,0,0,1,6-2.71Zm59.7,32.59-8.74-45A60,60,0,0,1,172,160h-4.2L198,194.31a20.09,20.09,0,0,0,17.46,5.39,20,20,0,0,0,16.23-23.11Z"/></symbol><symbol id="i-brilho" viewBox="0 0 256 256"><path d="M197.58,129.06,146,110l-19-51.62a15.92,15.92,0,0,0-29.88,0L78,110l-51.62,19a15.92,15.92,0,0,0,0,29.88L78,178l19,51.62a15.92,15.92,0,0,0,29.88,0L146,178l51.62-19a15.92,15.92,0,0,0,0-29.88ZM137,164.22a8,8,0,0,0-4.74,4.74L112,223.85,91.78,169A8,8,0,0,0,87,164.22L32.15,144,87,123.78A8,8,0,0,0,91.78,119L112,64.15,132.22,119a8,8,0,0,0,4.74,4.74L191.85,144ZM144,40a8,8,0,0,1,8-8h16V16a8,8,0,0,1,16,0V32h16a8,8,0,0,1,0,16H184V64a8,8,0,0,1-16,0V48H152A8,8,0,0,1,144,40ZM248,88a8,8,0,0,1-8,8h-8v8a8,8,0,0,1-16,0V96h-8a8,8,0,0,1,0-16h8V72a8,8,0,0,1,16,0v8h8A8,8,0,0,1,248,88Z"/></symbol><symbol id="i-check" viewBox="0 0 256 256"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></symbol><symbol id="i-x" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></symbol><symbol id="i-aviso" viewBox="0 0 256 256"><path d="M236.8,188.09,149.35,36.22h0a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM222.93,203.8a8.5,8.5,0,0,1-7.48,4.2H40.55a8.5,8.5,0,0,1-7.48-4.2,7.59,7.59,0,0,1,0-7.72L120.52,44.21a8.75,8.75,0,0,1,15,0l87.45,151.87A7.59,7.59,0,0,1,222.93,203.8ZM120,144V104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,180Z"/></symbol><symbol id="i-log" viewBox="0 0 256 256"><path d="M128,128a8,8,0,0,1-3,6.25l-40,32a8,8,0,1,1-10-12.5L107.19,128,75,102.25a8,8,0,1,1,10-12.5l40,32A8,8,0,0,1,128,128Zm48,24H136a8,8,0,0,0,0,16h40a8,8,0,0,0,0-16Zm56-96V200a16,16,0,0,1-16,16H40a16,16,0,0,1-16-16V56A16,16,0,0,1,40,40H216A16,16,0,0,1,232,56ZM216,200V56H40V200H216Z"/></symbol><symbol id="i-lixo" viewBox="0 0 256 256"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></symbol><symbol id="i-camera" viewBox="0 0 256 256"><path d="M251.77,73a8,8,0,0,0-8.21.39L208,97.05V72a16,16,0,0,0-16-16H32A16,16,0,0,0,16,72V184a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V159l35.56,23.71A8,8,0,0,0,248,184a8,8,0,0,0,8-8V80A8,8,0,0,0,251.77,73ZM192,184H32V72H192V184Zm48-22.95-32-21.33V116.28L240,95Z"/></symbol><symbol id="i-pilha" viewBox="0 0 256 256"><path d="M230.91,172A8,8,0,0,1,228,182.91l-96,56a8,8,0,0,1-8.06,0l-96-56A8,8,0,0,1,36,169.09l92,53.65,92-53.65A8,8,0,0,1,230.91,172ZM220,121.09l-92,53.65L36,121.09A8,8,0,0,0,28,134.91l96,56a8,8,0,0,0,8.06,0l96-56A8,8,0,1,0,220,121.09ZM24,80a8,8,0,0,1,4-6.91l96-56a8,8,0,0,1,8.06,0l96,56a8,8,0,0,1,0,13.82l-96,56a8,8,0,0,1-8.06,0l-96-56A8,8,0,0,1,24,80Zm23.88,0L128,126.74,208.12,80,128,33.26Z"/></symbol><symbol id="i-pasta" viewBox="0 0 256 256"><path d="M245,110.64A16,16,0,0,0,232,104H216V88a16,16,0,0,0-16-16H130.67L102.94,51.2a16.14,16.14,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V208h0a8,8,0,0,0,8,8H211.1a8,8,0,0,0,7.59-5.47l28.49-85.47A16.05,16.05,0,0,0,245,110.64ZM93.34,64,123.2,86.4A8,8,0,0,0,128,88h72v16H69.77a16,16,0,0,0-15.18,10.94L40,158.7V64Zm112,136H43.1l26.67-80H232Z"/></symbol><symbol id="i-seta" viewBox="0 0 256 256"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></symbol><symbol id="i-video" viewBox="0 0 256 256"><path d="M164.44,105.34l-48-32A8,8,0,0,0,104,80v64a8,8,0,0,0,12.44,6.66l48-32a8,8,0,0,0,0-13.32ZM120,129.05V95l25.58,17ZM216,40H40A16,16,0,0,0,24,56V168a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,128H40V56H216V168Zm16,40a8,8,0,0,1-8,8H32a8,8,0,0,1,0-16H224A8,8,0,0,1,232,208Z"/></symbol><symbol id="i-ondas" viewBox="0 0 256 256"><path d="M56,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM88,24a8,8,0,0,0-8,8V224a8,8,0,0,0,16,0V32A8,8,0,0,0,88,24Zm40,32a8,8,0,0,0-8,8V192a8,8,0,0,0,16,0V64A8,8,0,0,0,128,56Zm40,32a8,8,0,0,0-8,8v64a8,8,0,0,0,16,0V96A8,8,0,0,0,168,88Zm40-16a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V80A8,8,0,0,0,208,72Z"/></symbol><symbol id="i-lista" viewBox="0 0 256 256"><path d="M80,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H88A8,8,0,0,1,80,64Zm136,56H88a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm0,64H88a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16ZM44,52A12,12,0,1,0,56,64,12,12,0,0,0,44,52Zm0,64a12,12,0,1,0,12,12A12,12,0,0,0,44,116Zm0,64a12,12,0,1,0,12,12A12,12,0,0,0,44,180Z"/></symbol><symbol id="i-olho" viewBox="0 0 256 256"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></symbol><symbol id="i-trofeu" viewBox="0 0 256 256"><path d="M232,64H208V48a8,8,0,0,0-8-8H56a8,8,0,0,0-8,8V64H24A16,16,0,0,0,8,80V96a40,40,0,0,0,40,40h3.65A80.13,80.13,0,0,0,120,191.61V216H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16H136V191.58c31.94-3.23,58.44-25.64,68.08-55.58H208a40,40,0,0,0,40-40V80A16,16,0,0,0,232,64ZM48,120A24,24,0,0,1,24,96V80H48v32q0,4,.39,8Zm144-8.9c0,35.52-29,64.64-64,64.9a64,64,0,0,1-64-64V56H192ZM232,96a24,24,0,0,1-24,24h-.5a81.81,81.81,0,0,0,.5-8.9V80h24Z"/></symbol><symbol id="i-abrir" viewBox="0 0 256 256"><path d="M224,104a8,8,0,0,1-16,0V59.32l-66.33,66.34a8,8,0,0,1-11.32-11.32L196.68,48H152a8,8,0,0,1,0-16h64a8,8,0,0,1,8,8Zm-40,24a8,8,0,0,0-8,8v72H48V80h72a8,8,0,0,0,0-16H48A16,16,0,0,0,32,80V208a16,16,0,0,0,16,16H176a16,16,0,0,0,16-16V136A8,8,0,0,0,184,128Z"/></symbol><symbol id="i-copiar" viewBox="0 0 256 256"><path d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z"/></symbol><symbol id="i-fechar" viewBox="0 0 256 256"><path d="M165.66,101.66,139.31,128l26.35,26.34a8,8,0,0,1-11.32,11.32L128,139.31l-26.34,26.35a8,8,0,0,1-11.32-11.32L116.69,128,90.34,101.66a8,8,0,0,1,11.32-11.32L128,116.69l26.34-26.35a8,8,0,0,1,11.32,11.32ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></symbol></svg>
+<header>
+  <h1 onclick="ir('novo')" title="Novo vídeo">Estúdio GTA 6 Shorts</h1>
+  <div id="job" role="button" tabindex="0" aria-label="Trabalho atual: abrir o log" onclick="gaveta()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();gaveta()}"><span class="bolinha"></span><span id="jobpct"></span><span id="jobtxt" aria-live="polite">Livre</span></div>
+  <div id="barra"><i></i></div>
+</header>
+<div class="app">
+  <aside>
+    <nav class="topo" aria-label="Criar"><button class="prim" style="width:100%" onclick="ir('novo')"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Novo vídeo</button>
+      <button id="blote" style="width:100%" onclick="botaoLote()" title="Gera, em fila, todos os projetos com roteiro e sem vídeo pronto">▶ Gerar lote</button></nav>
+    <div class="grupo" id="glista">Projetos</div>
+    <input class="filtro" id="filtro" type="search" placeholder="Buscar projeto" aria-label="Buscar projeto" oninput="filtrarLista()">
+    <div class="lista" id="lista" role="list"></div>
+    <nav class="rodape" aria-label="Ferramentas">
+      <div class="nav" role="link" tabindex="0" data-v="cortes" onclick="ir('cortes')"><svg class="ic" aria-hidden="true"><use href="#i-tesoura"/></svg>Cortes e lives <span id="navlive"></span></div>
+      <div class="nav" role="link" tabindex="0" data-v="biblioteca" onclick="ir('biblioteca')"><svg class="ic" aria-hidden="true"><use href="#i-filme"/></svg>Biblioteca de cenas</div>
+      <div class="nav" role="link" tabindex="0" data-v="temas" onclick="ir('temas')"><svg class="ic" aria-hidden="true"><use href="#i-ideia"/></svg>Temas e histórico</div>
+      <div class="nav" role="link" tabindex="0" data-v="agendar" onclick="ir('agendar')"><svg class="ic" aria-hidden="true"><use href="#i-agenda"/></svg>Agendar no Zernio</div>
+      <div class="nav" role="link" tabindex="0" data-v="resultados" onclick="ir('resultados')"><svg class="ic" aria-hidden="true"><use href="#i-grafico"/></svg>Resultados</div>
+      <div class="nav" role="link" tabindex="0" data-v="ajustes" onclick="ir('ajustes')"><svg class="ic" aria-hidden="true"><use href="#i-ajustes"/></svg>Ajustes e skill</div>
+      </nav>
+  </aside>
+  <main id="main" tabindex="-1"></main>
+</div>
+<div id="gaveta"><div class="cab"><b id="gtit">Log</b><span style="flex:1"></span><button class="mini" onclick="gaveta(false)">Fechar</button></div><pre class="log" id="glog"></pre></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const S = { view: "novo", projeto: null, aba: "roteiro", dados: null, rot: null, midia: null, trabalho: null, ultimoId: null, bibFiltro: { filtro: "pendentes", video: "", q: "" } };
+const TIPOS = ["gancho", "promessa", "historia", "curiosidade", "piada", "duplo_sentido", "comparacao", "pergunta", "cta", "payoff"];
+
+const ic = (n) => `<svg class="ic" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+function toast(m) { const t = $("#toast"); t.textContent = m; t.classList.toggle("erro", /erro|falh|não |✗|inválid/i.test(m)); t.classList.add("on");
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("on"), Math.min(7000, 3200 + m.length * 30)); }
+function filtrarLista() { const q = ($("#filtro").value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  let n = 0; document.querySelectorAll("#lista .proj").forEach(el => { const ok = !q || el.textContent.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q); el.style.display = ok ? "" : "none"; n += ok; });
+  $("#glista").textContent = q ? `Projetos (${n})` : "Projetos"; }
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { const md = [...document.querySelectorAll(".modal")].pop(); if (md) { md.remove(); return; } if ($("#gaveta").classList.contains("aberta")) gaveta(false); }
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches?.(".nav,.proj,.aba,tr.click,[role=button]")) { e.preventDefault(); e.target.click(); }
+});
+async function api(url, corpo) {
+  const r = await fetch(url, corpo !== undefined ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) } : {});
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.erro || ("HTTP " + r.status)); return j;
+}
+const rodando = (t) => t && t.acao && t.fim === null;
+function classeStatus(s) { if (!s) return ""; if (s.startsWith("ERRO")) return "erro"; if (/PRONT|POSTADO|AGENDADO/.test(s)) return "ok"; return "rodando"; }
+function thumbDe(id) { const [v, n] = id.split("#"); return `/bib/miniaturas/${v}_${String(n).padStart(3, "0")}.jpg`; }
+
+/* ---------- navegação ---------- */
+async function ir(view, extra = {}) { Object.assign(S, { view }, extra); marcarNav(); try { await lista(); } catch (e) {} render(); }
+async function abrirProjeto(nome, aba) { S.projeto = nome; S.view = "projeto"; if (aba) S.aba = aba; try { await carregarProjeto(); await lista(); render(); } catch (e) { erroTela(e); } }
+async function carregarProjeto() { S.dados = await api("/api/projeto/" + encodeURIComponent(S.projeto)); S.rot = S.dados.roteiro ? JSON.parse(JSON.stringify(S.dados.roteiro)) : null; }
+async function lista() {
+  const j = await api("/api/projetos"); S.trabalho = j.trabalho;
+  $("#lista").innerHTML = j.projetos.map(p => `<div class="proj ${S.view === "projeto" && p.nome === S.projeto ? "ativo" : ""}" role="listitem" tabindex="0" onclick="abrirProjeto('${esc(p.nome)}')">
+    <div class="t">${esc(p.titulo)}</div><div class="n">${esc(p.nome)}</div>${p.status ? `<span class="pill ${classeStatus(p.status)}">${esc(p.status)}</span>` : ""}</div>`).join("")
+    || `<div class="vazio" style="margin:8px;padding:20px 14px">Nenhum vídeo ainda. Comece em <b>Novo vídeo</b> ou em <b>Cortes e lives</b>.</div>`;
+  if ($("#filtro") && $("#filtro").value) filtrarLista();
+}
+const VERSAO_PAGINA = 18;
+function erroTela(e) {
+  $("#main").innerHTML = `<div class="aviso-box"><b>Não consegui abrir esta tela.</b><br>${esc(e.message || e)}<br><br>
+    Se você acabou de atualizar o Estúdio, feche a janela preta do Estúdio e abra o <b>estudio.bat</b> de novo.</div>`;
+}
+function marcarNav() { const v = S.view; document.querySelectorAll(".nav").forEach(n => { const on = n.dataset.v === v || (v === "corte" && n.dataset.v === "cortes");
+  n.classList.toggle("ativo", on); on ? n.setAttribute("aria-current", "page") : n.removeAttribute("aria-current"); }); }
+async function render() {
+  marcarNav();
+  const m = $("#main");
+  try {
+    if (S.view === "novo") return await viewNovo(m);
+    if (S.view === "biblioteca") return await viewBiblioteca(m);
+    if (S.view === "temas") return await viewTemas(m);
+    if (S.view === "agendar") return await viewAgendar(m);
+    if (S.view === "resultados") return await viewResultados(m);
+    if (S.view === "ajustes") return await viewAjustes(m, false);
+    if (S.view === "config") return await viewAjustes(m, true);
+    if (S.view === "projeto") return viewProjeto(m);
+    if (S.view === "cortes") return await viewCortes(m);
+    if (S.view === "corte") return await viewCorte(m);
+  } catch (e) { erroTela(e); }
+}
+async function conferirVersao() {
+  try { const r = await fetch("/api/estado"); const j = await r.json(); if (r.ok && j.versao >= VERSAO_PAGINA) return true; } catch (e) {}
+  document.body.insertAdjacentHTML("afterbegin", `<div style="background:#5a1020;color:#fff;padding:12px 18px;font-weight:600">
+    O Estúdio foi atualizado, mas o servidor antigo ainda está rodando. Feche o programa (ícone perto do relógio &gt; Sair) e abra de novo.</div>`);
+  return false;
+}
+
+/* ---------- trabalho em andamento ---------- */
+let pollLog = null;
+function gaveta(abrir = true) { $("#gaveta").classList.toggle("aberta", abrir); if (abrir) atualizarLog(); }
+async function atualizarLog() {
+  const t = S.trabalho || {}; const q = t.projeto ? `?projeto=${encodeURIComponent(t.projeto)}` : t.corte ? `?corte=${encodeURIComponent(t.corte)}` : (["zernio", "lote", "tendencias", "lives", "perguntas"].includes(t.acao) ? "?atual=1" : (t.acao ? "?biblioteca=1" : ""));
+  if (!q) { $("#glog").textContent = "Nenhum trabalho rodando."; return; }
+  const j = await api("/api/log" + q); const pre = $("#glog"); const fim = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 40;
+  pre.textContent = j.log; if (fim) pre.scrollTop = pre.scrollHeight; $("#gtit").textContent = `Log — ${t.rotulo || ""} ${t.projeto || t.corte || ""}`;
+  const logAba = $("#logproj"); if (logAba && t.projeto === S.projeto) { logAba.textContent = j.log; logAba.scrollTop = logAba.scrollHeight; }
+}
+async function botaoLote() {
+  try {
+    if (S.lote && S.lote.ativo) { if (confirm("Parar o lote depois do vídeo atual?")) { await api("/api/lote", { acao: "parar" }); toast("O lote para depois do vídeo atual"); } return; }
+    const j = await api("/api/lote");
+    if (!j.fila.length) return toast("Nenhum projeto com roteiro e sem vídeo pronto");
+    const md = document.createElement("div"); md.className = "modal";
+    const fmtH = (iso) => new Date(iso).toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    md.innerHTML = `<div class="caixa" style="width:min(560px,94vw)"><div class="cab"><b style="flex:1">▶ Gerar lote: ${j.fila.length} vídeo(s)</b><button id="lfechar">Fechar</button></div>
+      <div style="padding:16px"><div style="max-height:220px;overflow:auto;font-size:13px">${j.fila.map((n, i) => `${i + 1}. ${esc(n)}`).join("<br>")}</div>
+      <p class="sub" style="margin:10px 0">Um depois do outro. O enquadramento que você não ajustou fica no automático. Pode levar bastante tempo: deixe o PC ligado.</p>
+      <label style="display:flex;gap:8px;align-items:center;margin:0"><input type="checkbox" id="lagendar" ${j.zernio ? "" : "disabled"}> Agendar no Zernio ao terminar (a cada ${j.intervalo_h}h a partir de ${esc(fmtH(j.sugestao_inicio))} ou do próximo horário livre)</label>
+      ${j.zernio ? "" : `<div class="sub" style="margin:4px 0 0;font-size:12px">Configure o Zernio na tela Agendar para usar esta opção.</div>`}
+      <div class="linha" style="margin-top:14px"><span style="flex:1"></span><button class="prim" id="lok">Começar</button></div></div></div>`;
+    document.body.appendChild(md); const fechar = () => md.remove(); $("#lfechar").onclick = fechar;
+    $("#lok").onclick = async () => { try { const ag = $("#lagendar").checked; await api("/api/lote", { acao: "iniciar", agendar: ag }); fechar();
+      toast(`Lote iniciado: ${j.fila.length} vídeo(s)` + (ag ? " · agenda no fim" : "")); tick(); } catch (e) { toast(e.message); } };
+  } catch (e) { toast(e.message); }
+}
+function pintarLote(l) {
+  S.lote = l; const b = $("#blote"); if (!b) return;
+  if (l && l.ativo) { const n = l.fila.length, k = l.feitos.length + l.erros.length; b.textContent = l.parar ? `Parando… (${k}/${n})` : `■ Parar lote (${Math.min(k + 1, n)}/${n})${l.agendar ? " + agendar" : ""}`; b.classList.add("rodando"); }
+  else { b.textContent = "▶ Gerar lote"; b.classList.remove("rodando"); }
+}
+async function tick() {
+  try {
+    const j = await api("/api/estado"); const t = j.trabalho; const antes = S.trabalho; S.trabalho = t; pintarLote(j.lote); bannerAtualizacao(j.atualizacao); if (!S.avisouAtu) { S.avisouAtu = true; avisoAtualizado(j.atualizado); }
+    if (antes && antes.acao === "lote" && t.acao === "lote" && antes.projeto !== t.projeto && !t.fim) { lista(); if (antes.projeto === S.projeto && S.view === "projeto") { carregarProjeto().then(render); } }
+    $("#job").classList.toggle("rodando", rodando(t));
+    const pct = Math.round((t.progresso || 0) * 100), on = rodando(t);
+    $("#barra").classList.toggle("on", on); $("#barra i").style.width = on ? Math.max(2, pct) + "%" : "0";
+    $("#jobpct").textContent = on ? pct + "%" : "";
+    if (on && t.inicio && pct >= 3) { const gasto = Date.now() / 1000 - t.inicio, resta = gasto * (100 - pct) / pct; S.eta = resta > 60 ? ` · ~${Math.round(resta / 60)} min` : " · <1 min"; } else S.eta = "";
+    $("#jobtxt").textContent = on ? `${t.rotulo}${t.etapa ? " · " + t.etapa : ""}${t.projeto ? " · " + t.projeto : ""}${S.eta}` : (t.acao ? `Último: ${t.rotulo} ${t.codigo === 0 ? "✓" : "✗"}` : "Livre");
+    if (rodando(t) && ($("#gaveta").classList.contains("aberta") || (S.view === "projeto" && S.aba === "log"))) atualizarLog();
+    if (antes && rodando(antes) && !rodando(t) && t.id === antes.id) aoTerminar(t);
+    const nl = $("#navlive"); if (nl) nl.innerHTML = j.live && j.live.rodando ? `<span class="pill erro" title="Gravando live">● REC ${j.live.trechos}</span>` : "";
+  } catch (e) {}
+}
+async function aoTerminar(t) {
+  toast(`${t.rotulo}: ${t.codigo === 0 ? "pronto ✓" : "deu erro ✗ (veja o log)"}`); await lista();
+  if (S.view === "projeto" && t.projeto === S.projeto) { await carregarProjeto(); if (t.codigo === 0) S.aba = { gerar: "revisao", previa: "enquadramento", capa: "video", narrar: "roteiro" }[t.acao] || S.aba; render(); }
+  if (S.view === "biblioteca") render();
+  if (["tendencias", "perguntas"].includes(t.acao) && S.view === "temas") render();
+  if (["momentos", "cortar", "traduzir_clipe", "lives"].includes(t.acao) && ["cortes", "corte"].includes(S.view)) {
+    if (t.acao === "momentos" && t.codigo === 0 && t.corte) { S.corte = t.corte; S.view = "corte"; }
+    render(); }
+  if (t.acao === "traduzir_video" && t.codigo === 0 && t.projeto) abrirProjeto(t.projeto, "video");
+  if (S.view === "resultados" && t.acao === "zernio") render();
+  if (["zernio", "lote"].includes(t.acao)) { if (S.view === "projeto" && S.projeto) { await carregarProjeto(); render(); } else if (S.view === "agendar") render(); }
+}
+setInterval(tick, 2000);
+
+/* ---------- NOVO VÍDEO ---------- */
+async function viewNovo(m) {
+  const temas = await api("/api/temas");
+  const amanha = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
+  m.innerHTML = `<h2>Novo vídeo</h2><p class="sub">Registre o tema aqui. O roteiro, as cenas, a capa e o post são feitos pelo Claude no chat: depois de criar o pedido, é só mandar a mensagem que aparece abaixo.</p>
+    <div class="cartao">
+      <label>Tema do vídeo</label><textarea id="ntema" rows="2" placeholder="Ex.: o que muda na polícia do GTA 6">${esc(S.temaPre || "")}</textarea>
+      <div class="grid2"><div><label>Data do post</label><input type="date" id="ndata" value="${amanha}"></div>
+        <div><label>Notas para o Claude (opcional)</label><input id="nnotas" placeholder="Ex.: foque no sistema de procurado; tom mais engraçado"></div></div>
+      <label>Links de fontes (opcional, separados por vírgula)</label><input id="nfontes" placeholder="https://...">
+      <div class="linha" style="margin-top:12px"><span style="flex:1"></span><button class="prim" id="ncriar">Criar pedido</button></div>
+    </div>
+    ${temas.restantes < 10 ? `<div class="aviso-box" style="margin:12px 0">Restam só ${temas.restantes} temas no catálogo. Abra <b>Temas</b> e use as <b>Tendências</b> ou as <b>Séries infinitas</b>, ou peça no chat: "reabasteça o catálogo de temas".</div>` : ""}
+    <h3>Ideias de temas</h3><div id="ntemas">${temas.temas.slice(0, 14).map(t => `<button class="mini" style="margin:0 6px 6px 0" data-t="${esc(t)}">${esc(t.length > 70 ? t.slice(0, 70) + "…" : t)}</button>`).join("")}</div>
+    <div style="margin-top:8px"><button class="mini" onclick="ir('temas')">Banco de temas e histórico</button></div>`;
+  let temaCat = S.temaCat || ""; S.temaPre = ""; S.temaCat = "";
+  m.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { temaCat = b.dataset.t; $("#ntema").value = b.dataset.t; $("#ntema").focus(); });
+  $("#ncriar").onclick = async () => {
+    try { const j = await api("/api/criar", { tema: $("#ntema").value, data_post: $("#ndata").value, notas: $("#nnotas").value, fontes: $("#nfontes").value, tema_catalogo: temaCat });
+      toast("Pedido criado"); await lista(); await abrirProjeto(j.projeto, "roteiro"); } catch (e) { toast(e.message); }
+  };
+}
+function msgClaude(nome, ped) {
+  return `Escreva o roteiro do pedido ${nome}` + (ped && ped.tema ? ` (tema: ${ped.tema})` : "") + ".";
+}
+function painelPedido(c) {
+  const d = S.dados, ped = d.pedido || {}, msg = msgClaude(d.nome, ped);
+  c.innerHTML = `<div class="cartao" style="max-width:820px"><h3 style="margin-top:0">Aguardando o roteiro do Claude</h3>
+    <p class="sub" style="margin:0 0 10px">Mande esta mensagem no chat do Claude. Ele pesquisa, escreve o roteiro, escolhe as cenas e o post e grava tudo nesta pasta. Depois, clique em <b>Atualizar</b>.</p>
+    <div class="linha"><input id="msgc" value="${esc(msg)}" readonly style="flex:1"><button class="prim" id="copc">Copiar mensagem</button><button id="atuc">Atualizar</button></div>
+    <table style="margin-top:14px"><tr><th style="width:140px">Tema</th><td>${esc(ped.tema || "—")}</td></tr>
+      <tr><th>Data do post</th><td>${esc(ped.data_post || d.nome.slice(0, 10))}</td></tr>
+      <tr><th>Notas</th><td>${esc(ped.notas || "—")}</td></tr><tr><th>Fontes</th><td>${esc(ped.fontes || "—")}</td></tr></table></div>
+    <div class="cartao" style="max-width:820px;margin-top:14px"><h3 style="margin-top:0">Alternativa: copiar e colar (ChatGPT, ou Claude sem a pasta conectada)</h3>
+    <p class="sub" style="margin:0 0 10px">1. Copie o prompt e cole numa conversa nova do ChatGPT (com busca na web ligada). 2. Copie a resposta inteira dele e cole abaixo. 3. Clique em <b>Usar roteiro</b>. Revise as cenas na aba Roteiro antes de gerar.</p>
+    <div class="linha"><button class="prim" id="cpprompt">Copiar prompt para o ChatGPT</button><span class="sub" id="cpinfo" style="margin:0"></span></div>
+    <textarea id="resgpt" rows="8" style="margin-top:10px;font-family:Consolas,monospace;font-size:12px" placeholder="Cole aqui a resposta (o JSON do ChatGPT ou o roteiro.json que o Claude mandou no chat)"></textarea>
+    <div class="linha" style="margin-top:8px"><span style="flex:1"></span><button class="prim" id="usargpt">Usar roteiro</button></div><div id="gptmsg"></div></div>`;
+  $("#copc").onclick = () => { navigator.clipboard.writeText(msg).then(() => toast("Copiado: cole no chat do Claude"), () => { $("#msgc").select(); toast("Selecionado: Ctrl+C"); }); };
+  $("#cpprompt").onclick = async () => { try { const j = await api("/api/prompt/" + encodeURIComponent(d.nome));
+      await navigator.clipboard.writeText(j.prompt); $("#cpinfo").textContent = `Copiado (${Math.round(j.prompt.length / 1000)} mil caracteres). Cole no ChatGPT.`; } catch (e) { toast(e.message); } };
+  $("#usargpt").onclick = async () => { try { const j = await api("/api/colar", { projeto: d.nome, texto: $("#resgpt").value }); const c = j.checagem;
+      toast(c.erros.length ? `Roteiro salvo com ${c.erros.length} erro(s): corrija na aba Roteiro` : "Roteiro salvo ✓"); await lista(); await carregarProjeto(); S.aba = "roteiro"; render();
+    } catch (e) { $("#gptmsg").innerHTML = `<div class="aviso-box" style="margin-top:10px">${esc(e.message)}</div>`; } };
+  $("#atuc").onclick = async () => { await carregarProjeto(); await lista(); if (S.rot) S.aba = "roteiro"; render(); };
+}
+
+/* ---------- PROJETO ---------- */
+function viewProjeto(m) {
+  const d = S.dados, oc = rodando(S.trabalho), r = S.rot, clipe = r && r.tipo === "clipe";
+  if (clipe && !["video", "log"].includes(S.aba)) S.aba = "video";
+  if (!r && S.aba !== "log") { S.aba = "pedido"; }
+  if (r && S.aba === "pedido") { S.aba = "roteiro"; }
+  m.innerHTML = `<div class="topo-proj"><h2>${esc(r ? r.titulo || d.nome : d.nome)}</h2>
+      ${clipe ? `<span class="pill">${ic("tesoura")} clipe${r.idioma ? " · " + esc(r.idioma.toUpperCase()) : ""}</span>${r.corte ? `<button onclick="S.corte='${esc(r.corte.trabalho)}';ir('corte')">Abrir no Cortes</button>` : ""}` : ""}
+      ${r && r.idioma && !clipe ? `<span class="pill">${ic("idioma")} ${esc(r.idioma.toUpperCase())}</span>` : ""}
+      ${r && !clipe ? `<button data-a="previa" ${oc ? "disabled" : ""}>Prévia (enquadramento)</button>
+      <button class="prim" data-a="gerar" ${oc ? "disabled" : ""}>Gerar vídeo</button>
+      <button data-a="ae" ${oc || !d.arquivos["timeline.json"] ? "disabled" : ""}>After Effects</button>` : ""}
+      ${r ? (d.zernio ? `<button disabled title="Já enviado ao Zernio">${ic("agenda")}Agendado ${esc(new Date(d.zernio.horario).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }))}</button>
+        <button id="bcancelar" ${oc ? "disabled" : ""} title="Apaga o post no Zernio e libera para agendar de novo">✕ Cancelar agendamento</button>`
+        : `<button id="bagendar" ${oc || !d.video_pronto || d.postado ? "disabled" : ""} title="${d.video_pronto ? "Agendar este vídeo no Zernio" : "Gere o vídeo primeiro"}">${ic("agenda")}Agendar</button>`) : ""}
+      <button id="bpost" title="Projetos postados não entram no Gerar lote">${d.postado ? "✓ Postado (desfazer)" : "Marcar como postado"}</button>
+      <span style="flex:1"></span><span class="pill ${classeStatus(d.status)}">${esc(d.status || "—")}</span></div>
+    <div class="abas" role="tablist">${(clipe ? [["video", "Vídeo e post"], ["log", "Log"]] : r ? [["roteiro", "Roteiro"], ["enquadramento", "Enquadramento e cenas"], ["video", "Vídeo, capa e post"], ["revisao", d.aprovado ? "Revisão ✓" : "Revisão"], ["log", "Log"]] : [["pedido", "Pedido"], ["log", "Log"]]).map(([k, n]) =>
+      `<div class="aba ${S.aba === k ? "ativa" : ""}" role="tab" tabindex="0" aria-selected="${S.aba === k}" data-aba="${k}">${n}</div>`).join("")}</div><div id="conteudo"></div>`;
+  m.querySelectorAll("[data-a]").forEach(b => b.onclick = () => acao(b.dataset.a));
+  if ($("#bagendar")) $("#bagendar").onclick = () => { if (!d.aprovado && !confirm("Este vídeo ainda não foi revisado (aba Revisão). Agendar mesmo assim?")) return; agendarUm(d.nome, r.titulo || d.nome, d.zernio_cancelado && d.zernio_cancelado.horario); };
+  if ($("#bcancelar")) $("#bcancelar").onclick = () => cancelarAgendamento(d.nome, r.titulo || d.nome, async () => { await carregarProjeto(); await lista(); render(); });
+  $("#bpost").onclick = async () => { try { const j = await api("/api/postado", { projeto: d.nome, valor: !d.postado }); toast(j.postado ? "Marcado como postado: fica fora do lote" : "Desmarcado"); await carregarProjeto(); await lista(); render(); } catch (e) { toast(e.message); } };
+  m.querySelectorAll("[data-aba]").forEach(b => b.onclick = () => { if (S.sujo && !confirm("Há mudanças no roteiro não salvas. Sair mesmo assim?")) return; S.sujo = false; S.aba = b.dataset.aba; render(); });
+  ({ pedido: painelPedido, roteiro: abaRoteiro, enquadramento: abaEnq, video: abaVideo, revisao: abaRevisao, log: abaLog })[S.aba]($("#conteudo"));
+  if (S.focoCorte !== undefined && S.aba === "enquadramento") { const alvo = document.querySelectorAll("#grade .card")[S.focoCorte]; if (alvo) { alvo.scrollIntoView({ block: "center" }); alvo.style.outline = "3px solid var(--laranja)"; } S.focoCorte = undefined; }
+}
+async function acao(a) {
+  try { if (S.sujo) await salvarRoteiro(true); const j = await api("/api/acao", { projeto: S.projeto, acao: a }); S.trabalho = j.trabalho; toast("Iniciado: " + j.trabalho.rotulo);
+    S.aba = "log"; await carregarProjeto(); render(); } catch (e) { toast(e.message); }
+}
+function abaLog(c) { c.innerHTML = `<pre class="log" id="logproj">carregando…</pre>`;
+  api("/api/log?projeto=" + encodeURIComponent(S.projeto)).then(j => { const p = $("#logproj"); p.textContent = j.log || "(vazio)"; p.scrollTop = p.scrollHeight; }); }
+
+/* ---- roteiro ---- */
+let tChecar = null;
+function abaRoteiro(c) {
+  const r = S.rot, M = S.midia; if (!M) { c.innerHTML = "carregando…"; api("/api/midia").then(x => { S.midia = x; abaRoteiro(c); }).catch(erroTela); return; }
+  const est = r.estilo || {}; const vel = parseInt(String(r.velocidade || "+12%").replace("%", "")) || 0;
+  c.innerHTML = `<div class="editor"><div>
+    <div class="cartao"><div class="grid2"><div><label>Título</label><input data-f="titulo" value="${esc(r.titulo || "")}"></div>
+      <div><label>Texto da capa</label><input data-f="capa" value="${esc(r.capa || "")}"></div></div>
+      <div class="grid2"><div><label>Voz</label><div class="linha"><select data-f="voz" style="flex:1"><option value="" ${!r.voz ? "selected" : ""}>Automática (Ajustes › voz e música)</option>${M.vozes.map(([v, n]) => `<option value="${v}" ${r.voz === v ? "selected" : ""}>${n}</option>`).join("")}</select>
+        <button class="mini" id="amostra">▶ amostra</button></div>
+        <label>Série (vídeos da mesma série mantêm voz e música)</label><input data-f="serie" value="${esc(r.serie || "")}" placeholder="ex.: mitos-e-verdades"></div>
+        <div><label>Velocidade da fala: <b id="velv">${vel >= 0 ? "+" : ""}${vel}%</b></label><input type="range" min="-10" max="35" value="${vel}" id="vel"></div></div>
+      <div class="grid2"><div><label>Música de fundo</label><select data-f="musica"><option value="" ${!r.musica ? "selected" : ""}>Automática (Ajustes › voz e música)</option><option value="nenhuma" ${r.musica === "nenhuma" ? "selected" : ""}>Sem música</option>
+        ${M.musicas.map(n => `<option value="musicas/${esc(n)}" ${r.musica && r.musica.endsWith(n) ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>
+        ${M.musicas.length ? "" : `<div class="sub" style="margin:4px 0 0;font-size:11px">Coloque MP3 na pasta <b>skill-gta6\\musicas</b>.</div>`}</div>
+        <div><label>Volume da música: <b id="volv">${Math.round((est.volume_musica ?? .13) * 100)}%</b></label><input type="range" min="0" max="40" value="${Math.round((est.volume_musica ?? .13) * 100)}" id="vol">
+        <audio id="ouvirmus" controls style="width:100%;height:30px;margin-top:4px;display:none"></audio></div></div>
+      ${S.dados.arquivos["narracao.mp3"] ? `<label>Narração atual</label><div class="linha"><audio controls src="/arquivo/${encodeURIComponent(S.projeto)}/narracao.mp3?v=${S.dados.mtimes["narracao.mp3"]}" style="flex:1;height:34px"></audio><button class="mini" onclick="acao('narrar')">Refazer narração</button></div>` : ""}
+    </div>
+    <div id="segs"></div>
+    <button onclick="addSeg()">+ Adicionar segmento</button>
+  </div>
+  <div class="painel"><div class="cartao"><div class="num" id="cpal">—</div><div class="sub" id="cres" style="margin:0 0 8px"></div><div id="cmsgs"></div>
+    <div class="linha" style="margin-top:10px"><button class="prim" onclick="salvarRoteiro()">Salvar</button><button onclick="salvarRoteiro().then(()=>acao('previa'))">Salvar + prévia</button></div>
+    <div class="sub" style="margin:10px 0 0;font-size:12px">Alvo: 150–185 palavras (60–70 s). Os números dos cortes do enquadramento mudam quando o texto muda: depois de editar, gere a prévia de novo.</div></div>
+    ${r.fontes && r.fontes.length ? `<div class="cartao"><b>Fontes</b><ul style="padding-left:18px;margin:6px 0 0;font-size:12px">${r.fontes.map(f => `<li>${esc(f)}</li>`).join("")}</ul></div>` : ""}</div></div>`;
+  c.querySelectorAll("[data-f]").forEach(el => el.oninput = () => { r[el.dataset.f] = el.value; sujo(); if (el.dataset.f === "musica") previewMus(); });
+  $("#vel").oninput = (e) => { const v = +e.target.value; r.velocidade = (v >= 0 ? "+" : "") + v + "%"; $("#velv").textContent = r.velocidade; sujo(); };
+  $("#vol").oninput = (e) => { r.estilo = r.estilo || {}; r.estilo.volume_musica = +e.target.value / 100; $("#volv").textContent = e.target.value + "%"; sujo(); const a = $("#ouvirmus"); a.volume = Math.min(1, +e.target.value / 40); };
+  $("#amostra").onclick = async () => { try { toast("Gerando amostra…"); const j = await api("/api/voz-amostra", { voz: r.voz || "pt-BR-AntonioNeural", velocidade: r.velocidade || "+12%" }); new Audio(j.url).play(); } catch (e) { toast(e.message); } };
+  previewMus(); renderSegs(); checarJa();
+}
+function previewMus() { const a = $("#ouvirmus"); if (!a) return; const v = S.rot.musica; if (v && v !== "nenhuma") { a.src = "/musica/" + encodeURIComponent(v.split("/").pop()); a.style.display = "block"; } else a.style.display = "none"; }
+function sujo() { S.sujo = true; clearTimeout(tChecar); tChecar = setTimeout(checarJa, 700); }
+async function checarJa() { try { const j = await api("/api/checar", { roteiro: S.rot }); mostrarChecagem(j); } catch (e) {} }
+function mostrarChecagem(j) {
+  const m = (j.resumo || "").match(/(\d+) palavras.*~(\d+)s/); $("#cpal").textContent = m ? `${m[1]} palavras` : "—"; $("#cres").textContent = m ? `≈ ${m[2]} s de narração` : "";
+  $("#cmsgs").innerHTML = (j.erros.map(e => `<div class="msg e">✗ ${esc(e)}</div>`).join("") + j.avisos.map(a => `<div class="msg a">! ${esc(a)}</div>`).join("") || `<div class="msg" style="background:#12382F;color:var(--verde);border-left:3px solid var(--verde)">✓ Roteiro dentro da fórmula</div>`)
+    + (j.erros.length || j.avisos.length ? `<div class="linha" style="margin-top:8px;flex-wrap:wrap"><button class="mini" id="bconsertar" title="Corrige destaques, GTA VI/V, tipos, cartelas e efeitos sem mudar o texto">${ic("ferramenta")}Corrigir sozinho</button><button class="mini" id="bpcorr" title="Copia um prompt com os erros para o ChatGPT corrigir">Copiar prompt de correção</button></div>` : "");
+  if ($("#bconsertar")) $("#bconsertar").onclick = async () => { try { const k = await api("/api/consertar", { roteiro: S.rot }); S.rot = k.roteiro; sujo();
+      toast(k.mudancas.length ? `${k.mudancas.length} correção(ões): confira e clique em Salvar` : "Nada para corrigir sozinho: use o prompt de correção"); renderSegs(); mostrarChecagem(k.checagem); } catch (e) { toast(e.message); } };
+  if ($("#bpcorr")) $("#bpcorr").onclick = corrigirComChat;
+}
+async function corrigirComChat() {
+  try {
+    if (S.sujo) await salvarRoteiro();
+    const j = await api("/api/prompt/" + encodeURIComponent(S.projeto) + "?corrigir=1");
+    await navigator.clipboard.writeText(j.prompt).catch(() => {});
+    const md = document.createElement("div"); md.className = "modal";
+    md.innerHTML = `<div class="caixa" style="width:min(720px,94vw)"><div class="cab"><b style="flex:1">Corrigir com o ChatGPT</b><button id="kfechar">Fechar</button></div>
+      <div style="padding:16px"><p class="sub" style="margin:0 0 8px">O prompt de correção foi <b>copiado</b>. Cole numa conversa do ChatGPT, copie a resposta inteira e cole aqui.</p>
+      <textarea id="kresp" rows="10" style="font-family:Consolas,monospace;font-size:12px" placeholder="Cole aqui o JSON corrigido"></textarea><div id="kmsg"></div>
+      <div class="linha" style="margin-top:10px"><button class="mini" id="kcop">Copiar o prompt de novo</button><span style="flex:1"></span><button class="prim" id="kusar">Usar roteiro corrigido</button></div></div></div>`;
+    document.body.appendChild(md); const fechar = () => md.remove(); $("#kfechar").onclick = fechar;
+    $("#kcop").onclick = () => navigator.clipboard.writeText(j.prompt).then(() => toast("Copiado"));
+    $("#kusar").onclick = async () => { try { const r = await api("/api/colar", { projeto: S.projeto, texto: $("#kresp").value }); const c = r.checagem; fechar();
+        toast(c.erros.length ? `Ainda há ${c.erros.length} erro(s)` : "Roteiro corrigido ✓"); await carregarProjeto(); S.aba = "roteiro"; render();
+      } catch (e) { $("#kmsg").innerHTML = `<div class="aviso-box" style="margin-top:10px">${esc(e.message)}</div>`; } };
+  } catch (e) { toast(e.message); }
+}
+function renderSegs() {
+  const r = S.rot, M = S.midia;
+  $("#segs").innerHTML = r.segmentos.map((s, i) => {
+    const cart = typeof s.cartela === "object" && s.cartela ? s.cartela.texto : (s.cartela || "");
+    const img = s.imagem ? (Array.isArray(s.imagem) ? s.imagem[0] : s.imagem) : null;
+    return `<div class="seg" data-i="${i}"><div class="cab"><span class="num">${i + 1}</span>
+      <select data-k="tipo">${TIPOS.map(t => `<option ${s.tipo === t ? "selected" : ""}>${t}</option>`).join("")}</select><span class="esp"></span>
+      <button class="mini" data-m="-1" title="subir">↑</button><button class="mini" data-m="1" title="descer">↓</button><button class="mini" data-del title="apagar">✕</button></div>
+      <textarea data-k="texto">${esc(s.texto)}</textarea>
+      <div class="campos"><div><label>Destaque (amarelo)</label><input data-k="destaque" value="${esc((s.destaque || []).join(", "))}" placeholder="palavra, palavra"></div>
+        <div><label>Cartela (texto grande)</label><input data-k="cartela" value="${esc(cart)}" placeholder="EX.: 212 GB"></div>
+        <div><label>Efeito</label><select data-k="sfx"><option value="">—</option>${["impacto", "whoosh", "pop"].map(x => `<option ${s.sfx === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
+        <div><label>Imagem</label><select data-k="imagem"><option value="">—</option>${M.imagens.map(x => `<option ${img && img.arquivo === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
+        <div><label>Posição</label><select data-k="imgpos"><option value="250" ${img && img.y < 900 ? "selected" : ""}>acima</option><option value="1520" ${img && img.y >= 900 ? "selected" : ""}>abaixo</option></select></div></div>
+      <div class="clipes">${(s.clipes || []).map((c, k) => `<div class="chip" title="${esc(c.cena)}"><img src="${thumbDe(c.cena)}" loading="lazy"><span class="x" data-rm="${k}">✕</span></div>`).join("")}
+        <div class="chip add" data-add title="adicionar cena">+ cena</div>${(s.clipes || []).length ? "" : `<span class="sub" style="margin:0;font-size:11px">sem cenas: o vídeo busca sozinho pelas palavras</span>`}</div></div>`;
+  }).join("");
+  document.querySelectorAll(".seg").forEach(el => {
+    const i = +el.dataset.i, s = S.rot.segmentos[i];
+    el.querySelectorAll("[data-k]").forEach(inp => inp.oninput = () => {
+      const k = inp.dataset.k, v = inp.value;
+      if (k === "destaque") s.destaque = v.split(",").map(x => x.trim()).filter(Boolean);
+      else if (k === "cartela") { if (v.trim()) s.cartela = v.toUpperCase(); else delete s.cartela; }
+      else if (k === "sfx") { if (v) s.sfx = v; else delete s.sfx; }
+      else if (k === "imagem") { if (v) s.imagem = { arquivo: v, escala: v.startsWith("seta") ? 0.22 : 0.3, y: +el.querySelector('[data-k="imgpos"]').value }; else delete s.imagem; }
+      else if (k === "imgpos") { if (s.imagem) { const im = Array.isArray(s.imagem) ? s.imagem[0] : s.imagem; im.y = +v; } }
+      else s[k] = v;
+      sujo();
+    });
+    el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { const j = i + +b.dataset.m; if (j < 0 || j >= S.rot.segmentos.length) return; const a = S.rot.segmentos; [a[i], a[j]] = [a[j], a[i]]; sujo(); renderSegs(); });
+    el.querySelector("[data-del]").onclick = () => { if (confirm("Apagar este segmento?")) { S.rot.segmentos.splice(i, 1); sujo(); renderSegs(); } };
+    el.querySelectorAll("[data-rm]").forEach(x => x.onclick = () => { s.clipes.splice(+x.dataset.rm, 1); sujo(); renderSegs(); });
+    el.querySelector("[data-add]").onclick = () => escolherCena(s.texto, (id) => { s.clipes = s.clipes || []; s.clipes.push({ cena: id }); sujo(); renderSegs(); });
+  });
+}
+function addSeg() { S.rot.segmentos.push({ tipo: "curiosidade", texto: "", destaque: [], clipes: [] }); sujo(); renderSegs(); }
+async function salvarRoteiro(silencioso) { try { const j = await api("/api/roteiro", { projeto: S.projeto, roteiro: S.rot }); S.sujo = false; if (!silencioso) toast("Roteiro salvo"); if ($("#cmsgs")) mostrarChecagem(j.checagem); } catch (e) { toast(e.message); throw e; } }
+
+/* ---- seletor de cenas ---- */
+function escolherCena(sugestao, cb) {
+  const md = document.createElement("div"); md.className = "modal";
+  md.innerHTML = `<div class="caixa"><div class="cab"><input id="pq" placeholder="buscar: lucia praia carro..." value="${esc(palavrasChave(sugestao))}"><button id="pfechar">Fechar</button></div><div class="corpo"><div class="pick" id="pres">buscando…</div></div></div>`;
+  document.body.appendChild(md);
+  const buscar = async () => { const q = $("#pq").value.trim(); const j = await api(`/api/cenas?${q ? "q=" + encodeURIComponent(q) : "filtro=boas"}&limite=150`);
+    $("#pres").innerHTML = j.cenas.filter(c => !c.tags.includes("ruim")).map(c => `<div data-id="${esc(c.id)}"><img src="${c.thumb}" loading="lazy"><span>${esc(c.descricao || c.id)}</span></div>`).join("") || "Nada encontrado. Tente outras palavras.";
+    $("#pres").querySelectorAll("[data-id]").forEach(x => x.onclick = () => { md.remove(); cb(x.dataset.id); }); };
+  let t; $("#pq").oninput = () => { clearTimeout(t); t = setTimeout(buscar, 350); }; $("#pfechar").onclick = () => md.remove(); md.onclick = (e) => { if (e.target === md) md.remove(); };
+  buscar();
+}
+function palavrasChave(txt) { const stop = new Set("a o e é de da do das dos que pra para com no na nos nas um uma uns umas se você seu sua mais mas já isso esse essa ou por ao à os as eu ele ela tem vai foi ser".split(" "));
+  return String(txt || "").toLowerCase().replace(/[^\p{L}\p{N} ]/gu, " ").split(/\s+/).filter(w => w.length > 3 && !stop.has(w)).slice(0, 4).join(" "); }
+
+/* ---- enquadramento e cenas ---- */
+function abaEnq(c) {
+  const cortes = S.dados.cortes;
+  if (!cortes.length) { c.innerHTML = `<div class="vazio">Ainda não há plano de cortes. Clique em <b>Prévia</b>.</div>`; return; }
+  const manual = (S.rot && S.rot.enquadramento) || {};
+  c.innerHTML = `<p class="sub">Arraste a janela sobre o assunto. <b style="color:var(--verde)">Verde</b> = tela cheia, <b style="color:var(--azul)">azul</b> = panorâmica (início → fim), <b style="color:var(--laranja)">laranja</b> = quadro inteiro.
+    Salva sozinho. Se trocar cenas, clique em <b>Prévia</b> para recalcular.</p><div class="grade" id="grade"></div>`;
+  cortes.forEach(corte => {
+    const el = document.createElement("div"); el.className = "card" + (manual[corte.i] !== undefined ? " manual" : "");
+    el.innerHTML = `<canvas></canvas><div class="info"><span class="id">#${corte.i}</span><span>seg ${corte.seg + 1}</span><span class="cena">${esc(corte.cena.replace("GTA6_", ""))}</span><span class="val"></span></div>
+      <div class="modos">${["auto", "fixo", "pan", "inteiro"].map(m => `<button class="mini" data-m="${m}">${{ auto: "Auto", fixo: "Fixo", pan: "Panorâmica", inteiro: "Inteiro" }[m]}</button>`).join("")}<span style="flex:1"></span><button class="mini" data-play title="Tocar o trecho com a janela do enquadramento">▶ Play</button><button class="mini" data-troca>Trocar cena</button></div>`;
+    $("#grade").appendChild(el); montarCard(el, corte, manual[corte.i]);
+  });
+}
+function montarCard(el, corte, manualVal) {
+  const cv = $("canvas", el), ctx = cv.getContext("2d"), img = new Image();
+  let modo = corte.layout === "inteiro" ? "inteiro" : (manualVal !== undefined ? (Array.isArray(corte.foco) ? "pan" : "fixo") : (Array.isArray(corte.foco) ? "pan" : "auto"));
+  let foco = Array.isArray(corte.foco) ? [...corte.foco] : [corte.foco ?? .5, Math.min(1, (corte.foco ?? .5) + .4)];
+  let arr = null, vid = null, tocando = false; const marcar = () => el.querySelectorAll("[data-m]").forEach(b => b.classList.toggle("on", b.dataset.m === modo));
+  const jan = () => cv.height * 9 / 16;
+  const desenhar = () => { if (!img.naturalWidth) return; const fonte = tocando ? vid : img, nw = tocando ? vid.videoWidth : img.naturalWidth, nh = tocando ? vid.videoHeight : img.naturalHeight;
+    if (!nw) return; ctx.drawImage(fonte, 0, 0, cv.width, cv.height);
+    if (modo === "inteiro") { ctx.strokeStyle = "#ffa53d"; ctx.lineWidth = 6; ctx.strokeRect(3, 3, cv.width - 6, cv.height - 6); $(".val", el).textContent = "inteiro"; return; }
+    const w = jan(), usaPan = modo === "pan" || (modo === "auto" && Array.isArray(corte.foco));
+    const pr = tocando && vid.duration ? Math.min(1, vid.currentTime / vid.duration) : 0;
+    const xs = (tocando ? [usaPan ? foco[0] + (foco[1] - foco[0]) * pr : foco[0]] : (usaPan ? foco : [foco[0]])).map(f => f * (cv.width - w));
+    ctx.fillStyle = "rgba(0,0,0,.62)"; ctx.fillRect(0, 0, cv.width, cv.height);
+    xs.forEach(x => ctx.drawImage(fonte, x / cv.width * nw, 0, w / cv.width * nw, nh, x, 0, w, cv.height));
+    if (tocando) { ctx.strokeStyle = "#3ddc84"; ctx.lineWidth = 5; ctx.strokeRect(xs[0] + 2, 2, w - 4, cv.height - 4); ctx.fillStyle = "#3ddc84"; ctx.fillRect(0, cv.height - 8, cv.width * pr, 8); return; }
+    xs.forEach((x, k) => { ctx.strokeStyle = usaPan ? (k ? "#1e6bff" : "#3da5ff") : "#3ddc84"; ctx.lineWidth = 5; ctx.strokeRect(x + 2, 2, w - 4, cv.height - 4);
+      if (usaPan) { ctx.fillStyle = ctx.strokeStyle; ctx.font = "bold 26px system-ui"; ctx.fillText(k ? "FIM" : "INÍCIO", x + 10, 32); } });
+    $(".val", el).textContent = (usaPan ? `${foco[0].toFixed(2)} → ${foco[1].toFixed(2)}` : foco[0].toFixed(2)) + (modo === "auto" ? " (auto)" : ""); };
+  img.onload = () => { cv.width = img.naturalWidth * 2; cv.height = img.naturalHeight * 2; desenhar(); };
+  img.src = `/api/quadro/${encodeURIComponent(S.projeto)}/${corte.i}.jpg`;
+  const salvar = async () => { const valor = modo === "auto" ? "auto" : modo === "inteiro" ? "inteiro" : modo === "pan" ? foco.map(f => +f.toFixed(3)) : +foco[0].toFixed(3);
+    try { const j = await api("/api/enquadramento", { projeto: S.projeto, idx: corte.i, valor }); if (S.rot) S.rot.enquadramento = j.enquadramento; el.classList.toggle("manual", modo !== "auto"); toast(`#${corte.i} salvo`); } catch (e) { toast(e.message); } };
+  const posX = (ev) => { const r = cv.getBoundingClientRect(); return (ev.clientX - r.left) / r.width * cv.width; };
+  cv.onpointerdown = (ev) => { if (modo === "inteiro") return; if (modo === "auto") modo = Array.isArray(corte.foco) ? "pan" : "fixo";
+    const w = jan(), x = posX(ev), cs = (modo === "pan" ? foco : [foco[0]]).map(f => f * (cv.width - w) + w / 2);
+    const k = modo === "pan" ? (Math.abs(x - cs[0]) <= Math.abs(x - cs[1]) ? 0 : 1) : 0; arr = { k, dx: x - cs[k] }; cv.setPointerCapture(ev.pointerId); mover(ev); };
+  const mover = (ev) => { if (!arr) return; const w = jan(); foco[arr.k] = Math.max(0, Math.min(1, (posX(ev) - arr.dx - w / 2) / (cv.width - w))); marcar(); desenhar(); };
+  cv.onpointermove = mover; cv.onpointerup = () => { if (arr) { arr = null; salvar(); } };
+  el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { modo = b.dataset.m; marcar(); desenhar(); salvar(); });
+  const bp = el.querySelector("[data-play]");
+  const parar = () => { tocando = false; if (vid) vid.pause(); bp.textContent = "▶ Play"; desenhar(); };
+  bp.onclick = () => { if (tocando) return parar();
+    document.querySelectorAll("[data-play]").forEach(b => b !== bp && b.textContent.startsWith("■") && b.click());
+    if (!vid) { vid = document.createElement("video"); vid.muted = true; vid.playsInline = true; vid.loop = true; vid.preload = "auto";
+      vid.src = `/api/clipe/${encodeURIComponent(S.projeto)}/${corte.i}.mp4?v=${encodeURIComponent(corte.cena)}`; }
+    bp.textContent = "carregando…";
+    vid.play().then(() => { tocando = true; bp.textContent = "■ Parar"; const loop = () => { if (!tocando) return; desenhar(); requestAnimationFrame(loop); }; loop(); })
+      .catch(e => { bp.textContent = "▶ Play"; toast("Não consegui tocar: " + e.message); }); };
+  el.querySelector("[data-troca]").onclick = () => { const seg = S.rot && S.rot.segmentos[corte.seg]; escolherCena(seg ? seg.texto : "", async (id) => {
+    try { await api("/api/trocar-cena", { projeto: S.projeto, idx: corte.i, cena: id }); await carregarProjeto(); toast("Cena trocada. Clique em Prévia para ver o novo enquadramento.");
+      parar(); vid = null; img.src = thumbDe(id); el.classList.add("manual"); $(".cena", el).textContent = id.replace("GTA6_", "") + " (nova)"; } catch (e) { toast(e.message); } }); };
+  marcar();
+}
+
+/* ---- vídeo, capa e post ---- */
+function cartaoChecagem(ch, titulo = "Checagem antes de postar") {
+  if (!ch) return "";
+  const cor = { ok: "ok", aviso: "rodando", erro: "erro" };
+  return `<div class="cartao"><div class="linha"><b>${titulo}</b><span class="pill ${ch.ok ? "ok" : "erro"}">${ch.ok ? "✓ pode postar" : "✗ corrija antes"}</span></div>
+    <div style="margin-top:8px;font-size:12px">${ch.itens.map(i => `<div><span class="pill ${cor[i.nivel]}" style="margin:2px 6px 2px 0">${{ ok: "ok", aviso: "aviso", erro: "erro" }[i.nivel]}</span>${esc(i.nome)}${i.detalhe && !i.ok ? ` <span style="color:var(--fraco)">· ${esc(i.detalhe)}</span>` : ""}</div>`).join("")}</div>
+    <div class="sub" style="margin:6px 0 0;font-size:11px">O Agendar (Zernio) não deixa enviar vídeo com "erro". Corrija o texto do post e salve.</div></div>`;
+}
+function cartaoTraducao(d) {
+  const r = S.rot || {};
+  if (r.tipo === "clipe" || (r.idioma && r.idioma !== "pt")) return "";
+  return `<div class="cartao"><h3 style="margin-top:0">Versão em outro idioma</h3>
+    <p class="sub" style="margin:0 0 8px">A IA traduz o roteiro e o post, troca a voz e gera o vídeo de novo com as mesmas cenas e a mesma música. Vira um projeto novo (para outra página/conta).</p>
+    <div class="linha"><button data-tr="en" ${rodando(S.trabalho) ? "disabled" : ""}>🇺🇸 Inglês</button><button data-tr="es" ${rodando(S.trabalho) ? "disabled" : ""}>🇲🇽 Espanhol</button></div>
+    ${(d.traducoes || []).length ? `<div style="margin-top:8px;font-size:13px">Já feitas: ${d.traducoes.map(n => `<a href="#" data-abrir="${esc(n)}">${esc(n)}</a>`).join(" · ")}</div>` : ""}</div>`;
+}
+function ligarTraducao(c, d) {
+  c.querySelectorAll("[data-tr]").forEach(b => b.onclick = async () => {
+    if (!confirm(`Criar a versão em ${b.textContent.trim()} deste vídeo? (usa a IA e gera o vídeo novo, leva alguns minutos)`)) return;
+    try { const j = await api("/api/traduzir-video", { projeto: d.nome, idioma: b.dataset.tr }); S.trabalho = j.trabalho; toast("Traduzindo… o projeto novo abre quando terminar"); gaveta(true); } catch (e) { toast(e.message); } });
+  c.querySelectorAll("[data-abrir]").forEach(a => a.onclick = (e) => { e.preventDefault(); abrirProjeto(a.dataset.abrir, "video"); });
+}
+function abaVideo(c) {
+  const d = S.dados, a = d.arquivos, r = S.rot || {}, v = (n) => `/arquivo/${encodeURIComponent(d.nome)}/${n}?v=${d.mtimes[n] || 0}`;
+  if (r.tipo === "clipe") return abaVideoClipe(c);
+  if (!a["final.mp4"]) { c.innerHTML = `<div class="vazio">Ainda não há vídeo. Clique em <b>Gerar vídeo</b>.</div>`; return; }
+  c.innerHTML = `<div class="video-area"><div><video id="vid" src="${v("final.mp4")}" controls></video>
+      <div class="linha" style="margin-top:8px"><a href="${v("final.mp4")}" download class="botao">${ic("baixar")}Baixar vídeo</a>${a["legenda.srt"] ? `<a href="${v("legenda.srt")}" download>Legenda .srt</a>` : ""}${a["projeto_ae.jsx"] ? `<a href="${v("projeto_ae.jsx")}" download>Script After Effects</a>` : ""}</div></div>
+    <div><div class="cartao"><h3 style="margin-top:0">Capa</h3><div class="linha" style="align-items:flex-start;gap:16px">
+        ${a["capa.jpg"] ? `<a href="${v("capa.jpg")}" target="_blank"><img class="capa" src="${v("capa.jpg")}"></a>` : ""}
+        <div style="flex:1;min-width:220px"><label>Texto da capa</label><input id="ctexto" value="${esc(r.capa || "")}">
+          <label>Quadro da capa</label><div class="sub" style="margin:0 0 6px" id="cquadro">${r.capa_quadro && r.capa_quadro.tempo !== undefined ? `em ${(+r.capa_quadro.tempo).toFixed(1)} s` : "início do vídeo"}</div>
+          <div class="linha"><button class="mini" id="usarq">Usar o quadro do player</button><button class="prim mini" id="refcapa">Refazer capa</button></div>
+          <div class="sub" style="margin:8px 0 0;font-size:11px">Pause o vídeo no quadro mais forte e clique em "Usar o quadro do player".</div></div></div></div>
+      <div class="cartao"><h3 style="margin-top:0">Texto do post</h3><textarea id="post" rows="7">${esc(d.post)}</textarea>
+        <div class="linha" style="margin-top:8px"><button id="copiar">Copiar</button><button id="salvarPost">Salvar</button></div></div>
+      <div class="cartao"><h3 style="margin-top:0">Ajustes rápidos</h3><p class="sub" style="margin:0 0 8px">Música, volume, voz e textos ficam na aba <b>Roteiro</b>. Gerar de novo é rápido: os cortes que não mudaram são reaproveitados.</p>
+        <button onclick="acao('gerar')" ${rodando(S.trabalho) ? "disabled" : ""}>Gerar de novo</button></div>
+      ${cartaoChecagem(d.checagem)}${cartaoTraducao(d)}</div></div>`;
+  ligarTraducao(c, d);
+  $("#copiar").onclick = () => { navigator.clipboard.writeText($("#post").value); toast("Copiado"); };
+  $("#salvarPost").onclick = async () => { await api("/api/post", { projeto: d.nome, texto: $("#post").value }); toast("Post salvo"); await carregarProjeto(); render(); };
+  $("#ctexto").oninput = (e) => { r.capa = e.target.value; S.sujo = true; };
+  $("#usarq").onclick = () => { const t = $("#vid").currentTime; r.capa_quadro = { tempo: +t.toFixed(2) }; S.sujo = true; $("#cquadro").textContent = `em ${t.toFixed(1)} s (salve com Refazer capa)`; };
+  $("#refcapa").onclick = async () => { try { await salvarRoteiro(true); acao("capa"); } catch (e) {} };
+}
+
+function abaVideoClipe(c) {
+  const d = S.dados, r = S.rot || {}, f = r.fonte || {}, v = `/arquivo/${encodeURIComponent(d.nome)}/final.mp4?v=${d.mtimes["final.mp4"] || 0}`;
+  c.innerHTML = `<div class="video-area"><div><video src="${v}" controls></video><div class="linha" style="margin-top:8px"><a href="${v}" download class="botao">${ic("baixar")}Baixar vídeo</a></div></div>
+    <div><div class="cartao"><h3 style="margin-top:0">Fonte e crédito</h3><div style="font-size:13px">${esc(f.titulo || "")}<br>
+      <span style="color:var(--fraco)">canal:</span> <b>${esc(f.canal || "?")}</b> ${/^https?:/.test(f.url || "") ? `· <a href="${esc(f.url)}" target="_blank" rel="noopener">abrir original</a>` : ""}</div>
+      <div class="sub" style="margin:6px 0 0;font-size:12px">Credite o criador no texto do post. Só poste clipes de quem permite (campanha de clipagem ou permissão).</div></div>
+      <div class="cartao"><h3 style="margin-top:0">Texto do post</h3><textarea id="post" rows="6">${esc(d.post)}</textarea>
+        <div class="linha" style="margin-top:8px"><button id="copiar">Copiar</button><button id="salvarPost">Salvar</button></div></div>
+      ${cartaoChecagem(d.checagem)}</div></div>`;
+  $("#copiar").onclick = () => { navigator.clipboard.writeText($("#post").value); toast("Copiado"); };
+  $("#salvarPost").onclick = async () => { await api("/api/post", { projeto: d.nome, texto: $("#post").value }); toast("Post salvo"); await carregarProjeto(); render(); };
+}
+
+/* ---------- CORTES E LIVES ---------- */
+const fmtT = (t) => { t = Math.max(0, +t || 0); return `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`; };
+const nfmt2 = (n) => n == null ? "—" : n >= 1e6 ? (n / 1e6).toFixed(1).replace(".0", "") + " mi" : n >= 1e3 ? (n / 1e3).toFixed(n >= 1e4 ? 0 : 1).replace(".0", "") + " mil" : String(n);
+const LAYOUTS = [["blur", "Desfocado", "vídeo inteiro no meio, fundo desfocado (seguro para qualquer cena)"],
+  ["fill", "Tela cheia", "corta as laterais e preenche a tela (bom para gameplay centralizado)"],
+  ["react", "Reação", "rosto do streamer em cima, jogo embaixo, título grande na emenda (o formato viral)"],
+  ["facecam", "Jogo + câmera", "câmera do streamer em cima (38%), jogo embaixo"]];
+async function viewCortes(m) {
+  const j = await api("/api/cortes"), oc = rodando(S.trabalho), lv = j.live || {}, L = j.lives || {};
+  const hora = (ts) => new Date(ts * 1000).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const noAr = (ts) => { if (!ts) return ""; const h = (Date.now() / 1000 - ts) / 3600; return h < 1 ? Math.round(h * 60) + " min" : h.toFixed(1).replace(".0", "") + " h"; };
+  m.innerHTML = `<h2>Cortes e lives</h2><p class="sub">Clipes verticais de lives e vídeos de outros criadores: o Estúdio acha os melhores momentos (volume, empolgação, chat e o "mais repetido" do YouTube), corta em 9:16 com legenda e gancho e manda para o Agendar. Credite sempre o criador e prefira quem permite cortes (campanhas de clipagem). Nada de vazamento, "jogue antes" ou pirataria.</p>
+    <div class="grid2">
+      <div class="cartao"><b>${ic("busca")} Achar momentos num vídeo</b>
+        <label>Link (vídeo ou live encerrada do YouTube, VOD/clipe da Twitch, Kick…)</label><input id="murl" placeholder="https://www.youtube.com/watch?v=…">
+        <div class="linha" style="margin-top:8px;font-size:12px"><span>momentos</span><input id="mtop" type="number" value="8" min="3" max="15" style="width:62px">
+          <span>de</span><input id="mmin" type="number" value="15" min="5" max="60" style="width:58px"><span>a</span><input id="mmax" type="number" value="40" min="10" max="90" style="width:58px"><span>s · analisar até</span>
+          <input id="mlim" type="number" value="90" min="5" max="240" style="width:62px"><span>min</span></div>
+        <div class="linha" style="margin-top:10px"><span class="sub" style="margin:0;font-size:11px;flex:1">Baixa o vídeo, transcreve a fala e pontua cada segundo. Na 1ª vez baixa o modelo de transcrição (~500 MB).</span><button class="prim" id="machar" ${oc ? "disabled" : ""}>Achar momentos</button></div></div>
+      <div class="cartao"><b>${ic("gravar")} Modo ao vivo</b> ${lv.rodando ? `<span class="pill erro">● gravando</span>` : ""}
+        ${lv.rodando ? `<div style="margin-top:8px;font-size:13px;word-break:break-all">${esc(lv.url)}</div>
+          <div style="margin-top:4px;font-size:13px">gravando há ${Math.round((Date.now() / 1000 - lv.inicio) / 60)} de ${lv.minutos} min · <b>${lv.trechos}</b> trecho(s) cortado(s) nos picos do chat</div>
+          <div class="linha" style="margin-top:10px"><button id="lver">Ver trechos</button><button id="llog">Log</button><span style="flex:1"></span><button id="lparar">■ Parar</button></div>`
+        : `<label>Link da live no ar (YouTube ou twitch.tv/canal)</label><input id="lurl" placeholder="https://twitch.tv/…">
+          <div class="linha" style="margin-top:8px"><span>gravar por</span><input id="lmin" type="number" value="60" min="5" max="360" style="width:76px"><span>min</span><span style="flex:1"></span><button class="prim" id="liniciar">Gravar e cortar</button></div>
+          <div class="sub" style="margin:6px 0 0;font-size:11px">Grava em blocos e corta 15 s antes e 20 s depois de cada vez que o chat explode. Roda à parte: o resto do Estúdio continua livre. ${lv.codigo != null && lv.trabalho ? `Última gravação terminou (${lv.trechos} trechos) — <a href="#" id="lultima">abrir</a>.` : ""}</div>`}</div></div>
+    <div class="cartao"><div class="linha"><b>${ic("live")} Lives de GTA 6 agora</b><span class="sub" style="margin:0">${L.atualizado ? "atualizado " + esc(hora(L.atualizado)) + " · Twitch, YouTube e Kick" : "nunca buscado"}</span><span style="flex:1"></span>
+      <button class="prim" id="lbuscar" ${oc ? "disabled" : ""}>Buscar agora</button></div>
+      ${(L.itens || []).length ? `<table style="margin-top:8px"><tr><th style="width:80px">Ao vivo</th><th>Live</th><th style="width:90px">No ar há</th><th style="width:170px"></th></tr>${L.itens.slice(0, 25).map(x => `<tr>
+        <td><b>${nfmt2(x.espectadores)}</b><div class="sub" style="margin:0;font-size:11px">${esc(x.plataforma)}</div></td>
+        <td><b>${esc(x.canal)}</b> <span style="color:var(--fraco);font-size:12px">${esc((x.titulo || "").slice(0, 110))}</span></td><td>${noAr(x.inicio)}</td>
+        <td><button class="mini" data-gravar="${esc(x.url)}" ${lv.rodando ? "disabled" : ""}>${ic("gravar")}Gravar</button> <a class="mini" href="${esc(x.url)}" target="_blank" rel="noopener">abrir</a></td></tr>`).join("")}</table>`
+      : `<p class="sub" style="margin:8px 0 0">Clique em Buscar para ver quem está jogando GTA 6 agora, por número de espectadores (sem precisar de conta).</p>`}</div>
+    <h3>Trabalhos (${j.trabalhos.length})</h3>
+    ${j.trabalhos.length ? `<table><tr><th>Vídeo / live</th><th style="width:90px">Momentos</th><th style="width:70px">Clipes</th><th style="width:80px">Trechos</th><th style="width:80px"></th></tr>${j.trabalhos.map(t => `<tr class="click" data-t="${esc(t.nome)}">
+      <td>${t.live ? ic("gravar") + " " : ""}${esc(t.titulo)}<div class="sub" style="margin:0;font-size:11px">${esc(t.canal)}</div></td><td>${t.momentos || "—"}</td><td>${t.clipes || "—"}</td><td>${t.live ? t.trechos : "—"}</td>
+      <td><button class="mini" data-apagar="${esc(t.nome)}" title="Apaga a pasta do trabalho (vídeos baixados e clipes)">Apagar</button></td></tr>`).join("")}</table>`
+      : `<div class="vazio">Nenhum ainda. Cole um link acima ou grave uma live.</div>`}`;
+  $("#machar").onclick = async () => { const url = $("#murl").value.trim(); if (!url) return toast("Cole o link do vídeo");
+    try { const r = await api("/api/cortes/momentos", { url, top: +$("#mtop").value, min: +$("#mmin").value, max: +$("#mmax").value, minutos: +$("#mlim").value });
+      S.trabalho = r.trabalho; toast("Achando momentos… (abre sozinho quando terminar)"); gaveta(true); render(); } catch (e) { toast(e.message); } };
+  const gravar = async (url, min) => { try { const r = await api("/api/cortes/live", { acao: "iniciar", url, minutos: min }); toast("Gravando a live… os trechos aparecem conforme o chat explode"); S.corte = r.nome; render(); } catch (e) { toast(e.message); } };
+  if ($("#liniciar")) $("#liniciar").onclick = () => { const u = $("#lurl").value.trim(); if (!u) return toast("Cole o link da live"); gravar(u, +$("#lmin").value || 60); };
+  if ($("#lparar")) $("#lparar").onclick = async () => { if (!confirm("Parar a gravação? Os picos pendentes ainda são cortados.")) return; await api("/api/cortes/live", { acao: "parar" }); toast("Parando…"); setTimeout(render, 2500); };
+  if ($("#lver")) $("#lver").onclick = () => { S.corte = lv.trabalho; ir("corte"); };
+  if ($("#lultima")) $("#lultima").onclick = (e) => { e.preventDefault(); S.corte = lv.trabalho; ir("corte"); };
+  if ($("#llog")) $("#llog").onclick = async () => { const r = await api("/api/log?live=1"); $("#glog").textContent = r.log; $("#gtit").textContent = "Log — modo ao vivo"; $("#gaveta").classList.add("aberta"); };
+  $("#lbuscar").onclick = async () => { try { const r = await api("/api/cortes/lives", { consulta: "gta 6" }); S.trabalho = r.trabalho; toast("Procurando lives…"); } catch (e) { toast(e.message); } };
+  m.querySelectorAll("[data-gravar]").forEach(b => b.onclick = () => { const min = prompt("Gravar por quantos minutos?", "60"); if (min) gravar(b.dataset.gravar, +min || 60); });
+  m.querySelectorAll("tr[data-t]").forEach(tr => tr.onclick = (e) => { if (e.target.closest("button")) return; S.corte = tr.dataset.t; ir("corte"); });
+  m.querySelectorAll("[data-apagar]").forEach(b => b.onclick = async () => { if (!confirm("Apagar este trabalho? Some o vídeo baixado e os clipes dele (projetos já mandados para o Agendar continuam).")) return;
+    try { await api("/api/cortes/apagar", { nome: b.dataset.apagar }); toast("Apagado"); render(); } catch (e) { toast(e.message); } });
+}
+
+async function viewCorte(m) {
+  if (!S.corte) return ir("cortes");
+  const d = await api("/api/corte/" + encodeURIComponent(S.corte)), oc = rodando(S.trabalho), n = encodeURIComponent(d.nome);
+  const sinais = [d.sinais.words ? `fala (${d.sinais.words} palavras)` : "", "volume", d.sinais.heatmap ? "mais repetido do YouTube" : "", d.sinais.chat ? "chat" : ""].filter(Boolean).join(" · ");
+  const ckPill = (ch) => !ch ? "" : `<span class="pill ${ch.ok ? (ch.itens.some(i => !i.ok) ? "rodando" : "ok") : "erro"}" title="${esc(ch.itens.filter(i => !i.ok).map(i => i.nome + (i.detalhe ? " (" + i.detalhe + ")" : "")).join("\n") || "tudo certo")}">${ch.ok ? "checagem ✓" : "✗ checagem"}</span>`;
+  m.innerHTML = `<div class="topo-proj"><button onclick="ir('cortes')">← Cortes</button><h2 style="margin-left:6px">${esc(d.info.title || d.nome)}</h2>
+      ${d.info.webpage_url && /^https?:/.test(d.info.webpage_url) ? `<a href="${esc(d.info.webpage_url)}" target="_blank" rel="noopener">abrir original</a>` : ""}<span style="flex:1"></span>
+      ${d.canal ? `<span class="pill">canal: ${esc(d.canal)}</span>` : ""}</div>
+    ${d.live ? `<div class="cartao"><div class="linha"><b>${ic("gravar")} Trechos da live</b>${d.live_rodando ? `<span class="pill erro">● gravando</span><button class="mini" id="cparar">■ Parar</button>` : `<span class="pill">encerrada</span>`}
+        <span class="sub" style="margin:0">cada trecho = 35 s em volta de um pico do chat</span></div>
+      ${d.trechos.length ? `<div class="bgrid" style="margin-top:10px">${d.trechos.slice().reverse().map(s => `<div class="bcard">${s.existe ? `<video src="/corte/${n}/live/${encodeURIComponent(s.arquivo)}" controls preload="metadata" style="width:100%;aspect-ratio:16/9;border-radius:0"></video>` : `<div class="vazio" style="border:0">corte falhou</div>`}
+        <div class="c"><div class="id"><span>#${s.n} · ${esc(s.offset || "")} · ${s.msgs} msgs/10s</span></div><div style="font-size:12px;color:var(--fraco)">${esc((s.palavras || []).join(", "))}</div>
+        ${s.existe ? (s.trabalho ? `<button class="mini" data-abrirt="${esc(s.trabalho)}">Abrir momentos</button>` : `<button class="mini prim" data-trecho="${esc(s.arquivo)}" ${oc ? "disabled" : ""}>Achar o momento e cortar</button>`) : ""}</div></div>`).join("")}</div>`
+        : `<p class="sub" style="margin:8px 0 0">${d.live_rodando ? "Esperando o chat explodir… (os primeiros minutos servem para medir o normal do chat)" : "Nenhum pico de chat nesta gravação."}</p>`}</div>` : ""}
+    ${d.clipes.length ? `<h3>Clipes prontos (${d.clipes.length})</h3><div class="mgrid">${d.clipes.map(c => `<div class="mcard clipe">
+        ${c.arquivo ? `<video src="/corte/${n}/edits/${c.arquivo}?v=${c.mtime}" controls preload="metadata"></video>` : ""}
+        <div class="c"><div class="linha" style="gap:6px"><b>Clipe ${c.n}</b><span class="pill">${esc((LAYOUTS.find(l => l[0] === c.layout) || [0, c.layout])[1])}</span>${ckPill(c.checagem)}</div>
+          <div style="font-size:13px">${esc(c.titulo || c.gancho || "(sem gancho)")}</div><div class="sub" style="margin:0;font-size:11px">${fmtT(c.inicio)}–${fmtT(c.fim)} · ${Math.round(c.fim - c.inicio)} s</div>
+          ${Object.keys(c.traducoes).length ? `<div style="font-size:13px">${ic("idioma")} ${Object.entries(c.traducoes).map(([l, t]) => `<a href="/corte/${n}/edits/${t.arquivo}?v=${t.mtime}" target="_blank">${l.toUpperCase()}</a>`).join(" · ")}</div>` : ""}
+          ${Object.keys(c.projetos).length ? `<div style="font-size:13px">${ic("agenda")} no Agendar: ${Object.entries(c.projetos).map(([l, p]) => `<a href="#" data-proj="${esc(p)}">${l === "orig" ? "original" : l.toUpperCase()}</a>`).join(" · ")}</div>` : ""}
+          <div class="linha" style="gap:6px"><button class="mini prim" data-agendar="${c.n}">${ic("agenda")}Mandar para Agendar</button><button class="mini" data-traduzir="${c.n}" ${oc ? "disabled" : ""}>${ic("idioma")}Traduzir</button>
+            <button class="mini" data-refazer="${c.n}" ${oc ? "disabled" : ""}>Refazer</button><a class="mini" href="/corte/${n}/edits/${c.arquivo}" download aria-label="Baixar clipe ${c.n}" title="Baixar">${ic("baixar")}</a></div></div></div>`).join("")}</div>` : ""}
+    <h3>Momentos (${d.momentos.length})</h3><p class="sub">Sinais usados: ${esc(sinais)}. Escolha os que entregam algo nos primeiros segundos; pule spoilers de história e qualquer coisa que pareça vazamento.</p>
+    ${d.momentos.length ? `<div class="mgrid">${d.momentos.map(c => `<div class="mcard">
+        ${d.tem_fonte ? `<img src="/api/corte-quadro/${n}/${((c.start + c.end) / 2).toFixed(1)}.jpg" loading="lazy" data-previa="${c.n}">` : ""}
+        <div class="c"><div class="linha" style="gap:6px"><b>#${c.n}</b><span>${fmtT(c.start)}–${fmtT(c.end)}</span><span class="sub" style="margin:0">${Math.round(c.end - c.start)} s · nota ${c.score}</span></div>
+          <div>${(c.why || []).map(w => `<span class="pill">${esc(w)}</span> `).join("")}</div>
+          <div style="font-size:12px;color:var(--fraco);max-height:62px;overflow:hidden">${esc(c.text || "")}</div>
+          <div class="linha" style="gap:6px"><button class="mini" data-previa="${c.n}" ${d.tem_fonte ? "" : "disabled"}>▶ Prévia</button><button class="mini prim" data-cortar="${c.n}" ${oc ? "disabled" : ""}>${ic("tesoura")}Cortar</button></div></div></div>`).join("")}</div>`
+      : `<div class="vazio">${d.live ? "Os momentos aparecem depois que você manda achar o momento de um trecho." : "Nenhum momento ainda."}</div>`}`;
+  const mom = (k) => d.momentos.find(x => x.n === +k);
+  m.querySelectorAll("[data-previa]").forEach(b => b.onclick = () => previaMomento(d, mom(b.dataset.previa)));
+  m.querySelectorAll("[data-cortar]").forEach(b => b.onclick = () => modalCortar(d, mom(b.dataset.cortar)));
+  m.querySelectorAll("[data-refazer]").forEach(b => b.onclick = () => { const c = d.clipes.find(x => x.n === +b.dataset.refazer); modalCortar(d, mom(c.n) || { n: c.n, start: c.inicio, end: c.fim }, c); });
+  m.querySelectorAll("[data-traduzir]").forEach(b => b.onclick = () => modalTraduzir(d, +b.dataset.traduzir));
+  m.querySelectorAll("[data-agendar]").forEach(b => b.onclick = () => modalAgendarClipe(d, d.clipes.find(x => x.n === +b.dataset.agendar)));
+  m.querySelectorAll("[data-proj]").forEach(a => a.onclick = (e) => { e.preventDefault(); abrirProjeto(a.dataset.proj, "video"); });
+  m.querySelectorAll("[data-abrirt]").forEach(b => b.onclick = () => { S.corte = b.dataset.abrirt; render(); });
+  m.querySelectorAll("[data-trecho]").forEach(b => b.onclick = async () => { try { const r = await api("/api/cortes/momentos", { trabalho: d.nome, trecho: b.dataset.trecho, top: 3, min: 12, max: 35 });
+    S.trabalho = r.trabalho; toast("Achando o melhor momento do trecho…"); gaveta(true); } catch (e) { toast(e.message); } });
+  if ($("#cparar")) $("#cparar").onclick = async () => { if (!confirm("Parar a gravação?")) return; await api("/api/cortes/live", { acao: "parar" }); toast("Parando…"); setTimeout(render, 2500); };
+  clearTimeout(S.tCorte); if (d.live_rodando) S.tCorte = setTimeout(() => { if (S.view === "corte" && S.corte === d.nome && !document.querySelector(".modal")) render(); }, 20000);
+}
+function abrirModal(html, largura = 760) {
+  const md = document.createElement("div"); md.className = "modal";
+  md.innerHTML = `<div class="caixa" style="width:min(${largura}px,94vw)">${html}</div>`; document.body.appendChild(md);
+  md.onclick = (e) => { if (e.target === md) md.remove(); }; return md;
+}
+function previaMomento(d, c) {
+  const md = abrirModal(`<div class="cab"><b style="flex:1">Prévia do momento #${c.n} · ${fmtT(c.start)}–${fmtT(c.end)}</b><button id="pfechar">Fechar</button></div>
+    <div class="corpo"><video id="pv" src="/corte/${encodeURIComponent(d.nome)}/fonte#t=${c.start.toFixed(1)},${c.end.toFixed(1)}" controls autoplay style="width:100%;aspect-ratio:16/9;border-radius:8px"></video>
+    <div class="linha" style="margin-top:10px"><span class="sub" style="margin:0;flex:1">Toca só o trecho. Se precisar, ajuste início e fim na hora de cortar.</span><button class="prim" id="pcortar">${ic("tesoura")}Cortar este</button></div></div>`, 900);
+  const v = $("#pv", md); v.ontimeupdate = () => { if (v.currentTime > c.end + 0.3) v.pause(); };
+  $("#pfechar", md).onclick = () => md.remove(); $("#pcortar", md).onclick = () => { md.remove(); modalCortar(d, c); };
+}
+function modalCortar(d, c, antigo) {
+  const ant = antigo || {}, lay0 = ant.layout || "blur";
+  const md = abrirModal(`<div class="cab"><b style="flex:1">Cortar o momento #${c.n} (${fmtT(c.start)}–${fmtT(c.end)})</b><button id="kfechar">Fechar</button></div>
+    <div class="corpo"><label style="margin-top:0">Formato</label>
+      <div class="lays">${LAYOUTS.map(([k, t, dsc]) => `<label class="lay ${k === lay0 ? "on" : ""}"><input type="radio" name="klay" value="${k}" ${k === lay0 ? "checked" : ""}><b>${t}</b><span>${dsc}</span></label>`).join("")}</div>
+      <div id="kgancho"><label>Gancho (aparece nos 2 primeiros segundos)</label><input id="kg" maxlength="90" value="${esc(ant.gancho || "")}" placeholder="Ex.: Ninguém viu esse carro escondido"></div>
+      <div id="ktitulo"><label>Título na emenda (fica o clipe todo)</label><div class="linha"><input id="kt" maxlength="110" style="flex:1" value="${esc(ant.titulo || "")}" placeholder="Ex.: Speed FICOU CHOCADO com a polícia do GTA 6">
+        <select id="kte" style="width:150px"><option value="box">caixa branca</option><option value="outline">contorno</option></select></div></div>
+      <div class="linha" style="margin-top:8px"><button class="mini" id="kia">${ic("brilho")}Sugerir 3 com IA</button><span id="ksug" class="linha" style="gap:6px"></span></div>
+      <div class="grid2" style="margin-top:4px"><div><label>Legenda</label><select id="kl"><option value="word">palavra por palavra (destaca a falada)</option><option value="bubble">frase em balão</option><option value="none">sem legenda</option></select></div>
+        <div><label>Trecho (segundos do vídeo original)</label><div class="linha"><input id="ki" type="number" step="0.5" value="${(+c.start).toFixed(1)}" style="width:100px"><span>até</span><input id="kf" type="number" step="0.5" value="${(+c.end).toFixed(1)}" style="width:100px"><span id="kdur" class="sub" style="margin:0"></span></div></div></div>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="kp"> Manter palavrões na legenda (ofensas e preconceito são sempre censurados)</label>
+      <div class="sub" style="margin:10px 0 0;font-size:12px">O "Reação" acha a câmera do streamer sozinho. Se no trecho não houver rosto sobre o jogo, ele avisa e você escolhe outro formato. Ideal: 7 a 30 s, terminando no clímax.</div>
+      <div class="linha" style="margin-top:12px"><span style="flex:1"></span><button class="prim" id="kok">Cortar</button></div></div>`);
+  const lay = () => md.querySelector("[name=klay]:checked").value;
+  const pinta = () => { const r = lay() === "react"; $("#kgancho", md).style.display = r ? "none" : ""; $("#ktitulo", md).style.display = r ? "" : "none";
+    md.querySelectorAll(".lay").forEach(l => l.classList.toggle("on", l.querySelector("input").checked));
+    const du = (+$("#kf", md).value) - (+$("#ki", md).value); $("#kdur", md).textContent = `${Math.round(du)} s`; $("#kdur", md).style.color = du > 60 || du < 5 ? "var(--erro)" : ""; };
+  md.querySelectorAll("[name=klay]").forEach(r => r.onchange = pinta); $("#ki", md).oninput = pinta; $("#kf", md).oninput = pinta; pinta();
+  $("#kfechar", md).onclick = () => md.remove();
+  $("#kia", md).onclick = async () => { const b = $("#kia", md); b.disabled = true; b.textContent = "pensando…";
+    try { const r = await api("/api/cortes/ganchos", { nome: d.nome, pick: c.n }); const lista = lay() === "react" ? r.titulos : r.ganchos;
+      $("#ksug", md).innerHTML = lista.map(x => `<button class="mini" data-s="${esc(x)}">${esc(x)}</button>`).join("");
+      $("#ksug", md).querySelectorAll("[data-s]").forEach(s => s.onclick = () => { (lay() === "react" ? $("#kt", md) : $("#kg", md)).value = s.dataset.s; });
+    } catch (e) { toast(e.message); } b.disabled = false; b.innerHTML = ic("brilho") + "Sugerir 3 com IA"; };
+  $("#kok", md).onclick = async () => {
+    const corpo = { nome: d.nome, pick: c.n, layout: lay(), gancho: $("#kg", md).value, titulo: $("#kt", md).value, estilo_titulo: $("#kte", md).value,
+      legenda: $("#kl", md).value, inicio: +$("#ki", md).value, fim: +$("#kf", md).value, palavroes: $("#kp", md).checked };
+    if (corpo.fim - corpo.inicio < 3) return toast("Trecho curto demais");
+    try { const r = await api("/api/cortes/cortar", corpo); S.trabalho = r.trabalho; md.remove(); toast("Cortando… o clipe aparece aqui quando terminar"); gaveta(true); } catch (e) { toast(e.message); } };
+}
+function modalTraduzir(d, k) {
+  const md = abrirModal(`<div class="cab"><b style="flex:1">Clipe ${k} em outros idiomas</b><button id="tfechar">Fechar</button></div>
+    <div class="corpo"><p class="sub" style="margin:0 0 8px">A IA traduz a legenda e o gancho/título; o vídeo sai igual, com a legenda nova. Bom para clipes de streamers gringos virarem conteúdo em português, ou para abrir páginas em inglês/espanhol.</p>
+      ${[["pt", "🇧🇷 Português"], ["en", "🇺🇸 Inglês"], ["es", "🇲🇽 Espanhol"]].map(([l, t]) => `<label style="display:inline-flex;gap:6px;align-items:center;margin:0 16px 0 0"><input type="checkbox" data-l="${l}" ${l !== "pt" ? "checked" : ""}> ${t}</label>`).join("")}
+      <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="tvoz"> Voz neural lendo o gancho traduzido no começo (voz pronta, nunca imita o streamer)</label>
+      <div class="linha" style="margin-top:12px"><span style="flex:1"></span><button class="prim" id="tok">Traduzir</button></div></div>`, 560);
+  $("#tfechar", md).onclick = () => md.remove();
+  $("#tok", md).onclick = async () => { const idiomas = [...md.querySelectorAll("[data-l]:checked")].map(x => x.dataset.l); if (!idiomas.length) return toast("Marque um idioma");
+    try { const r = await api("/api/cortes/traduzir", { nome: d.nome, pick: k, idiomas, voz: $("#tvoz", md).checked }); S.trabalho = r.trabalho; md.remove(); toast("Traduzindo…"); gaveta(true); } catch (e) { toast(e.message); } };
+}
+function modalAgendarClipe(d, c) {
+  const versoes = [["", "Original"], ...Object.keys(c.traducoes).map(l => [l, l.toUpperCase()])];
+  const md = abrirModal(`<div class="cab"><b style="flex:1">Mandar o clipe ${c.n} para o Agendar</b><button id="afechar">Fechar</button></div>
+    <div class="corpo"><label style="margin-top:0">Versão</label><div class="linha">${versoes.map(([l, t], i) => `<label style="display:inline-flex;gap:6px;align-items:center;margin:0 14px 0 0"><input type="radio" name="av" value="${l}" ${i === 0 ? "checked" : ""}> ${t}${c.projetos[l || "orig"] ? " ✓" : ""}</label>`).join("")}</div>
+      <label>Texto do post (com o crédito ao criador)</label><textarea id="at" rows="5"></textarea>
+      <div class="sub" style="margin:6px 0 0;font-size:12px">Vira um projeto "clipe" na lista da esquerda e aparece na tela Agendar. Antes de enviar ao Zernio passa pela checagem (formato, áudio, duração, termos proibidos e crédito).</div>
+      <div class="linha" style="margin-top:12px"><span style="flex:1"></span><button class="prim" id="aok">Criar</button></div></div>`, 600);
+  const txt = () => { const l = md.querySelector("[name=av]:checked").value; $("#at", md).value = l ? (c.legendas[l] || c.legenda) : c.legenda; };
+  md.querySelectorAll("[name=av]").forEach(r => r.onchange = txt); txt();
+  $("#afechar", md).onclick = () => md.remove();
+  $("#aok", md).onclick = async () => { try { const r = await api("/api/cortes/projeto", { nome: d.nome, pick: c.n, idioma: md.querySelector("[name=av]:checked").value || null, texto: $("#at", md).value });
+    md.remove(); await lista(); toast("Pronto: " + r.projeto); if (confirm("Clipe pronto para agendar. Abrir a tela Agendar agora?")) ir("agendar"); else render(); } catch (e) { toast(e.message); } };
+}
+
+/* ---------- BIBLIOTECA ---------- */
+async function viewBiblioteca(m) {
+  const b = await api("/api/biblioteca"), F = S.bibFiltro, oc = rodando(S.trabalho);
+  if (F.filtro === "pendentes" && !b.videos.some(v => v.pendentes)) F.filtro = "boas";
+  m.innerHTML = `<h2>Biblioteca de cenas</h2><p class="sub">${b.videos.length} vídeos · ${b.videos.reduce((s, v) => s + v.cenas, 0)} cenas · ${b.videos.reduce((s, v) => s + v.pendentes, 0)} sem etiqueta · status: ${esc(b.status || "—")}</p>
+    ${b.variedade ? `<div class="${b.variedade.livres < 150 ? "aviso-box" : "sub"}" style="margin:0 0 12px">Variedade: ${b.variedade.boas} cenas boas, ${b.variedade.usadas_recentes} usadas nos últimos 10 vídeos, <b>${b.variedade.livres} livres</b>. A escolha automática evita as usadas.${b.variedade.livres < 150 ? " Poucas cenas livres: baixe mais vídeos oficiais/gameplay e peça ao Claude para etiquetar." : ""}</div>` : ""}
+    <div class="grid2"><div class="cartao"><b>Baixar vídeo por link</b><label>Link (YouTube etc.)</label><input id="burl" placeholder="https://youtu.be/...">
+        <label>Trecho (opcional)</label><div class="linha"><input id="btrecho" placeholder="00:30-01:10" style="width:160px"><span style="flex:1"></span><button class="prim" id="bbaixar" ${oc ? "disabled" : ""}>Baixar e indexar</button></div>
+        <div class="sub" style="margin:8px 0 0;font-size:11px">Depois de baixar, peça no chat: <b>"etiquete as cenas novas da biblioteca"</b>. O Claude olha as miniaturas e etiqueta.</div></div>
+      <div class="cartao"><b>Ações</b><div class="linha" style="margin-top:10px">
+        <button id="boficiais" ${oc ? "disabled" : ""}>Baixar vídeos oficiais da Rockstar</button>
+        <button id="bindex" ${oc ? "disabled" : ""}>Reindexar pasta</button></div>
+</div></div>
+    <table><tr><th>Vídeo</th><th>Cenas</th><th>Sem etiqueta</th><th>Ruins</th></tr>${b.videos.map(v => `<tr class="click" data-v="${esc(v.id)}"><td>${esc(v.id)}</td><td>${v.cenas}</td><td>${v.pendentes}</td><td>${v.ruins}</td></tr>`).join("")}</table>
+    <h3>Cenas</h3><div class="linha" style="margin-bottom:10px"><select id="bfiltro" style="width:170px">${[["pendentes", "Sem etiqueta"], ["todas", "Todas"], ["boas", "Boas"], ["ruins", "Ruins"]].map(([k, n]) => `<option value="${k}" ${F.filtro === k ? "selected" : ""}>${n}</option>`).join("")}</select>
+      <select id="bvideo" style="width:260px"><option value="">Todos os vídeos</option>${b.videos.map(v => `<option ${F.video === v.id ? "selected" : ""}>${esc(v.id)}</option>`).join("")}</select>
+      <input id="bq" placeholder="buscar por tags/descrição" value="${esc(F.q)}" style="flex:1;min-width:200px"></div><div class="bgrid" id="bgrid">carregando…</div>`;
+  $("#bbaixar").onclick = () => bibAcao("baixar", { url: $("#burl").value, trecho: $("#btrecho").value });
+  $("#boficiais").onclick = () => bibAcao("oficiais"); $("#bindex").onclick = () => bibAcao("indexar");
+  m.querySelectorAll("tr[data-v]").forEach(tr => tr.onclick = () => { F.video = tr.dataset.v; F.filtro = "todas"; render(); });
+  $("#bfiltro").onchange = (e) => { F.filtro = e.target.value; cenasBib(); }; $("#bvideo").onchange = (e) => { F.video = e.target.value; cenasBib(); };
+  let t; $("#bq").oninput = (e) => { F.q = e.target.value; clearTimeout(t); t = setTimeout(cenasBib, 400); };
+  cenasBib();
+}
+async function bibAcao(acao, extra = {}) { try { const j = await api("/api/biblioteca", { acao, ...extra }); S.trabalho = j.trabalho; toast("Iniciado: " + j.trabalho.rotulo); gaveta(true); render(); } catch (e) { toast(e.message); } }
+async function cenasBib() {
+  const F = S.bibFiltro, qs = new URLSearchParams({ filtro: F.filtro, video: F.video, q: F.q, limite: 240 });
+  const j = await api("/api/cenas?" + qs);
+  $("#bgrid").innerHTML = j.cenas.map(c => { const ruim = c.tags.includes("ruim");
+    return `<div class="bcard ${ruim ? "ruim" : ""} ${c.tags.length ? "" : "pend"}" data-id="${esc(c.id)}"><img src="${c.thumb}" loading="lazy"><div class="c">
+      <div class="id"><span>${esc(c.id.replace("GTA6_", ""))}</span><span>${(+c.inicio).toFixed(1)}–${(+c.fim).toFixed(1)}s</span></div>
+      <input data-k="descricao" value="${esc(c.descricao)}" placeholder="descrição curta">
+      <input data-k="tags" value="${esc(ruim ? "" : c.tags.join(", "))}" placeholder="tags, separadas, por vírgula">
+      <label class="linha" style="margin:0;color:var(--texto);font-size:12px"><input type="checkbox" data-k="ruim" ${ruim ? "checked" : ""}> não usar (ruim)</label></div></div>`; }).join("") || `<div class="vazio">Nenhuma cena neste filtro.</div>`;
+  document.querySelectorAll(".bcard").forEach(el => el.querySelectorAll("[data-k]").forEach(inp => inp.onchange = async () => {
+    const k = inp.dataset.k, corpo = { id: el.dataset.id };
+    if (k === "descricao") corpo.descricao = inp.value; if (k === "tags") corpo.tags = inp.value.split(","); if (k === "ruim") corpo.ruim = inp.checked;
+    try { await api("/api/marcar", corpo); el.classList.toggle("ruim", k === "ruim" && inp.checked); el.classList.remove("pend"); toast("Cena salva"); } catch (e) { toast(e.message); } }));
+}
+
+/* ---------- TEMAS ---------- */
+async function cancelarAgendamento(nome, titulo, depois) {
+  if (!confirm(`Cancelar o agendamento de "${titulo}"?\n\nO post é apagado no Zernio e o vídeo fica livre para agendar de novo (no mesmo horário ou em outro).`)) return;
+  try { const j = await api("/api/zernio/cancelar", { projeto: nome }); toast("Agendamento cancelado. Use Agendar para enviar de novo."); if (depois) await depois(j); } catch (e) { toast(e.message); }
+}
+async function agendarUm(nome, titulo, horarioAnterior) {
+  let z; try { z = await api("/api/zernio"); } catch (e) { return toast(e.message); }
+  if (!z.configurado || !z.contas.length) { toast("Configure a chave e as contas do Zernio primeiro"); return ir("agendar"); }
+  const usarAnterior = horarioAnterior && new Date(horarioAnterior) > new Date(Date.now() + 15 * 6e4);
+  const md = document.createElement("div"); md.className = "modal";
+  md.innerHTML = `<div class="caixa" style="width:min(520px,94vw)"><div class="cab"><b style="flex:1">Agendar no Zernio</b><button id="afechar">Fechar</button></div>
+    <div style="padding:16px"><div style="margin-bottom:10px">${esc(titulo)}</div>
+      <label>Horário de publicação (${esc(z.fuso)})</label><input type="datetime-local" id="ahora" value="${usarAnterior ? horarioAnterior.slice(0, 16) : z.sugestao_inicio}" style="width:100%">
+      <div class="sub" style="margin:6px 0 10px;font-size:12px">${usarAnterior ? "Mesmo horário do agendamento cancelado." : "Sugestão: " + (z.agendados.length ? z.intervalo_h + "h depois do último agendado" : "a próxima hora cheia") + "."}</div>
+      <div class="sub" style="margin:0 0 12px">Publicar em: ${z.contas.map(c => esc(c.plataforma + " · " + c.usuario)).join(", ")}</div>
+      <div class="linha"><span style="flex:1"></span><button class="prim" id="aok">Agendar</button></div></div></div>`;
+  document.body.appendChild(md);
+  const fechar = () => md.remove(); $("#afechar").onclick = fechar; md.onclick = (e) => { if (e.target === md) fechar(); };
+  $("#aok").onclick = async () => {
+    try { const j = await api("/api/zernio/agendar", { projetos: [nome], inicio: $("#ahora").value, intervalo_h: z.intervalo_h });
+      fechar(); S.trabalho = j.trabalho; toast("Enviando para o Zernio…"); if (!$("#gaveta").classList.contains("aberta")) gaveta(); } catch (e) { toast(e.message); } };
+}
+async function viewAgendar(m) {
+  const z = await api("/api/zernio"), oc = rodando(S.trabalho);
+  const fmt = (iso) => { const d = new Date(iso); return d.toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); };
+  m.innerHTML = `<h2>Agendar no Zernio</h2><p class="sub">Envia os vídeos prontos para o Zernio, que publica sozinho nas contas escolhidas, um a cada ${z.intervalo_h}h. O horário é o de Brasília/Bahia (${esc(z.fuso)}).</p>
+    <div class="cartao"><b>1. Chave da API</b> <span class="sub" style="margin:0">(zernio.com → Dashboard → API Keys). Fica salva só no seu PC.</span>
+      <div class="linha" style="margin-top:8px"><input id="zkey" type="password" placeholder="${z.configurado ? "chave salva: " + esc(z.chave) + " (cole outra para trocar)" : "cole a chave aqui"}" style="flex:1">
+      <button id="zsalvar">Salvar e carregar contas</button></div>
+      <div id="zcontas" style="margin-top:10px"></div></div>
+    <div class="cartao"><b>2. Vídeos prontos para agendar</b> <span class="sub" style="margin:0">(com vídeo gerado, sem marca de postado e ainda não agendados)</span>
+      <div class="linha" style="margin-top:8px"><label style="margin:0">Primeiro horário</label><input type="datetime-local" id="zini" value="${z.sugestao_inicio}">
+        <label style="margin:0">a cada</label><input type="number" id="zint" min="0.5" step="0.5" value="${z.intervalo_h}" style="width:80px"><span>horas</span></div>
+      <div id="zlista" style="margin-top:10px"></div>
+      <div class="linha" style="margin-top:10px"><span style="flex:1"></span><button class="prim" id="zagendar" ${oc ? "disabled" : ""}>Agendar</button></div></div>
+    <div class="cartao"><div class="linha"><b>Já agendados</b><span style="flex:1"></span><button id="zconf" ${oc ? "disabled" : ""} title="Consulta no Zernio o status real de cada post">${ic("atualizar")}Conferir no Zernio</button></div>${z.agendados.length ? `<table style="margin-top:8px">${z.agendados.map(a => `<tr><td style="width:170px">${fmt(a.horario)}</td><td>${esc(a.titulo)}</td>
+      <td><span class="pill ${a.status === "published" ? "ok" : /fail|partial/.test(a.status || "") ? "erro" : "rodando"}">${esc({ scheduled: "agendado", published: "publicado", failed: "falhou", draft: "rascunho", partial: "parcial" }[a.status] || a.status || "?")}</span></td>
+      <td class="sub" style="margin:0;font-size:12px">${esc((a.plataformas || a.contas || []).join(" · "))}${a.conferido_em ? `<br>conferido ${esc(fmt(a.conferido_em))}` : " · não conferido"}</td>
+      <td style="width:90px"><button class="mini" data-cancel="${esc(a.nome)}" data-tit="${esc(a.titulo)}" ${oc ? "disabled" : ""}>Cancelar</button></td></tr>`).join("")}</table>` : `<p class="sub">Nenhum ainda.</p>`}</div>`;
+  m.querySelectorAll("[data-cancel]").forEach(b => b.onclick = () => cancelarAgendamento(b.dataset.cancel, b.dataset.tit, async () => { await lista(); render(); }));
+  $("#zconf").onclick = async () => { try { const j = await api("/api/zernio/conferir", {}); S.trabalho = j.trabalho; toast("Conferindo no Zernio…"); if (!$("#gaveta").classList.contains("aberta")) gaveta(); } catch (e) { toast(e.message); } };
+  const pintarContas = (lista, escolhidas) => {
+    const ids = new Set(escolhidas.map(c => c.id));
+    $("#zcontas").innerHTML = lista.length ? `<div class="sub" style="margin:0 0 6px">Publicar em:</div>` + lista.map(c => `<label style="display:inline-flex;gap:6px;align-items:center;margin:0 14px 6px 0">
+      <input type="checkbox" data-c='${esc(JSON.stringify(c))}' ${ids.has(c.id) ? "checked" : ""}> ${esc(c.plataforma)} · ${esc(c.usuario)}</label>`).join("")
+      : `<p class="sub">Nenhuma conta conectada no Zernio. Conecte TikTok/YouTube/Instagram no painel do Zernio e clique em Salvar de novo.</p>`;
+    $("#zcontas").querySelectorAll("[data-c]").forEach(cb => cb.onchange = salvarContas);
+  };
+  const salvarContas = async () => { const contas = [...$("#zcontas").querySelectorAll("[data-c]:checked")].map(cb => JSON.parse(cb.dataset.c));
+    try { await api("/api/zernio/config", { contas }); toast("Contas salvas"); } catch (e) { toast(e.message); } };
+  if (z.contas.length) pintarContas(z.contas, z.contas);
+  $("#zsalvar").onclick = async () => { const k = $("#zkey").value.trim();
+    try { const j = await api("/api/zernio/contas", { api_key: k }); if (k) await api("/api/zernio/config", { api_key: k });
+      $("#zkey").value = ""; pintarContas(j.contas, z.contas); toast(`${j.contas.length} conta(s) encontrada(s)`); } catch (e) { toast(e.message); } };
+  const planejar = () => { const marc = [...$("#zlista").querySelectorAll("[data-p]:checked")].map(cb => cb.dataset.p);
+    let t = new Date($("#zini").value), h = parseFloat($("#zint").value) || 4;
+    $("#zlista").querySelectorAll("[data-h]").forEach(el => { const k = marc.indexOf(el.dataset.h); el.textContent = k < 0 ? "—" : fmt(new Date(t.getTime() + k * h * 36e5)); });
+    $("#zagendar").textContent = `Agendar ${marc.length} vídeo(s)`; return marc; };
+  const chk = (p) => { const c = p.checagem; if (!c) return ""; const ruins = c.itens.filter(i => !i.ok);
+    const dica = ruins.map(i => `${i.nivel.toUpperCase()}: ${i.nome}${i.detalhe ? " (" + i.detalhe + ")" : ""}`).join("\n") || "tudo certo";
+    return `<span class="pill ${c.ok ? (ruins.length ? "rodando" : "ok") : "erro"}" title="${esc(dica)}" style="cursor:help">${c.ok ? (ruins.length ? "checagem: avisos" : "checagem ✓") : "✗ checagem: " + esc(ruins.filter(i => i.nivel === "erro").map(i => i.nome).join(", "))}</span>`; };
+  $("#zlista").innerHTML = z.prontos.length ? `<table>${z.prontos.map(p => `<tr><td style="width:30px"><input type="checkbox" data-p="${esc(p.nome)}" ${p.checagem && !p.checagem.ok ? "disabled" : "checked"}></td>
+      <td>${p.tipo === "clipe" ? ic("tesoura") + " " : ""}<a href="#" data-ver="${esc(p.nome)}">${esc(p.titulo)}</a> ${p.aprovado ? `<span class="pill ok">revisado</span>` : (p.tipo === "clipe" ? "" : `<span class="pill" title="Abra o projeto > Revisão">não revisado</span>`)} ${chk(p)}<div class="sub" style="margin:0;font-size:11px">${esc(p.nome)}</div></td><td style="width:170px" data-h="${esc(p.nome)}"></td></tr>`).join("")}</table>`
+    : `<p class="sub">Nenhum vídeo pronto para agendar. Gere os vídeos (ou o lote) primeiro.</p>`;
+  $("#zlista").querySelectorAll("[data-p]").forEach(cb => cb.onchange = planejar);
+  $("#zlista").querySelectorAll("[data-ver]").forEach(a => a.onclick = (e) => { e.preventDefault(); abrirProjeto(a.dataset.ver, "video"); }); $("#zini").oninput = planejar; $("#zint").oninput = planejar; planejar();
+  $("#zagendar").onclick = async () => { const projetos = planejar(); if (!projetos.length) return toast("Marque pelo menos um vídeo");
+    const contas = [...$("#zcontas").querySelectorAll("[data-c]:checked")].length; if (!contas && !z.contas.length) return toast("Escolha pelo menos uma conta");
+    if (!confirm(`Enviar ${projetos.length} vídeo(s) para o Zernio, a partir de ${fmt($("#zini").value)}, um a cada ${$("#zint").value}h?\n\nO envio leva alguns minutos por vídeo (upload).`)) return;
+    try { await api("/api/zernio/config", { intervalo_h: parseFloat($("#zint").value) });
+      const j = await api("/api/zernio/agendar", { projetos, inicio: $("#zini").value, intervalo_h: parseFloat($("#zint").value) });
+      S.trabalho = j.trabalho; toast("Enviando para o Zernio… (acompanhe no log)"); if (!$("#gaveta").classList.contains("aberta")) gaveta(); } catch (e) { toast(e.message); } };
+}
+async function viewTemas(m) {
+  const j = await api("/api/temas"), oc = rodando(S.trabalho), td = j.tendencias || {};
+  const nfmt = (n) => n >= 1e6 ? (n / 1e6).toFixed(1).replace(".0", "") + " mi" : n >= 1e3 ? Math.round(n / 1e3) + " mil" : String(n);
+  const usar = (tema, cat) => { S.temaCat = cat || tema; S.temaPre = tema; ir("novo"); };
+  m.innerHTML = `<h2>Temas e histórico</h2><p class="sub">Fontes para nunca ficar sem conteúdo: as <b>tendências</b> do YouTube (inclusive o que está subindo agora), as <b>perguntas dos fãs</b>, os <b>segredos</b> achados nos vídeos, os <b>códigos</b>, as <b>séries infinitas</b> e o <b>banco</b> curado. Tema usado sai sozinho da lista.</p>
+    ${j.restantes < 10 ? `<div class="aviso-box" style="margin-bottom:12px">Restam só ${j.restantes} temas no banco. Use as tendências e as séries abaixo, ou peça no chat: "reabasteça o catálogo de temas".</div>` : ""}
+    <div class="cartao"><div class="linha"><b>${ic("fogo")} Tendências do YouTube</b><span class="sub" style="margin:0">${td.atualizado ? "atualizado " + esc(new Date(td.atualizado).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })) + " · " + esc({ relevancia: "relevância", subindo: "subindo agora (views/hora)", hoje: "mais vistos hoje", semana: "mais vistos na semana", mes: "mais vistos no mês" }[td.periodo] || "") : "nunca buscado"}</span>
+      <span style="flex:1"></span><select id="tper" style="width:auto"><option value="relevancia" selected>relevância (igual ao YouTube)</option><option value="subindo">subindo agora (views por hora, 48 h)</option><option value="hoje">mais vistos hoje</option><option value="semana">mais vistos na semana</option><option value="mes">mais vistos no mês</option></select>
+      <button class="prim" id="tbuscar" ${oc ? "disabled" : ""}>Buscar agora</button></div>
+      <div class="sub" style="margin:6px 0 0;font-size:12px"><b>Subindo agora</b> mostra os vídeos das últimas 48 h que mais ganham views por hora: pega o assunto quente antes de todo mundo (demora ~1 min a mais). A busca "gta 6" do YouTube, na mesma ordem, só com vídeos sobre GTA 6 (sem lives, sem GTA 5, até 1 hora). Não copie: use como inspiração. "Virar tema" cria a sua versão com o assunto do vídeo. O TikTok não tem busca pública que o Estúdio consiga ler, então para o TikTok peça no chat: "o que está viralizando de GTA 6 no TikTok?".</div>
+      ${(td.itens || []).length ? `<table style="margin-top:8px"><tr><th style="width:80px">Views</th>${td.periodo === "subindo" ? `<th style="width:90px">por hora</th>` : ""}<th>Vídeo</th><th style="width:60px"></th><th style="width:110px"></th></tr>${td.itens.slice(0, 30).map(x => `<tr><td><b>${nfmt(x.views)}</b></td>${td.periodo === "subindo" ? `<td><b style="color:var(--laranja)">${nfmt(x.vph || 0)}/h</b><div class="sub" style="margin:0;font-size:11px">há ${x.idade_h < 1 ? "<1" : Math.round(x.idade_h)} h</div></td>` : ""}
+        <td><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.titulo)}</a><div class="sub" style="margin:0;font-size:11px">${esc(x.canal)} · ${x.short ? "Short" : Math.round(x.duracao / 60) + " min"}</div></td>
+        <td>${x.usado ? `<span class="pill ok">usado</span>` : ""}</td><td><button class="mini" data-trend="${esc(x.titulo)}">Virar tema</button></td></tr>`).join("")}</table>` : ""}</div>
+    ${cartaoPerguntas(j.perguntas || {}, oc)}
+    ${cartaoSegredos(j.segredos || [])}
+    ${cartaoCodigos(j.codigos || {})}
+    <div class="cartao"><div class="linha"><b>${ic("serie")} Séries infinitas</b><span class="sub" style="margin:0">${j.series_livres} combinações ainda não usadas (fórmula de série × assunto)</span><span style="flex:1"></span><button id="sortear">Sortear 10</button></div>
+      <div id="series" style="margin-top:8px"></div></div>
+    <h3>Banco de temas (${j.restantes})</h3>${j.temas.map(t => `<div class="tema"><div class="t">${esc(t)}</div><button class="mini" data-usar="${esc(t)}">Usar</button></div>`).join("")}
+    <h3>Histórico (${j.historico.length})</h3><table><tr><th>Data</th><th>Título</th><th>Gancho</th><th>Status</th></tr>
+      ${j.historico.map(h => `<tr class="click" data-p="${esc(h.nome)}"><td>${esc(h.data_post)}</td><td>${esc(h.titulo)}</td><td style="color:var(--fraco)">${esc(h.gancho)}</td><td><span class="pill ${classeStatus(h.status)}">${esc(h.status || "—")}</span></td></tr>`).join("")}</table>`;
+  if (td.periodo) $("#tper").value = td.periodo;
+  m.querySelectorAll("[data-usar]").forEach(b => b.onclick = () => usar(b.dataset.usar));
+  m.querySelectorAll("[data-trend]").forEach(b => b.onclick = () => usar(`Minha versão (sem copiar) do assunto do vídeo viral: "${b.dataset.trend}"`, b.dataset.trend));
+  m.querySelectorAll("tr[data-p]").forEach(tr => tr.onclick = () => abrirProjeto(tr.dataset.p, "video"));
+  m.querySelectorAll("[data-perg]").forEach(b => b.onclick = () => usar(`COMO FAZER no GTA 6 (pergunta que os fãs mais fazem): "${b.dataset.perg}". Responda só com fato de fonte oficial; se não houver, diga que ainda não se sabe.`, b.dataset.perg));
+  m.querySelectorAll("[data-seg]").forEach(b => b.onclick = () => usar(`Segredo/local escondido do GTA 6 (dica achada num vídeo de ${b.dataset.canal || "criador"}, confira antes): ${b.dataset.seg}`, b.dataset.seg));
+  m.querySelectorAll("[data-segst]").forEach(b => b.onclick = async () => { try { await api("/api/segredo", { id: b.dataset.id, status: b.dataset.segst }); toast(b.dataset.segst === "wrong" ? "Removido" : "Marcado como confirmado"); render(); } catch (e) { toast(e.message); } });
+  m.querySelectorAll("[data-cod]").forEach(b => b.onclick = () => usar(`Código (cheat) do GTA 6: ${b.dataset.cod}. Como digitar no celular do jogo e o que precisa para liberar. Avise: códigos 'reportados' por guias, confirme no jogo; cheat bloqueia salvar e troféus na sessão.`, "Código: " + b.dataset.cod));
+  m.querySelectorAll("[data-codtodos]").forEach(b => b.onclick = () => usar("Todos os códigos (cheats) do GTA 6 e como liberar cada um: os mais úteis, como digitar no celular (PS5/Xbox) e o aviso de que bloqueiam salvar e troféus. Use só os da lista de referência (cheats.md), nunca códigos falsos que circulam.", "Códigos do GTA 6"));
+  if ($("#pbuscar")) $("#pbuscar").onclick = async () => { try { const r = await api("/api/perguntas", { dias: 3 }); S.trabalho = r.trabalho; toast("Lendo as perguntas no Reddit…"); } catch (e) { toast(e.message); } };
+  $("#tbuscar").onclick = async () => { try { const r = await api("/api/tendencias", { periodo: $("#tper").value }); S.trabalho = r.trabalho; toast("Buscando tendências no YouTube…"); } catch (e) { toast(e.message); } };
+  const sortear = async () => { try { const r = await api("/api/temas/series", { n: 10 });
+    $("#series").innerHTML = r.temas.length ? r.temas.map(t => `<div class="tema"><div class="t">${esc(t)}</div><button class="mini" data-s="${esc(t)}">Usar</button></div>`).join("") : `<p class="sub">Todas as combinações já foram usadas. Acrescente assuntos em references/series.json (ou peça no chat).</p>`;
+    $("#series").querySelectorAll("[data-s]").forEach(b => b.onclick = () => usar(b.dataset.s)); } catch (e) { toast(e.message); } };
+  $("#sortear").onclick = sortear; sortear();
+}
+
+function cartaoPerguntas(pg, oc) {
+  const g = pg.grupos || [];
+  return `<div class="cartao"><div class="linha"><b>${ic("pergunta")} Perguntas dos fãs</b><span class="sub" style="margin:0">${pg.atualizado ? "Reddit, atualizado " + esc(new Date(pg.atualizado).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })) + " · " + (pg.total || 0) + " perguntas" : "nunca buscado"}</span>
+    <span style="flex:1"></span><button class="prim" id="pbuscar" ${oc ? "disabled" : ""}>Buscar agora</button></div>
+    <div class="sub" style="margin:6px 0 0;font-size:12px">O que o pessoal mais pergunta sobre GTA 6 no Reddit (últimos 3 dias), agrupado. Pergunta repetida = vídeo "COMO FAZER" que já nasce com público. Para incluir os comentários dos seus posts, cole-os em <b>videos/_comentarios.txt</b> (um por linha).</div>
+    ${g.length ? `<table style="margin-top:8px"><tr><th style="width:60px">Vezes</th><th>Pergunta</th><th style="width:110px"></th></tr>${g.slice(0, 15).map(x => `<tr><td><b>${x.vezes}×</b></td>
+      <td>${esc(x.pergunta)}${x.links && x.links[0] ? ` <a href="${esc(x.links[0])}" target="_blank" rel="noopener" style="font-size:11px">ver</a>` : ""}</td><td><button class="mini" data-perg="${esc(x.pergunta)}">Virar tema</button></td></tr>`).join("")}</table>` : ""}</div>`;
+}
+function cartaoSegredos(lista) {
+  return `<div class="cartao"><div class="linha"><b>${ic("mapa")} Segredos achados nos vídeos</b><span class="sub" style="margin:0">${lista.length} pistas</span></div>
+    <div class="sub" style="margin:6px 0 0;font-size:12px">Sempre que você acha momentos num vídeo (tela Cortes), o Estúdio procura falas sobre lugares escondidos, carros raros, dinheiro e colecionáveis. Glitches, vazamentos e "jogar antes" são ignorados. Confira no jogo antes de postar.</div>
+    ${lista.length ? `<table style="margin-top:8px">${lista.slice(0, 12).map(x => `<tr><td style="width:90px"><span class="pill ${x.status === "verified" ? "ok" : ""}">${x.status === "verified" ? "confirmado" : esc(x.category)}</span></td>
+      <td style="font-size:12px">${esc((x.where || "").slice(0, 220))}<div class="sub" style="margin:0;font-size:11px">${esc(x.source_channel || "")} ${/^https?:/.test(x.source_url_with_timestamp || "") ? `· <a href="${esc(x.source_url_with_timestamp)}" target="_blank" rel="noopener">ver no vídeo</a>` : ""}</div></td>
+      <td style="width:210px"><button class="mini" data-seg="${esc((x.where || "").slice(0, 300))}" data-canal="${esc(x.source_channel || "")}">Virar tema</button>
+        ${x.status !== "verified" ? `<button class="mini" data-segst="verified" data-id="${esc(x.id)}" title="Conferi no jogo">✓</button>` : ""}<button class="mini" data-segst="wrong" data-id="${esc(x.id)}" title="Não é segredo / errado">✕</button></td></tr>`).join("")}</table>`
+      : `<p class="sub" style="margin:8px 0 0">Nenhuma ainda. Ache momentos de um vídeo de "segredos do GTA 6" na tela Cortes.</p>`}</div>`;
+}
+function cartaoCodigos(cd) {
+  const it = cd.itens || [];
+  if (!it.length) return "";
+  return `<div class="cartao"><div class="linha"><b>${ic("controle")} Códigos (cheats)</b><span class="sub" style="margin:0">${it.length} reportados por guias${cd.nota ? " · lista de " + esc(cd.nota) : ""}</span><span style="flex:1"></span><button class="mini" data-codtodos="1">Virar tema: todos os códigos</button></div>
+    <div class="sub" style="margin:6px 0 0;font-size:12px">Só códigos que aparecem em guias publicados (GameSpot, Red Bull…). Os falsos que circulam ficam de fora. Diga "reportado", não "confirmado", até testar no jogo.</div>
+    <details style="margin-top:8px"><summary style="cursor:pointer;color:var(--fraco)">ver os ${it.length} códigos</summary><table style="margin-top:8px">${it.map(x => `<tr><td><b>${esc(x.nome)}</b><div class="sub" style="margin:0;font-size:11px">${esc(x.libera)}</div></td><td style="font-size:16px;letter-spacing:2px">${esc(x.sequencia)}</td>
+      <td style="width:110px"><button class="mini" data-cod="${esc(x.nome + " (" + x.sequencia + "; libera: " + x.libera + ")")}">Virar tema</button></td></tr>`).join("")}</table></details></div>`;
+}
+
+async function cartaoAtualizacao(el) {
+  const j = await api("/api/atualizacao"), c = j.config, u = j.ultimo;
+  const quando = (t) => t ? new Date(t).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+  el.innerHTML = `<div class="cartao"><div class="linha" style="margin-bottom:6px"><b style="font-size:16px;flex:1">${ic("atualizar")} Atualizações automáticas</b>
+      <span class="pill ${c.configurado && c.automatico ? "ok" : ""}">${c.configurado ? (c.automatico ? "ligadas" : "desligadas") : "sem repositório"}</span></div>
+    <p class="sub" style="margin:0 0 10px">Ao abrir, o Estúdio confere o repositório do GitHub. Se o <b>VERSAO.txt</b> de lá for maior que o daqui (${esc(j.local)}),
+      ele baixa, confere e aplica sozinho, guardando uma cópia do que mudou em <b>ferramentas/_backup</b>. Suas chaves e preferências nunca são trocadas.</p>
+    <div class="grid2"><div><label for="arepo">Repositório (dono/nome)</label><input id="arepo" value="${esc(c.repo || "")}" placeholder="seu-usuario/estudio-gta6"></div>
+      <div><label for="aauto">Ao abrir o programa</label><select id="aauto"><option value="1" ${c.automatico ? "selected" : ""}>baixar e aplicar sozinho</option><option value="0" ${c.automatico ? "" : "selected"}>não procurar</option></select></div></div>
+    <div class="linha" style="margin-top:12px"><button id="asalvar">Salvar</button><button id="averificar" ${c.configurado ? "" : "disabled"}>Procurar agora</button>
+      <span id="ares" class="sub" style="margin:0"></span></div>
+    ${u ? `<p class="sub" style="margin:10px 0 0;font-size:13px">Última: ${u.ok ? `atualizado de ${esc(u.de)} para <b>${esc(u.para)}</b> (${u.arquivos} arquivos)` : `não aplicada: ${esc(u.erro || "")}`} · ${esc(quando(u.quando))}</p>` : ""}</div>`;
+  $("#asalvar").onclick = async () => { try { await api("/api/atualizacao", { acao: "config", repo: $("#arepo").value, automatico: $("#aauto").value === "1" }); toast("Atualizações salvas"); cartaoAtualizacao(el); } catch (e) { toast(e.message); } };
+  $("#averificar").onclick = async () => { const r = $("#ares"); r.textContent = "procurando…";
+    try { const v = await api("/api/atualizacao", { acao: "verificar" });
+      if (!v.nova) { r.textContent = `Em dia: versão ${v.local} (GitHub: ${v.remota}).`; return; }
+      r.innerHTML = `Há a versão <b>${esc(v.remota)}</b> (você tem ${esc(v.local)}). <button class="mini prim" id="aaplicar">Baixar e aplicar</button>`;
+      $("#aaplicar").onclick = async () => { r.textContent = "baixando e conferindo…";
+        try { const a = await api("/api/atualizacao", { acao: "aplicar" });
+          r.innerHTML = a.aplicado ? `Pronto: ${a.arquivos} arquivos atualizados para ${esc(a.para)}. <button class="mini prim" id="areiniciar">Reiniciar agora</button>` : esc(a.motivo || "nada a fazer");
+          if ($("#areiniciar")) $("#areiniciar").onclick = async () => { try { await api("/api/reiniciar", {}); toast("Reiniciando…"); } catch (e) { toast(e.message); } };
+        } catch (e) { r.textContent = e.message; } };
+    } catch (e) { r.textContent = e.message; } };
+}
+function avisoAtualizado(u) {
+  if (!u || !u.ok || !u.para) return;
+  let visto = ""; try { visto = localStorage.getItem("estudio_atualizado") || ""; } catch (e) {}
+  if (visto === u.para) return;
+  try { localStorage.setItem("estudio_atualizado", u.para); } catch (e) {}
+  toast(`Estúdio atualizado para a versão ${u.para} (${u.arquivos} arquivos).`);
+}
+
+/* ---------- REVISÃO RÁPIDA ---------- */
+async function abaRevisao(c) {
+  const d = S.dados;
+  if (!d.video_pronto) { c.innerHTML = `<div class="vazio">Ainda não há vídeo. Clique em <b>Gerar vídeo</b>.</div>`; return; }
+  c.innerHTML = `<div class="vazio">carregando quadros…</div>`;
+  let j; try { j = await api("/api/revisao/" + encodeURIComponent(d.nome)); } catch (e) { c.innerHTML = `<div class="aviso-box">${esc(e.message)}</div>`; return; }
+  const so = S.revTudo ? j.itens : j.itens.filter(x => x.chave || x.texto);
+  c.innerHTML = `<div class="linha" style="margin-bottom:10px"><p class="sub" style="margin:0;flex:1">Um quadro do meio de cada corte, com a fala do trecho. Confira: imagem condiz com a fala, nada de tela preta/texto de trailer, sem repetição. Achou um ruim? <b>Refazer</b> abre o corte no Enquadramento.</p>
+      <label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="revtudo" ${S.revTudo ? "checked" : ""}> todos os cortes</label>
+      <button class="${j.aprovado ? "" : "prim"}" id="baprovar">${j.aprovado ? "✓ Aprovado (desfazer)" : "✓ Aprovar vídeo"}</button></div>
+    <div class="grade" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr))">${so.map(x => `<div class="card" style="padding:6px">
+      <img src="/api/revisao/${encodeURIComponent(d.nome)}/${x.i}.jpg?v=${Math.round(j.mtime)}" style="width:100%;border-radius:6px;display:block;cursor:pointer" data-t="${x.t0}" loading="lazy">
+      <div style="font-size:11px;margin:6px 0 4px;color:var(--sub)">#${x.i} · ${x.t0.toFixed(1)}s · seg ${x.seg + 1}${x.tipo ? " · " + esc(x.tipo) : ""}</div>
+      ${x.cartela ? `<div style="font-size:12px;font-weight:700;color:var(--amarelo)">${esc(x.cartela)}</div>` : ""}
+      ${x.texto ? `<div style="font-size:12px;line-height:1.35">${esc(x.texto.length > 140 ? x.texto.slice(0, 140) + "…" : x.texto)}</div>` : ""}
+      <div class="linha" style="margin-top:6px"><span style="flex:1"></span><button class="mini" data-refazer="${x.i}">Refazer</button></div></div>`).join("")}</div>
+    <div class="sub" style="margin-top:10px;font-size:12px">Clique num quadro para tocar o vídeo daquele ponto (aba Vídeo).</div>`;
+  $("#revtudo").onchange = (e) => { S.revTudo = e.target.checked; abaRevisao(c); };
+  c.querySelectorAll("[data-refazer]").forEach(b => b.onclick = () => { S.focoCorte = +b.dataset.refazer; S.aba = "enquadramento"; render(); });
+  c.querySelectorAll("img[data-t]").forEach(im => im.onclick = () => { S.aba = "video"; render(); setTimeout(() => { const v = $("#vid"); if (v) { v.currentTime = +im.dataset.t; v.play(); } }, 300); });
+  $("#baprovar").onclick = async () => { try { const r = await api("/api/aprovar", { projeto: d.nome, valor: !j.aprovado }); toast(r.aprovado ? "Aprovado: pronto para agendar" : "Aprovação desfeita"); await carregarProjeto(); render(); } catch (e) { toast(e.message); } };
+}
+
+/* ---------- RESULTADOS ---------- */
+async function viewResultados(m) {
+  const r = await api("/api/resultados"), oc = rodando(S.trabalho);
+  const n = (x) => (x || 0) >= 1e6 ? (x / 1e6).toFixed(1).replace(".0", "") + " mi" : (x || 0) >= 1e3 ? (x / 1e3).toFixed(1).replace(".0", "") + " mil" : String(x || 0);
+  const vs = r.videos || [], tot = r.total || {};
+  m.innerHTML = `<div class="linha"><h2 style="margin:0;flex:1">Resultados</h2><button class="prim" id="ratual" ${oc ? "disabled" : ""}>${ic("atualizar")}Atualizar números do Zernio</button></div>
+    <p class="sub">Views, curtidas e comentários dos vídeos agendados pelo Estúdio${r.atualizado ? " · atualizado " + esc(new Date(r.atualizado).toLocaleString("pt-BR")) : ""}. O Zernio atualiza os números mais ou menos de hora em hora. O Claude usa estes números para escolher os próximos temas e ganchos.</p>
+    ${vs.length ? `<div class="grid2" style="grid-template-columns:repeat(4,1fr)">${[["Views", tot.views], ["Curtidas", tot.likes], ["Comentários", tot.comments], ["Média por vídeo", r.media_views]].map(([k, v]) => `<div class="cartao" style="text-align:center"><div class="sub" style="margin:0">${k}</div><div style="font-size:26px;font-weight:800">${n(v)}</div></div>`).join("")}</div>
+    ${r.por_serie && r.por_serie.length ? `<div class="cartao"><b>Média de views por série</b><table style="margin-top:6px">${r.por_serie.map(x => `<tr><td>${esc(x.nome)}</td><td style="width:90px">${x.videos} vídeo(s)</td><td style="width:120px"><b>${n(x.media_views)}</b></td></tr>`).join("")}</table></div>` : ""}
+    <div class="cartao"><b>Por vídeo (mais vistos primeiro)</b><table style="margin-top:6px"><tr><th>Vídeo</th><th>Views</th><th>Curtidas</th><th>Coment.</th><th>Compart.</th><th>Plataformas</th></tr>
+      ${vs.map((x, i) => `<tr class="click" data-p="${esc(x.nome)}"><td>${i < 3 ? `<span class="pill ${i === 0 ? "rodando" : ""}" style="margin-right:6px">${i + 1}º</span>` : ""}${esc(x.titulo)}<div class="sub" style="margin:0;font-size:11px">${esc((x.gancho || "").slice(0, 110))}</div></td>
+        <td><b>${n(x.views)}</b></td><td>${n(x.likes)}</td><td>${n(x.comments)}</td><td>${n(x.shares)}</td>
+        <td style="font-size:12px">${(x.plataformas || []).map(p => p.url ? `<a href="${esc(p.url)}" target="_blank" onclick="event.stopPropagation()">${esc(p.plataforma)}</a> ${n(p.views)}` : `${esc(p.plataforma)} ${n(p.views)}`).join("<br>")}</td></tr>`).join("")}</table></div>`
+    : `<div class="vazio">Sem números ainda. Clique em <b>Atualizar números do Zernio</b> depois que os primeiros vídeos agendados forem publicados.<br><span class="sub">Precisa do Analytics no plano do Zernio.</span></div>`}
+    ${r.sem_numeros && r.sem_numeros.length ? `<p class="sub" style="font-size:12px">${r.sem_numeros.length} vídeo(s) marcados como postados fora do Zernio não têm números aqui.</p>` : ""}`;
+  $("#ratual").onclick = async () => { try { const j = await api("/api/resultados", {}); S.trabalho = j.trabalho; toast("Buscando números no Zernio…"); gaveta(true); } catch (e) { toast(e.message); } };
+  m.querySelectorAll("tr[data-p]").forEach(tr => tr.onclick = () => abrirProjeto(tr.dataset.p, "video"));
+}
+
+/* ---------- ATUALIZAÇÃO ---------- */
+function bannerAtualizacao(a) {
+  const ja = $("#bannerAtu");
+  if (!a || !a.disponivel) { if (ja) ja.remove(); return; }
+  if (ja) return;
+  document.body.insertAdjacentHTML("afterbegin", `<div id="bannerAtu" style="position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:40;background:var(--p3);color:var(--texto);border:1px solid var(--linha-forte);border-left:4px solid var(--verde);padding:10px 16px;border-radius:12px;box-shadow:0 16px 40px -12px #000c;display:flex;gap:12px;align-items:center;font-weight:600;max-width:92vw">
+    <span style="flex:1">${ic("brilho")} Há uma versão nova do Estúdio instalada (${esc(a.versao)}). Reinicie para usar as novidades.</span>
+    <button class="prim mini" id="breini">${a.reinicia ? "Reiniciar agora" : "Como reiniciar"}</button></div>`);
+  $("#breini").onclick = async () => { if (!a.reinicia) return alert("Clique no ícone do Estúdio perto do relógio > Sair, e abra o programa de novo.");
+    if (rodando(S.trabalho)) return toast("Espere o trabalho atual terminar");
+    try { await api("/api/reiniciar", {}); document.body.innerHTML = `<div style="padding:40px;font-size:18px">Reiniciando o Estúdio…</div>`; } catch (e) { toast(e.message); } };
+}
+
+/* ---------- AJUSTES / PRIMEIRA CONFIGURAÇÃO ---------- */
+async function viewAjustes(m, primeira) {
+  const c = await api("/api/config"), v = c.variacao, oc = rodando(S.trabalho);
+  const passo = (n, tit, corpo, ok) => `<div class="cartao"><div class="linha" style="margin-bottom:8px"><b style="font-size:16px;flex:1">${primeira ? n + ". " : ""}${tit}</b>${ok === undefined ? "" : `<span class="pill ${ok ? "ok" : ""}">${ok ? "pronto" : "pendente"}</span>`}</div>${corpo}</div>`;
+  const nomeVoz = Object.fromEntries(c.vozes);
+  m.innerHTML = `<h2>${primeira ? "Bem-vindo ao Estúdio GTA 6 Shorts" : "Ajustes e skill"}</h2>
+    <p class="sub">${primeira ? "Antes de começar, 5 passos rápidos. Dá para mudar tudo depois em Ajustes e skill." : "Pasta de dados, skill do Claude, voz e música, Zernio e versão."}</p>
+    ${passo(1, "Apresente o projeto ao Claude (skill)", `<p class="sub" style="margin:0 0 8px">O Estúdio gera uma skill com o caminho desta pasta. No app do Claude: conecte a pasta de dados (+ › Add folder), depois copie a mensagem abaixo e envie. Assim o Claude entende o projeto em qualquer PC.</p>
+      <div class="linha"><button class="prim" id="cgskill">${c.skill.existe ? "Gerar de novo" : "Gerar skill"}</button>
+        ${c.skill.existe ? `<button id="cabrirskill">Abrir pasta da skill</button>` : ""}</div>
+      ${c.skill.existe ? `<label>Caminho da skill</label><div class="linha"><input readonly value="${esc(c.skill.caminho)}" style="flex:1"><button class="mini" data-copiar="${esc(c.skill.caminho)}">Copiar</button></div>
+      <label>Mensagem para enviar ao Claude</label><textarea readonly rows="4" id="cprompt">${esc(c.skill.prompt)}</textarea>
+      <div class="linha" style="margin-top:8px"><button class="prim" id="ccopprompt">Copiar mensagem</button><span style="flex:1"></span>
+        <label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="cenviada" ${c.skill.enviada ? "checked" : ""}> Já enviei ao Claude</label></div>
+      <div class="sub" style="margin:8px 0 0;font-size:12px">Opcional: para o Claude já saber de tudo em conversas novas, envie o arquivo <b>${esc(c.skill.zip.split(/[\\\\/]/).pop())}</b> em claude.ai › Configurações › Capacidades › Skills.</div>` : ""}`, c.skill.existe && c.skill.enviada)}
+    ${passo(2, "Pasta de dados", `<div class="linha"><input readonly value="${esc(c.raiz)}" style="flex:1"><button id="cabrirraiz">Abrir</button></div>
+      ${c.onedrive ? `<div class="aviso-box" style="margin-top:8px">Esta pasta está no <b>OneDrive</b>. Os vídeos ocupam espaço na nuvem e a sincronização pode travar arquivos durante a renderização.
+        Para mover: feche o Estúdio (ícone perto do relógio › Sair) e dê dois cliques em <b>ferramentas\\mover_dados.bat</b>. Depois, conecte a pasta nova no app do Claude e gere a skill de novo.</div>`
+      : `<div class="sub" style="margin:8px 0 0">Fora do OneDrive ✓</div>`}`, !c.onedrive)}
+    ${passo(3, "Voz e música", `<div class="grid2"><div><label>Voz</label><select id="cvmodo">${[["serie", "Por série (mesma série = mesma voz; sem série = rodízio)"], ["rodizio", "Rodízio (a menos usada nos últimos vídeos)"], ["fixa", "Sempre a mesma"]].map(([k, n]) => `<option value="${k}" ${v.voz === k ? "selected" : ""}>${n}</option>`).join("")}</select>
+        <label>Voz fixa / padrão</label><select id="cvpad">${c.vozes.map(([k, n]) => `<option value="${k}" ${v.voz_padrao === k ? "selected" : ""}>${n}</option>`).join("")}</select>
+        <label>Vozes no rodízio</label>${c.vozes.map(([k, n]) => `<label style="display:flex;gap:6px;align-items:center;margin:2px 0;font-weight:400"><input type="checkbox" data-voz="${k}" ${v.vozes.includes(k) ? "checked" : ""}> ${esc(n)}</label>`).join("")}</div>
+      <div><label>Música de fundo</label><select id="cmmodo">${[["serie", "Por série (sem série = rodízio)"], ["rodizio", "Rodízio entre as músicas da pasta"], ["fixa", "Sempre a música tema"]].map(([k, n]) => `<option value="${k}" ${v.musica === k ? "selected" : ""}>${n}</option>`).join("")}</select>
+        <div class="sub" style="margin:8px 0 0;font-size:12px">As músicas ficam em <b>musicas</b> na pasta de dados (arquivos que começam com "tema" são a música tema). Quanto mais músicas, mais variação. Voz ou música escolhida na aba Roteiro sempre vale.</div>
+        <div class="linha" style="margin-top:10px"><button class="prim" id="cvsalvar">Salvar voz e música</button></div></div></div>`)}
+    ${passo(4, "Agendamento (Zernio)", `<p class="sub" style="margin:0 0 8px">${c.zernio.configurado ? `Chave salva · ${c.zernio.contas} conta(s) escolhida(s).` : "Opcional: com a chave do Zernio o Estúdio agenda os vídeos sozinho no TikTok/YouTube/Instagram."}</p>
+      <button id="czernio">${c.zernio.configurado ? "Abrir Agendar" : "Configurar agora"}</button>`, c.zernio.configurado && c.zernio.contas > 0)}
+    ${passo(5, "Biblioteca de cenas", `<p class="sub" style="margin:0 0 8px">${c.biblioteca.videos} vídeo(s), ${c.biblioteca.cenas} cenas${c.biblioteca.status ? " · " + esc(c.biblioteca.status) : ""}.${c.biblioteca.cenas ? "" : " Comece baixando os vídeos oficiais da Rockstar (leva alguns minutos); depois peça ao Claude: «etiquete as cenas novas da biblioteca»."}</p>
+      <div class="linha"><button id="cbib" ${oc ? "disabled" : ""}>${c.biblioteca.cenas ? "Abrir biblioteca" : "Baixar vídeos oficiais"}</button></div>`, c.biblioteca.cenas > 0)}
+    ${primeira ? "" : passo("", "Versão", `<p class="sub" style="margin:0">Programa ${c.versao.programa} · ferramentas ${esc(c.versao.ferramentas || "—")}${c.versao.inicio && c.versao.ferramentas !== c.versao.inicio ? " · <b>há atualização: reinicie</b>" : ""}</p>
+      <div class="linha" style="margin-top:8px"><button id="crefazer">Rever a configuração inicial</button></div>`)}
+    ${primeira ? "" : `<div id="catualiza"></div>`}
+    ${primeira ? `<div class="linha" style="margin:16px 0 40px"><span class="sub" style="margin:0;flex:1">Os passos 2 a 5 podem ficar para depois.</span><button class="prim" id="cconcluir" style="font-size:16px;padding:12px 26px">Entrar no Estúdio</button></div>` : ""}`;
+  const copiar = (t, msg) => navigator.clipboard.writeText(t).then(() => toast(msg || "Copiado"), () => toast("Não consegui copiar: selecione e use Ctrl+C"));
+  m.querySelectorAll("[data-copiar]").forEach(b => b.onclick = () => copiar(b.dataset.copiar));
+  $("#cgskill").onclick = async () => { try { await api("/api/skill", {}); toast("Skill gerada"); render(); } catch (e) { toast(e.message); } };
+  if ($("#cabrirskill")) $("#cabrirskill").onclick = () => api("/api/abrir", { caminho: c.skill.zip }).catch(e => toast(e.message));
+  $("#cabrirraiz").onclick = () => api("/api/abrir", { caminho: c.raiz }).catch(e => toast(e.message));
+  if ($("#ccopprompt")) $("#ccopprompt").onclick = () => copiar($("#cprompt").value, "Copiado: cole no chat do Claude");
+  if ($("#cenviada")) $("#cenviada").onchange = async (e) => { await api("/api/config", { skill_enviada: e.target.checked }); render(); };
+  $("#cvsalvar").onclick = async () => { const vozes = [...m.querySelectorAll("[data-voz]:checked")].map(x => x.dataset.voz);
+    if (!vozes.length) return toast("Marque pelo menos uma voz");
+    try { await api("/api/variacao", { voz: $("#cvmodo").value, voz_padrao: $("#cvpad").value, vozes, musica: $("#cmmodo").value }); toast("Voz e música salvas (valem para os próximos vídeos)"); } catch (e) { toast(e.message); } };
+  $("#czernio").onclick = async () => { if (primeira) await api("/api/config", { concluida: true }); document.body.classList.remove("primeira"); ir("agendar"); };
+  $("#cbib").onclick = async () => { if (primeira) await api("/api/config", { concluida: true }); document.body.classList.remove("primeira");
+    if (c.biblioteca.cenas) return ir("biblioteca"); S.view = "biblioteca"; bibAcao("oficiais"); };
+  if ($("#catualiza")) cartaoAtualizacao($("#catualiza"));
+  if ($("#crefazer")) $("#crefazer").onclick = async () => { await api("/api/config", { concluida: false }); document.body.classList.add("primeira"); ir("config"); };
+  if ($("#cconcluir")) $("#cconcluir").onclick = async () => { await api("/api/config", { concluida: true }); document.body.classList.remove("primeira"); tick(); ir("novo"); };
+}
+
+async function porHash() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get("p")) return abrirProjeto(h.get("p"), h.get("aba") || "roteiro");
+  const v = location.hash.slice(1); if (["novo", "biblioteca", "temas", "agendar", "resultados", "ajustes", "cortes"].includes(v)) return ir(v);
+  return ir("novo");
+}
+window.addEventListener("hashchange", porHash);
+(async () => { await conferirVersao();
+  try { const c = await api("/api/config"); if (!c.concluida) { document.body.classList.add("primeira"); return ir("config"); } } catch (e) {}
+  await porHash(); tick(); })();
+</script>
+</body>
+</html>

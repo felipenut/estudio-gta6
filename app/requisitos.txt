@@ -1,0 +1,9 @@
+numpy
+opencv-python-headless>=4.10,<5
+pillow
+edge-tts
+yt-dlp[default]
+deno
+faster-whisper
+pystray
+pywebview

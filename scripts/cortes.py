@@ -1,0 +1,392 @@
+"""Cortes de lives e vídeos no Estúdio (tela "Cortes e lives").
+
+Pasta: <dados>/cortes/<trabalho>/ (um trabalho por vídeo/live). Os scripts pesados ficam em scripts/clipes/
+(adaptados do gtavi-claudecode, licença MIT) e rodam pela fila de trabalhos do Estúdio; o modo ao vivo roda à parte,
+porque grava por até horas e não pode travar o resto do programa.
+"""
+import csv, datetime, json, re, shutil, subprocess, sys, time
+from pathlib import Path
+
+AQUI = Path(__file__).resolve().parent
+FERR = AQUI.parent
+RAIZ = FERR.parent
+CORTES = RAIZ / "cortes"
+VIDEOS = RAIZ / "videos"
+CLIPES = AQUI / "clipes"
+if str(CLIPES) not in sys.path:
+    sys.path.append(str(CLIPES))
+SEM_JANELA = {"creationflags": 0x08000000} if sys.platform.startswith("win") else {}
+LAYOUTS = ("blur", "fill", "react", "facecam")
+IDIOMAS = ("pt", "en", "es", "de", "ru", "fr", "it")
+LIVE = {"proc": None, "url": None, "trabalho": None, "inicio": None, "minutos": None, "log": None}
+
+
+def _ler(p, padrao=None):
+    try:
+        return json.loads(Path(p).read_text(encoding="utf-8"))
+    except Exception:
+        return padrao
+
+
+def _gravar(p, dados):
+    Path(p).parent.mkdir(parents=True, exist_ok=True)
+    Path(p).write_text(json.dumps(dados, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def trabalho_dir(nome):
+    d = (CORTES / nome).resolve()
+    if d.parent != CORTES.resolve() or not d.is_dir():
+        raise FileNotFoundError(nome)
+    return d
+
+
+def nome_trabalho(src):
+    import common
+    return common.job_name(src)
+
+
+def _url_ok(url):
+    url = (url or "").strip()
+    if not re.match(r"https?://[^\s\"'<>]+$", url):
+        raise ValueError("cole um link completo (https://...) do YouTube, Twitch ou Kick")
+    return url
+
+
+# ------------------------------------------------------------------ listas e detalhes
+def lista():
+    itens = []
+    if CORTES.exists():
+        for d in CORTES.iterdir():
+            if not d.is_dir() or d.name.startswith((".", "_")):
+                continue
+            info, cand = _ler(d / "info.json", {}), _ler(d / "candidates.json", {})
+            est = _ler(d / "live" / "estado.json")
+            clipes = [c for c in (d / "edits").glob("clip_*.mp4") if re.fullmatch(r"clip_\d+", c.stem)] if (d / "edits").exists() else []
+            itens.append({"nome": d.name, "titulo": info.get("title") or d.name, "canal": info.get("channel") or info.get("uploader") or "",
+                          "url": info.get("webpage_url") or "", "momentos": len(cand.get("candidates") or []),
+                          "clipes": len(clipes), "live": bool(est), "trechos": len((est or {}).get("spikes") or []),
+                          "mtime": d.stat().st_mtime})
+    return sorted(itens, key=lambda x: -x["mtime"])
+
+
+def lives():
+    return _ler(CORTES / "_lives.json", {"itens": [], "atualizado": None})
+
+
+def legenda_sugerida(meta, canal):
+    t = meta.get("title") or meta.get("hook") or ""
+    return "\n".join(x for x in [t, f"🎥 via @{canal}" if canal else "", "#GTA6 #GTAVI #gta #games"] if x)
+
+
+def checar_clipe(mp4, texto, canal):
+    """Checagem com cache (só refaz se o vídeo ou o texto mudarem)."""
+    import checar
+    mp4 = Path(mp4)
+    cache = mp4.with_suffix(".checagem.json")
+    import hashlib
+    chave = f"{mp4.stat().st_mtime:.0f}|{hashlib.md5((texto or '').encode()).hexdigest()}|{canal}"
+    c = _ler(cache)
+    if c and c.get("chave") == chave:
+        return c["resultado"]
+    try:
+        r = checar.checar_video(mp4, texto, "clipe", canal)
+    except BaseException as e:
+        return {"ok": False, "itens": [{"nome": "checagem", "ok": False, "nivel": "erro", "detalhe": str(e)[:200]}]}
+    _gravar(cache, {"chave": chave, "resultado": r})
+    return r
+
+
+def detalhe(nome):
+    d = trabalho_dir(nome)
+    info, cand = _ler(d / "info.json", {}), _ler(d / "candidates.json", {})
+    canal = info.get("channel") or info.get("uploader") or ""
+    clipes = []
+    for j in sorted((d / "edits").glob("clip_*.json")) if (d / "edits").exists() else []:
+        if not re.fullmatch(r"clip_\d+", j.stem):
+            continue
+        meta = _ler(j, {})
+        mp4 = j.with_suffix(".mp4")
+        n = int(j.stem.split("_")[1])
+        trad = {}
+        for f in sorted(j.parent.glob(f"clip_{n}_*.mp4")):
+            lang = f.stem.split("_")[-1]
+            if lang in IDIOMAS:
+                trad[lang] = {"arquivo": f.name, "mtime": f.stat().st_mtime}
+        leg = legenda_sugerida(meta, canal)
+        clipes.append({"n": n, "arquivo": mp4.name if mp4.exists() else None, "mtime": mp4.stat().st_mtime if mp4.exists() else 0,
+                       "inicio": meta.get("start"), "fim": meta.get("end"), "layout": meta.get("layout"),
+                       "gancho": meta.get("hook"), "titulo": meta.get("title"), "traducoes": trad,
+                       "legendas": _ler(j.parent / f"clip_{n}_legendas.json", {}), "legenda": leg,
+                       "checagem": checar_clipe(mp4, leg, canal) if mp4.exists() else None,
+                       "projetos": meta.get("projetos") or {}})
+    est = _ler(d / "live" / "estado.json")
+    trechos = []
+    for s in (est or {}).get("spikes") or []:
+        s = dict(s)
+        f = d / "live" / (s.get("arquivo") or "-")
+        s["existe"] = f.exists()
+        if f.exists():
+            tn = nome_trabalho(str(f.resolve()))
+            s["trabalho"] = tn if (CORTES / tn / "candidates.json").exists() else None
+        trechos.append(s)
+    rodando = bool(LIVE["proc"] and LIVE["trabalho"] == d.name and LIVE["proc"].poll() is None)
+    return {"nome": d.name, "info": info, "canal": canal, "momentos": cand.get("candidates") or [],
+            "sinais": cand.get("signals") or {}, "duracao": cand.get("duration"), "clipes": clipes,
+            "tem_fonte": bool(cand.get("source") and Path(cand["source"]).exists()),
+            "live": est, "trechos": trechos, "live_rodando": rodando}
+
+
+def quadro(nome, t):
+    """Miniatura (jpg) do vídeo-fonte no segundo t, para os cartões de momento."""
+    d = trabalho_dir(nome)
+    cand = _ler(d / "candidates.json", {})
+    src = cand.get("source")
+    if not src or not Path(src).exists():
+        raise FileNotFoundError("fonte")
+    t = max(0.0, float(t))
+    out = d / "quadros" / f"{int(t * 10):07d}.jpg"
+    if not out.exists():
+        out.parent.mkdir(exist_ok=True)
+        subprocess.run([shutil.which("ffmpeg") or "ffmpeg", "-y", "-v", "error", "-ss", f"{t:.2f}", "-i", src, "-frames:v", "1",
+                        "-vf", "scale=480:-2", "-q:v", "4", str(out)], capture_output=True, **SEM_JANELA)
+    if not out.exists():
+        raise FileNotFoundError("quadro")
+    return out
+
+
+def arquivo(nome, rel):
+    d = trabalho_dir(nome)
+    alvo = (d / rel).resolve()
+    if d not in alvo.parents:
+        raise PermissionError("caminho inválido")
+    if alvo.name == "source.mp4" or alvo.suffix.lower() in (".mp4", ".jpg", ".png", ".ts"):
+        return alvo
+    raise PermissionError("tipo de arquivo não servido")
+
+
+def fonte(nome):
+    d = trabalho_dir(nome)
+    src = (_ler(d / "candidates.json", {}) or {}).get("source")
+    if not src or not Path(src).exists():
+        raise FileNotFoundError("fonte")
+    return Path(src)
+
+
+# ------------------------------------------------------------------ etapas (rodam na fila do Estúdio)
+def etapas_momentos(corpo):
+    """Achar momentos num link (ou num trecho do modo ao vivo). Devolve (nome do trabalho, etapas)."""
+    top = max(3, min(15, int(corpo.get("top") or 8)))
+    mn = max(5, min(60, float(corpo.get("min") or 15)))
+    mx = max(mn + 5, min(90, float(corpo.get("max") or 40)))
+    minutos = max(5, min(240, int(corpo.get("minutos") or 90)))
+    if corpo.get("trecho"):                          # spike_N.mp4 de uma live gravada
+        pai = trabalho_dir(corpo["trabalho"])
+        f = (pai / "live" / corpo["trecho"]).resolve()
+        if pai not in f.parents or not f.exists():
+            raise FileNotFoundError("trecho")
+        src, extra = str(f), ["--info-de", str(pai)]
+    else:
+        src, extra = _url_ok(corpo.get("url")), []
+    nome = nome_trabalho(src)
+    (CORTES / nome).mkdir(parents=True, exist_ok=True)
+    etapas = [["clipes/moments.py", src, "--top", str(top), "--min", f"{mn:g}", "--max", f"{mx:g}",
+               "--max-minutes", str(minutos)] + extra,
+              ["clipes/secrets_map.py", "scan", str(CORTES / nome)]]
+    return nome, etapas
+
+
+def etapas_cortar(corpo):
+    d = trabalho_dir(corpo["nome"])
+    pick = int(corpo["pick"])
+    layout = corpo.get("layout") if corpo.get("layout") in LAYOUTS else "blur"
+    e = ["clipes/cut.py", str(d), "--pick", str(pick), "--layout", layout,
+         "--captions", corpo.get("legenda") if corpo.get("legenda") in ("word", "bubble", "none") else "word"]
+    if (corpo.get("gancho") or "").strip() and layout != "react":
+        e += ["--hook", corpo["gancho"].strip()[:90]]
+    if (corpo.get("titulo") or "").strip() and layout == "react":
+        e += ["--title", corpo["titulo"].strip()[:110], "--title-style",
+              corpo.get("estilo_titulo") if corpo.get("estilo_titulo") in ("box", "outline") else "box"]
+    for k, arg in (("inicio", "--start"), ("fim", "--end")):
+        if corpo.get(k) not in (None, ""):
+            e += [arg, f"{float(corpo[k]):.2f}"]
+    if corpo.get("palavroes"):
+        e.append("--allow-profanity")
+    return [e]
+
+
+def etapas_traduzir(corpo):
+    d = trabalho_dir(corpo["nome"])
+    langs = [x for x in (corpo.get("idiomas") or []) if x in IDIOMAS]
+    if not langs:
+        raise ValueError("escolha pelo menos um idioma")
+    e = ["clipes/traduzir.py", str(d), "--pick", str(int(corpo["pick"])), "--langs", ",".join(langs)]
+    if corpo.get("voz"):
+        e.append("--voz")
+    return [e]
+
+
+def para_projeto(corpo):
+    """Leva um clipe pronto para videos/ como projeto 'clipe' (aparece em Agendar e no Zernio)."""
+    d = trabalho_dir(corpo["nome"])
+    n = int(corpo["pick"])
+    lang = corpo.get("idioma") if corpo.get("idioma") in IDIOMAS else None
+    mp4 = d / "edits" / (f"clip_{n}_{lang}.mp4" if lang else f"clip_{n}.mp4")
+    if not mp4.exists():
+        raise FileNotFoundError("clipe")
+    meta = _ler(d / "edits" / f"clip_{n}.json", {})
+    info = _ler(d / "info.json", {})
+    canal = info.get("channel") or info.get("uploader") or ""
+    texto = (corpo.get("texto") or "").strip() or legenda_sugerida(meta, canal)
+    titulo = (meta.get("title") or meta.get("hook") or info.get("title") or "Clipe").strip()
+    import unicodedata
+    base = "".join(ch for ch in unicodedata.normalize("NFD", titulo.lower()) if unicodedata.category(ch) != "Mn")
+    slug = re.sub(r"[^a-z0-9]+", "-", base)[:34].strip("-") or "clipe"
+    hoje = datetime.date.today().isoformat()
+    proj = (meta.get("projetos") or {}).get(lang or "orig")
+    p = VIDEOS / proj if proj and (VIDEOS / proj).is_dir() else VIDEOS / f"{hoje}_clipe-{slug}{'-' + lang if lang else ''}"
+    k = 2
+    while not proj and p.exists():
+        p = VIDEOS / f"{hoje}_clipe-{slug}{'-' + lang if lang else ''}-{k}"; k += 1
+    (p / "out").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(mp4, p / "out" / "final.mp4")
+    _gravar(p / "roteiro.json", {"tipo": "clipe", "titulo": titulo, "data_post": hoje, "segmentos": [],
+                                 "idioma": lang or "", "fonte": {"url": info.get("webpage_url"), "canal": canal,
+                                                                 "titulo": info.get("title")},
+                                 "corte": {"trabalho": d.name, "pick": n, "inicio": meta.get("start"), "fim": meta.get("end")}})
+    (p / "post.txt").write_text(texto, encoding="utf-8")
+    (p / "status.txt").write_text("PRONTO", encoding="utf-8")
+    meta.setdefault("projetos", {})[lang or "orig"] = p.name
+    _gravar(d / "edits" / f"clip_{n}.json", meta)
+    return p.name
+
+
+def apagar(nome):
+    d = trabalho_dir(nome)
+    if LIVE["proc"] and LIVE["trabalho"] == d.name and LIVE["proc"].poll() is None:
+        raise RuntimeError("pare a gravação ao vivo antes de apagar")
+    shutil.rmtree(d)
+    return True
+
+
+# ------------------------------------------------------------------ modo ao vivo (processo à parte)
+def live_estado():
+    p = LIVE["proc"]
+    rodando = bool(p and p.poll() is None)
+    est = _ler(CORTES / LIVE["trabalho"] / "live" / "estado.json") if LIVE["trabalho"] else None
+    return {"rodando": rodando, "url": LIVE["url"], "trabalho": LIVE["trabalho"], "inicio": LIVE["inicio"],
+            "minutos": LIVE["minutos"], "trechos": len((est or {}).get("spikes") or []),
+            "codigo": None if rodando or not p else p.returncode}
+
+
+def live_iniciar(url, minutos):
+    url = _url_ok(url)
+    if LIVE["proc"] and LIVE["proc"].poll() is None:
+        raise RuntimeError("já há uma live sendo gravada: pare-a antes")
+    minutos = max(5, min(360, float(minutos or 60)))
+    nome = nome_trabalho(url)
+    d = CORTES / nome
+    (d / "live").mkdir(parents=True, exist_ok=True)
+    log = d / "live" / "log.txt"
+    f = open(log, "a", encoding="utf-8")
+    f.write(f"\n===== {time.strftime('%H:%M:%S')} MODO AO VIVO {url} ({minutos:g} min) =====\n"); f.flush()
+    env = dict(__import__("os").environ, PYTHONUNBUFFERED="1", PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
+    LIVE.update(proc=subprocess.Popen([sys.executable, str(CLIPES / "live.py"), url, "--minutes", f"{minutos:g}"],
+                                      cwd=str(RAIZ), env=env, stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                                      **SEM_JANELA),
+                url=url, trabalho=nome, inicio=time.time(), minutos=minutos, log=str(log))
+    return nome
+
+
+def live_parar():
+    if not (LIVE["proc"] and LIVE["proc"].poll() is None):
+        return False
+    (CORTES / LIVE["trabalho"] / "live" / "PARAR").write_text("1", encoding="utf-8")
+    return True
+
+
+def live_encerrar_ao_sair():
+    """Chamado ao fechar o programa: pede para parar e espera um pouco (o ffmpeg fecha o arquivo)."""
+    if live_parar():
+        try:
+            LIVE["proc"].wait(25)
+        except Exception:
+            LIVE["proc"].kill()
+
+
+# ------------------------------------------------------------------ temas: segredos e códigos
+def segredos():
+    p = CORTES / "secrets.csv"
+    if not p.exists():
+        return []
+    with p.open(encoding="utf-8", newline="") as f:
+        linhas = list(csv.DictReader(f))
+    return [r for r in linhas if r.get("status") != "wrong"][-40:][::-1]
+
+
+def marcar_segredo(sid, status):
+    if status not in ("verified", "wrong", "unverified"):
+        raise ValueError("status inválido")
+    p = CORTES / "secrets.csv"
+    with p.open(encoding="utf-8", newline="") as f:
+        linhas = list(csv.DictReader(f))
+    if not linhas:
+        raise FileNotFoundError(sid)
+    campos = list(linhas[0].keys())
+    for r in linhas:
+        if r["id"] == sid:
+            r["status"] = status
+            if status == "verified" and not r.get("verified_by"):
+                r["verified_by"] = f"marcado no Estúdio em {datetime.date.today().isoformat()}"
+            break
+    else:
+        raise FileNotFoundError(sid)
+    with p.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=campos); w.writeheader(); w.writerows(linhas)
+    return True
+
+
+def codigos():
+    """Tabela de references/cheats.md (só os 'reported'/'verified'; nunca os falsos)."""
+    md = FERR / "references" / "cheats.md"
+    if not md.exists():
+        return {"itens": [], "nota": ""}
+    txt = md.read_text(encoding="utf-8")
+    itens = []
+    for ln in txt.splitlines():
+        cols = [c.strip() for c in ln.strip().strip("|").split("|")]
+        if len(cols) == 4 and cols[0] not in ("Cheat", "") and not cols[0].startswith("---") and \
+                cols[3].split(" ")[0] in ("reported", "verified"):
+            itens.append({"nome": cols[0], "sequencia": cols[1], "libera": cols[2], "status": cols[3]})
+    m = re.search(r"Status as of ([^:]+):", txt)
+    return {"itens": itens, "nota": m.group(1) if m else ""}
+
+
+# ------------------------------------------------------------------ ganchos (regras do hook-writer)
+REGRAS_GANCHO = """Você escreve o texto de tela de clipes verticais de GTA 6 para uma página brasileira.
+Regras:
+- Ganchos em português do Brasil, frase normal (não tudo maiúsculo), 3 a 9 palavras.
+- O que funciona: promessa com número ("3 coisas que ninguém viu"), fato chocante, situação ("Quando a polícia
+  pega o cara errado"), negação ("No GTA 5 você não fazia isso"), pergunta ("Você sobreviveria a essa perseguição?"),
+  nome do streamer quando é conhecido.
+- Proibido: rótulos vazios ("Clipe GTA 6", "Momento engraçado"), "espera até o final", "você não vai acreditar",
+  urgência falsa, CAPS em tudo, spoiler de história, inventar fala que o streamer não disse.
+- O clipe tem que entregar o gancho.
+- Títulos de reação (layout rosto em cima): nome do streamer + verbo de reação + o que aconteceu, com 2 ou 3 palavras-chave
+  em MAIÚSCULAS. Ex.: "Speed FICOU CHOCADO com a polícia do GTA 6". Descreva o que acontece na tela, sem citar falas inventadas."""
+
+
+def ganchos(nome, pick):
+    d = trabalho_dir(nome)
+    cand = _ler(d / "candidates.json", {})
+    c = next((x for x in cand.get("candidates") or [] if x["n"] == int(pick)), None)
+    if not c:
+        raise FileNotFoundError("momento")
+    info = cand.get("info") or {}
+    import ia
+    msgs = [{"role": "system", "content": REGRAS_GANCHO},
+            {"role": "user", "content": f"Vídeo: {info.get('title', '')} (canal {info.get('channel') or info.get('uploader') or '?'}).\n"
+                                        f"Por que o trecho foi escolhido: {', '.join(c.get('why') or [])}.\n"
+                                        f"Fala no trecho (pode estar em inglês): {c.get('text', '')[:900]}\n\n"
+                                        'Devolva SOMENTE JSON: {"ganchos": ["...", "...", "..."], "titulos": ["...", "...", "..."]}'}]
+    r = ia.chat_json(msgs, temperatura=0.8, max_tokens=800)
+    return {"ganchos": [str(x) for x in (r.get("ganchos") or [])][:3], "titulos": [str(x) for x in (r.get("titulos") or [])][:3]}

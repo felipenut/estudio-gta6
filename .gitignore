@@ -1,0 +1,28 @@
+# Estúdio GTA 6 — o repositório é a pasta "ferramentas" (só código e referências).
+# NUNCA subir chaves, preferências do usuário, logs, caches ou backups.
+
+# chaves e dados do usuário
+config.json
+zernio.json
+variacao.json
+primeira_config.json
+github_token.txt
+*.token
+.env
+
+# registros e cópias locais
+app_log.txt
+_atualizacao.json
+_backup/
+*.novo
+*.part
+
+# Python e sistema
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# modelos grandes (já vêm no instalador; o atualizador nunca apaga arquivos locais)
+assets/modelos/*.onnx

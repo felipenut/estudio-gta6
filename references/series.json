@@ -1,0 +1,25 @@
+{
+ "_leia": "Séries infinitas: cada fórmula × cada assunto vira um tema. O Estúdio sorteia combinações ainda não usadas (botão 'Gerar temas das séries'). Acrescente assuntos à vontade.",
+ "formulas": [
+  {"serie": "Detalhes que ninguém viu", "modelo": "Detalhe do GTA 6 que ninguém viu: {x}", "assuntos": "detalhes"},
+  {"serie": "GTA 6 x GTA 5", "modelo": "GTA 6 x GTA 5: {x} nos dois jogos", "assuntos": "comparacoes"},
+  {"serie": "Vida real x jogo", "modelo": "GTA 6 x vida real: {x}", "assuntos": "lugares"},
+  {"serie": "Mito ou verdade", "modelo": "Mito ou verdade no GTA 6: {x}", "assuntos": "mitos"},
+  {"serie": "Quem é quem", "modelo": "Quem é {x} no GTA 6: o que se sabe", "assuntos": "personagens"},
+  {"serie": "Mapa de Leonida", "modelo": "Mapa de Leonida: {x} e a inspiração real", "assuntos": "regioes"},
+  {"serie": "Florida Man", "modelo": "Florida Man no GTA 6: {x}", "assuntos": "florida"},
+  {"serie": "Debate", "modelo": "Isso vai dividir os comentários: {x}", "assuntos": "debates"},
+  {"serie": "Testei no GTA 6", "modelo": "Testei no GTA 6: {x} — precisa de gameplay", "assuntos": "testes"}
+ ],
+ "assuntos": {
+  "detalhes": ["reflexos nas poças", "as sombras dos prédios", "a física do cabelo da Lucia", "as tatuagens do Jason", "os pés na areia da praia", "o suor depois da academia", "as placas de rua", "os grafites de Vice City", "as roupas sujas depois de uma briga", "o vento no capim do pântano", "as luzes de neon na chuva", "os fones de ouvido dos NPCs", "o celular da Lucia", "os comerciais da TV", "os pássaros na praia", "os carros com pneu furado"],
+  "comparacoes": ["a polícia", "a água e os barcos", "os NPCs na praia", "as explosões", "a academia", "o celular do personagem", "as rádios", "os assaltos", "os carros esportivos", "a vida noturna", "o clima", "os animais"],
+  "lugares": ["Ocean Drive", "a ponte das Keys", "o pântano e os jacarés", "o aeroporto de Vice City", "as baladas de Miami", "o Wynwood e seus grafites", "as palafitas das Keys", "os condomínios de luxo", "os postos de beira de estrada", "as praias lotadas"],
+  "mitos": ["dá para entrar em 70% dos prédios", "o mapa é 3 vezes maior que o GTA 5", "o jogo tem Liberty City", "dá para ter namorada", "o jogo roda a 60 FPS no PS5", "tem furacão", "tem sexta estrela", "o GTA 6 custou 3 bilhões", "o online sai em dezembro", "dá para ser policial"],
+  "personagens": ["Cal Hampton", "Brian Heder", "Boobie Ike", "Dre'Quan Priest", "Real Dimez", "Raul Bautista", "a mãe da Lucia", "o chefe de dreads do Extended Look"],
+  "regioes": ["Vice City", "as Leonida Keys", "o Grassrivers", "Port Gellhorn", "Ambrosia", "o Mount Kalaga"],
+  "florida": ["o homem com escopeta no quintal", "a festa no lamaçal", "o jacaré no posto", "o motoqueiro empinando na rodovia", "a briga na loja de conveniência", "o cara pulando da caminhonete"],
+  "debates": ["Jason ou Lucia?", "GTA 6 merecia o preço?", "melhor GTA da história?", "a Rockstar devia lançar no PC junto?", "online ou história primeiro?", "Vice City ou Los Santos?", "carro ou moto em Leonida?", "jogar com legenda ou dublado?"],
+  "testes": ["quanto tempo a polícia demora", "quantos tiros um carro aguenta", "o que acontece se você parar no meio da pista", "pular da ponte mais alta", "irritar um NPC até ele revidar", "dirigir na contramão por 5 minutos", "nadar até o fim do mapa", "assaltar a mesma loja duas vezes"]
+ }
+}

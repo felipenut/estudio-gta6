@@ -1,0 +1,9 @@
+face_yunet_2023mar.onnx — detector de rostos YuNet (OpenCV Zoo, licença MIT).
+Fonte: https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet
+Usado por ferramentas/scripts/enquadrar.py para posicionar o recorte 9:16 nos rostos.
+
+object_detection_yolox_2022nov.onnx — detector de objetos YOLOX-S (OpenCV Zoo / Megvii, licença Apache 2.0;
+texto da licença em LICENCA_YOLOX_Apache-2.0.txt). SHA-256 c5c2d13e59ae883e6af3b45daea64af4833a4951c92d116ec270d9ddbe998063.
+Fonte: https://github.com/opencv/opencv_zoo/tree/main/models/object_detection_yolox
+Usado por ferramentas/scripts/objetos.py: acha pessoa, carro, moto, barco, avião, animais etc. para o enquadramento
+(o objeto citado na fala ganha o foco; sem rostos, o objeto principal da cena).
