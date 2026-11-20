@@ -185,6 +185,7 @@ def detalhe(nome):
         clipes.append({"n": n, "arquivo": mp4.name if mp4.exists() else None, "mtime": mp4.stat().st_mtime if mp4.exists() else 0,
                        "inicio": meta.get("start"), "fim": meta.get("end"), "layout": meta.get("layout"),
                        "gancho": meta.get("hook"), "titulo": meta.get("title"), "traducoes": trad,
+                       "render": meta.get("render") or {},
                        "legendas": _ler(j.parent / f"clip_{n}_legendas.json", {}), "legenda": leg,
                        "checagem": checar_clipe(mp4, leg, canal) if mp4.exists() else None,
                        "projetos": meta.get("projetos") or {},
@@ -272,11 +273,25 @@ def etapas_cortar(corpo):
     layout = corpo.get("layout") if corpo.get("layout") in LAYOUTS else "blur"
     e = ["clipes/cut.py", str(d), "--pick", str(pick), "--layout", layout,
          "--captions", corpo.get("legenda") if corpo.get("legenda") in ("word", "bubble", "none") else "word"]
+    for campo, argumento, padrao, minimo, maximo in (("texto_y", "--texto-y", 1050 if layout in ("react", "facecam") else 480, 250, 1450),
+                                                       ("texto_tamanho", "--texto-tamanho", 66, 40, 100)):
+        valor = max(minimo, min(maximo, int(corpo.get(campo) or padrao)))
+        e += [argumento, str(valor)]
+    cor = corpo.get("texto_cor") if corpo.get("texto_cor") in ("rosa", "laranja", "roxo", "escuro") else "rosa"
+    e += ["--texto-cor", cor]
+    e += ["--title-style", corpo.get("estilo_titulo") if corpo.get("estilo_titulo") in ("box", "outline") else "box"]
+    if corpo.get("projeto_atualizar") and layout in ("react", "facecam"):
+        anterior = _ler(d / "edits" / f"clip_{pick}.json", {}) or {}
+        render = anterior.get("render") or {}
+        cam = str(render.get("cam") or "")
+        if render.get("layout") == layout and not render.get("face_expr") and re.fullmatch(r"(?:0(?:\.\d+)?|1(?:\.0+)?)(?::(?:0(?:\.\d+)?|1(?:\.0+)?)){3}", cam):
+            x, y, w, h = map(float, cam.split(":"))
+            if w > 0 and h > 0 and x + w <= 1.001 and y + h <= 1.001:
+                e += ["--cam", cam]
     if (corpo.get("gancho") or "").strip() and layout != "react":
         e += ["--hook", corpo["gancho"].strip()[:90]]
     if (corpo.get("titulo") or "").strip() and layout == "react":
-        e += ["--title", corpo["titulo"].strip()[:110], "--title-style",
-              corpo.get("estilo_titulo") if corpo.get("estilo_titulo") in ("box", "outline") else "box"]
+        e += ["--title", corpo["titulo"].strip()[:110]]
     for k, arg in (("inicio", "--start"), ("fim", "--end")):
         if corpo.get(k) not in (None, ""):
             e += [arg, f"{float(corpo[k]):.2f}"]

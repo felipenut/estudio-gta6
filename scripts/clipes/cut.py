@@ -100,14 +100,15 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 continue
             ev.append(f"Dialogue: 0,{ts(a)},{ts(b)},Cap,,0,0,0,,{{\\pos({W // 2},{cap_y})}}{pop}{' '.join(parts)}")
     if title:  # reaction title: (style, text, y, seconds)
-        st, text, ty, secs = title
+        st, text, ty, secs, *opcoes = title
+        tamanho = opcoes[0] if opcoes else 66
         end = (e0 - s0) if secs <= 0 else secs
-        lines = wrap(esc(text), 26 if st == 'box' else 24)
+        lines = wrap(esc(text), max(12, int(26 * 66 / tamanho)))
         body = '\\N'.join(lines)
         if st == 'box':
-            ev.append(f"Dialogue: 2,{ts(0)},{ts(end)},TitleBox,,0,0,0,,{{\\pos({W // 2},{ty})}}{body}")
+            ev.append(f"Dialogue: 2,{ts(0)},{ts(end)},TitleOut,,0,0,0,,{{\\pos({W // 2},{ty})\\an5\\fs{tamanho}}}{body}")
         else:
-            ev.append(f"Dialogue: 2,{ts(0)},{ts(end)},TitleOut,,0,0,0,,{{\\pos({W // 2},{ty})\\an8}}{body}")
+            ev.append(f"Dialogue: 2,{ts(0)},{ts(end)},TitleOut,,0,0,0,,{{\\pos({W // 2},{ty})\\an5\\fs{tamanho}}}{body}")
         hook = ''
     if hook:
         ev.append(f"Dialogue: 1,{ts(0)},{ts(hook_end)},Hook,,0,0,0,,{{\\fad(0,180)\\fscx92\\fscy92\\t(0,120,\\fscx100\\fscy100)}}{esc(hook)}")
@@ -143,16 +144,17 @@ def video_filter(layout, cam, ass, band=None, cam_side='right', src=None, game_x
         gx = game_x if game_x is not None else ((gw - W) if cam_side == 'left' else 0)
         v = (f"[0:v]split[a][b];[a]{top},scale={W}:{TOP}:force_original_aspect_ratio=increase,crop={W}:{TOP},setsar=1[cam];"
              f"[b]scale={gw}:{GAME_H},crop={W}:{GAME_H}:{even(gx)}:0,setsar=1[game];[cam][game]vstack[v]")
-        if band:
-            y0, bh, secs = band
-            en = f":enable='lte(t,{secs})'" if secs > 0 else ''
-            v = v[:-3] + f"[v0];[v0]drawbox=x=0:y={y0}:w=iw:h={bh}:color=white@1:t=fill{en}[v]"
     else:
         x, y, w, h = map(float, cam.split(":"))
         altura_cam = even(H * 0.38)
         altura_jogo = H - altura_cam
         v = (f"[0:v]split[a][b];[a]crop=iw*{w}:ih*{h}:iw*{x}:ih*{y},scale={W}:{altura_cam}:force_original_aspect_ratio=increase,"
              f"crop={W}:{altura_cam}[cam];[b]scale=-2:{altura_jogo},crop={W}:{altura_jogo}[game];[cam][game]vstack[v]")
+    if band:
+        y0, bh, secs, *cores = band
+        cor = cores[0] if cores else '0xB92F78'
+        en = f":enable='lte(t,{secs})'" if secs > 0 else ''
+        v = v[:-3] + f"[v0];[v0]drawbox=x=0:y={y0}:w=iw:h={bh}:color={cor}@0.92:t=fill{en}[v]"
     sub = str(ass).replace("\\", "/").replace(":", "\\:")
     return v + f";[v]scale={W}:{H},setsar=1,fps=30,subtitles='{sub}'[vo]"
 
@@ -198,15 +200,18 @@ def game_offset(video, s0, e0, src, cam_box):
     return bx
 
 
-def titulo_e_faixa(text, style, secs, layout):
+def titulo_e_faixa(text, style, secs, layout, posicao=None, tamanho=66, cor='rosa'):
     """Título do clipe de reação (na emenda rosto/jogo) e a faixa branca atrás dele."""
-    if not text or layout != 'react':
+    if not text:
         return None, None
-    n = len(wrap(text, 26 if style == 'box' else 24))
+    tamanho = max(40, min(100, int(tamanho)))
+    ty = max(250, min(1450, int(posicao if posicao is not None else (1050 if layout in ('react', 'facecam') else 480))))
+    n = len(wrap(text, max(12, int(26 * 66 / tamanho))))
     if style == 'box':
-        bh = n * 78 + 44
-        return ('box', text, TOP, secs), (TOP - bh // 2, bh, secs)
-    return ('outline', text, TOP + 40, secs), None
+        bh = n * int(tamanho * 1.22) + 36
+        cores = {'rosa': '0xB92F78', 'laranja': '0xB84C20', 'roxo': '0x4C2875', 'escuro': '0x211830'}
+        return ('box', text, ty, secs, tamanho), (ty - bh // 2, bh, secs, cores.get(cor, cores['rosa']))
+    return ('outline', text, ty, secs, tamanho), None
 
 
 def main():
@@ -216,6 +221,9 @@ def main():
     ap.add_argument("--title", default="", help="reaction title, e.g. 'Speed REALIZED why GTA 6 took 13 YEARS'")
     ap.add_argument("--title-style", choices=["box", "outline"], default="box")
     ap.add_argument("--title-secs", type=float, default=0, help="0 = whole clip")
+    ap.add_argument("--texto-y", type=int, default=None)
+    ap.add_argument("--texto-tamanho", type=int, default=66)
+    ap.add_argument("--texto-cor", choices=['rosa', 'laranja', 'roxo', 'escuro'], default='rosa')
     ap.add_argument("--captions", choices=["word", "bubble", "none"], default="word")
     ap.add_argument("--hook", default="")
     ap.add_argument("--allow-profanity", action="store_true", help="keep swear words in captions (slurs are always masked)")
@@ -266,11 +274,13 @@ def main():
     elif layout in ('react', 'facecam') and cam != 'auto':
         side = 'left' if float(cam.split(':')[0]) + float(cam.split(':')[2]) / 2 < 0.5 else 'right'
     cap_y = CAP_Y[layout]
-    title, band = titulo_e_faixa(a.title, a.title_style, a.title_secs, layout)
+    texto = a.title or a.hook
+    title, band = titulo_e_faixa(texto, a.title_style, a.title_secs if a.title else 2.6, layout,
+                                 a.texto_y, a.texto_tamanho, a.texto_cor)
     ass = out / f"clip_{a.pick}.ass"
     caps = a.captions
     cap_words = words if caps != 'none' else []
-    ass.write_text(build_ass(cap_words, s0, e0, a.hook, cap_y, title=title, caps=caps, profanity=a.allow_profanity), encoding="utf-8")
+    ass.write_text(build_ass(cap_words, s0, e0, '', cap_y, title=title, caps=caps, profanity=a.allow_profanity), encoding="utf-8")
     src = None; gx = None
     if layout == 'react':
         from common import ffprobe
@@ -279,18 +289,27 @@ def main():
         gx = game_offset(c['source'], s0, e0, src, [float(t) for t in cam.split(':')])
     v = video_filter(layout, cam, ass, band=band, cam_side=side, src=src, game_x=gx, face_expr=face_expr)
     mp4 = out / f"clip_{a.pick}.mp4"
+    parcial = out / f"clip_{a.pick}.parcial.mp4"
+    meta_anterior = load_json(out / f"clip_{a.pick}.json") if (out / f"clip_{a.pick}.json").exists() else {}
     print(f"(2/2) renderizando {e0 - s0:.0f}s em 1080x1920 ({layout})…", flush=True)
     run([tool("ffmpeg"), "-y", "-v", "error", "-ss", f"{s0:.2f}", "-to", f"{e0:.2f}", "-i", c["source"],
          "-filter_complex", v, "-map", "[vo]", "-map", "0:a?", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11",
          "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
-         "-ar", "48000", "-movflags", "+faststart", str(mp4)])
+         "-ar", "48000", "-movflags", "+faststart", str(parcial)])
+    if mp4.exists():
+        import shutil, time
+        pasta_backup = out / "backup"; pasta_backup.mkdir(exist_ok=True)
+        shutil.copy2(mp4, pasta_backup / f"clip_{a.pick}_{time.time_ns()}.mp4")
+    parcial.replace(mp4)
     info = c.get("info", {})
     save_json(out / f"clip_{a.pick}.json", {"file": str(mp4), "start": s0, "end": e0, "layout": layout, "hook": a.hook or a.title, "title": a.title, "cam": cam,
+                                            "projetos": meta_anterior.get("projetos") or {},
                                             "source_url": info.get("webpage_url"), "source_title": info.get("title"),
                                             "source_channel": info.get("channel") or info.get("uploader"),
                                             "render": {"layout": layout, "cam": cam, "side": side, "src": src, "gx": gx,
                                                        "face_expr": face_expr, "title_style": a.title_style,
                                                        "title_secs": a.title_secs, "captions": caps,
+                                                       "texto_y": a.texto_y, "texto_tamanho": a.texto_tamanho, "texto_cor": a.texto_cor,
                                                        "profanity": a.allow_profanity}})
     print(f"ok: {mp4}")
 

@@ -343,7 +343,7 @@ async function lista() {
     || `<div class="vazio" style="margin:8px;padding:20px 14px">Nenhum vídeo ainda. Comece em <b>Novo vídeo</b> ou em <b>Cortes e lives</b>.</div>`;
   if ($("#filtro") && $("#filtro").value) filtrarLista();
 }
-const VERSAO_PAGINA = 19;
+const VERSAO_PAGINA = 20;
 function erroTela(e) {
   $("#main").innerHTML = `<div class="aviso-box"><b>Não consegui abrir esta tela.</b><br>${esc(e.message || e)}<br><br>
     Se você acabou de atualizar o Estúdio, feche a janela preta do Estúdio e abra o <b>estudio.bat</b> de novo.</div>`;
@@ -443,6 +443,7 @@ async function tick() {
 async function aoTerminar(t) {
   const resumo = t.cancelado ? "interrompido" : (t.acao === "lote" && S.lote?.parar ? "parado após o vídeo atual" : t.codigo === 0 ? "pronto ✓" : "deu erro ✗ (veja o log)");
   toast(`${t.rotulo}: ${resumo}`); await lista();
+  if (t.codigo === 0 && t.resultado?.projeto_atualizado && S.view === "projeto" && S.projeto === t.resultado.projeto_atualizado) { await carregarProjeto(); S.aba = "video"; render(); }
   if (S.view === "projeto" && t.projeto === S.projeto) { await carregarProjeto(); if (t.codigo === 0) S.aba = { gerar: "revisao", previa: "enquadramento", capa: "video", narrar: "roteiro" }[t.acao] || S.aba; render(); }
   if (S.view === "biblioteca") render();
   if (["tendencias", "perguntas"].includes(t.acao) && S.view === "temas") render();
@@ -865,7 +866,7 @@ function abaVideo(c) {
 
 function abaVideoClipe(c) {
   const d = S.dados, r = S.rot || {}, f = r.fonte || {}, v = `/arquivo/${encodeURIComponent(d.nome)}/final.mp4?v=${d.mtimes["final.mp4"] || 0}`;
-  c.innerHTML = `<div class="video-area"><div><video src="${v}" controls></video><div class="linha" style="margin-top:8px"><a href="${v}" download class="botao">${ic("baixar")}Baixar vídeo</a></div></div>
+  c.innerHTML = `<div class="video-area"><div><video src="${v}" controls></video><div class="linha" style="margin-top:8px"><a href="${v}" download class="botao">${ic("baixar")}Baixar vídeo</a>${r.corte && !r.idioma ? `<button id="editarGancho" ${rodando(S.trabalho) ? "disabled" : ""}>Editar gancho</button>` : ""}</div></div>
     <div><div class="cartao"><h3 style="margin-top:0">Fonte e crédito</h3><div style="font-size:13px">${esc(f.titulo || "")}<br>
       <span style="color:var(--fraco)">canal:</span> <b>${esc(f.canal || "?")}</b> ${/^https?:/.test(f.url || "") ? `· <a href="${esc(f.url)}" target="_blank" rel="noopener">abrir original</a>` : ""}</div>
       <div class="sub" style="margin:6px 0 0;font-size:12px">Credite o criador no texto do post. Só poste clipes de quem permite (campanha de clipagem ou permissão).</div></div>
@@ -873,6 +874,12 @@ function abaVideoClipe(c) {
         <div class="linha" style="margin-top:8px"><button id="copiar">Copiar</button><button id="salvarPost">Salvar</button></div></div>
       ${cartaoChecagem(d.checagem)}</div></div>`;
   $("#copiar").onclick = () => { navigator.clipboard.writeText($("#post").value); toast("Copiado"); };
+  if ($("#editarGancho")) $("#editarGancho").onclick = async () => { try { const corte = r.corte, trabalho = await api("/api/corte/" + encodeURIComponent(corte.trabalho));
+    const clipe = trabalho.clipes.find(x => x.n === corte.pick), momento = trabalho.momentos.find(x => x.n === corte.pick);
+    if (!clipe || !trabalho.tem_fonte) return toast("O vídeo original deste corte não está disponível");
+    modalCortar(trabalho, momento || { n: corte.pick, start: corte.inicio, end: corte.fim },
+      { ...clipe, titulo: clipe.titulo || (clipe.layout === "react" ? r.titulo : ""), gancho: clipe.gancho || (clipe.layout !== "react" ? r.titulo : "") }, d.nome);
+  } catch(e) { toast(e.message); } };
   $("#salvarPost").onclick = async () => { await api("/api/post", { projeto: d.nome, texto: $("#post").value }); toast("Post salvo"); await carregarProjeto(); render(); };
 }
 
@@ -990,35 +997,62 @@ function previaMomento(d, c) {
   const v = $("#pv", md); v.ontimeupdate = () => { if (v.currentTime > c.end + 0.3) v.pause(); };
   $("#pfechar", md).onclick = () => md.remove(); $("#pcortar", md).onclick = () => { md.remove(); modalCortar(d, c); };
 }
-function modalCortar(d, c, antigo) {
+function modalCortar(d, c, antigo, projetoAtualizar = null) {
   const ant = antigo || {}, lay0 = ant.layout || "blur";
-  const md = abrirModal(`<div class="cab"><b style="flex:1">Cortar o momento #${c.n} (${fmtT(c.start)}–${fmtT(c.end)})</b><button id="kfechar">Fechar</button></div>
+  const rp = ant.render || {};
+  const md = abrirModal(`<div class="cab"><b style="flex:1">${projetoAtualizar ? "Editar gancho" : `Cortar o momento #${c.n} (${fmtT(c.start)}–${fmtT(c.end)})`}</b><button id="kfechar">Fechar</button></div>
     <div class="corpo"><label style="margin-top:0">Formato</label>
       <div class="lays">${LAYOUTS.map(([k, t, dsc]) => `<label class="lay ${k === lay0 ? "on" : ""}"><input type="radio" name="klay" value="${k}" ${k === lay0 ? "checked" : ""}><b>${t}</b><span>${dsc}</span></label>`).join("")}</div>
       <div id="kgancho"><label>Gancho (aparece nos 2 primeiros segundos)</label><input id="kg" maxlength="90" value="${esc(ant.gancho || "")}" placeholder="Ex.: Ninguém viu esse carro escondido"></div>
-      <div id="ktitulo"><label>Título na emenda (fica o clipe todo)</label><div class="linha"><input id="kt" maxlength="110" style="flex:1" value="${esc(ant.titulo || "")}" placeholder="Ex.: Speed FICOU CHOCADO com a polícia do GTA 6">
-        <select id="kte" style="width:150px"><option value="box">caixa branca</option><option value="outline">contorno</option></select></div></div>
+      <div id="ktitulo"><label>Título (fica o clipe todo)</label><input id="kt" maxlength="110" value="${esc(ant.titulo || "")}" placeholder="Ex.: Speed FICOU CHOCADO com a polícia do GTA 6"></div>
       <div class="linha" style="margin-top:8px"><button class="mini" id="kia">${ic("brilho")}Sugerir 3 com IA</button><span id="ksug" class="linha" style="gap:6px"></span></div>
+      <label>Estilo da faixa</label><select id="kestilo" style="width:180px"><option value="box">faixa colorida</option><option value="outline">sem faixa</option></select>
+      <div class="grid2" style="margin-top:12px;align-items:start"><div><div style="position:relative;width:216px;aspect-ratio:9/16;overflow:hidden;background:#000;border-radius:10px"><canvas id="kcanvas" width="270" height="480" style="display:block;width:100%;height:100%"></canvas><div id="ktexto" style="position:absolute;left:0;width:100%;transform:translateY(-50%);text-align:center;color:white;font-family:'Arial Black',sans-serif;font-weight:900;line-height:1.18;padding:5px 7px;white-space:normal;overflow-wrap:anywhere;text-shadow:1px 1px 3px #000"></div></div>
+        <video id="kfonte" src="/corte/${encodeURIComponent(d.nome)}/fonte" preload="metadata" style="display:none"></video><button class="mini" id="ktocar" style="margin-top:6px">Reproduzir prévia</button><p class="sub" style="font-size:11px;margin:4px 0">Prévia aproximada do enquadramento. O arquivo será atualizado ao salvar.</p></div>
+        <div><label>Posição vertical: <b id="kyv"></b></label><input id="ky" type="range" min="250" max="1450" step="10" value="${rp.texto_y ?? (lay0 === "react" || lay0 === "facecam" ? 1050 : 480)}">
+        <label>Tamanho: <b id="ktamv"></b></label><input id="ktam" type="range" min="40" max="100" step="2" value="${rp.texto_tamanho ?? 66}">
+        <label>Cor da faixa</label><select id="kcor"><option value="rosa">Rosa Vice</option><option value="laranja">Pôr do sol</option><option value="roxo">Roxo neon</option><option value="escuro">Escuro</option></select></div></div>
       <div class="grid2" style="margin-top:4px"><div><label>Legenda</label><select id="kl"><option value="word">palavra por palavra (destaca a falada)</option><option value="bubble">frase em balão</option><option value="none">sem legenda</option></select></div>
-        <div><label>Trecho (segundos do vídeo original)</label><div class="linha"><input id="ki" type="number" step="0.5" value="${(+c.start).toFixed(1)}" style="width:100px"><span>até</span><input id="kf" type="number" step="0.5" value="${(+c.end).toFixed(1)}" style="width:100px"><span id="kdur" class="sub" style="margin:0"></span></div></div></div>
+        <div><label>Trecho (segundos do vídeo original)</label><div class="linha"><input id="ki" type="number" step="0.5" value="${(+(ant.inicio ?? c.start)).toFixed(1)}" style="width:100px"><span>até</span><input id="kf" type="number" step="0.5" value="${(+(ant.fim ?? c.end)).toFixed(1)}" style="width:100px"><span id="kdur" class="sub" style="margin:0"></span></div></div></div>
       <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="kp"> Manter palavrões na legenda (ofensas e preconceito são sempre censurados)</label>
-      <p class="sub" style="font-size:12px;margin:8px 0">Após cortar, o Estúdio avalia o clipe e agenda automaticamente os que passarem de 7,5 e da checagem.</p>
+      <p class="sub" style="font-size:12px;margin:8px 0">${projetoAtualizar ? "Ao salvar, o Estúdio refaz o vídeo e guarda uma cópia do anterior." : "Após cortar, o Estúdio avalia o clipe e agenda automaticamente os que passarem de 7,5 e da checagem."}</p>
       <div class="sub" style="margin:10px 0 0;font-size:12px">O "Reação" acha a câmera do streamer sozinho. Se no trecho não houver rosto sobre o jogo, ele avisa e você escolhe outro formato. Ideal: 7 a 30 s, terminando no clímax.</div>
-      <div class="linha" style="margin-top:12px"><span style="flex:1"></span><button class="prim" id="kok">Cortar</button></div></div>`);
+      <div class="linha" style="margin-top:12px"><span style="flex:1"></span><button class="prim" id="kok">${projetoAtualizar ? "Salvar e refazer vídeo" : "Cortar"}</button></div></div>`, 900);
   const lay = () => md.querySelector("[name=klay]:checked").value;
+  $("#kestilo", md).value = rp.title_style || "box"; $("#kcor", md).value = rp.texto_cor || "rosa"; $("#kl", md).value = rp.captions || "word"; $("#kp", md).checked = !!rp.profanity;
+  const cores = { rosa: "#b92f78", laranja: "#b84c20", roxo: "#4c2875", escuro: "#211830" };
+  const atualizarTexto = () => { const el = $("#ktexto", md), tipo = lay(), texto = tipo === "react" ? $("#kt", md).value : $("#kg", md).value;
+    el.textContent = texto || "Seu gancho aparece aqui"; el.style.top = (+$("#ky", md).value / 1920 * 100) + "%";
+    el.style.fontSize = (+$("#ktam", md).value / 1080 * 216) + "px"; el.style.background = $("#kestilo", md).value === "box" ? cores[$("#kcor", md).value] : "transparent";
+    $("#kyv", md).textContent = Math.round(+$("#ky", md).value / 1920 * 100) + "% da altura"; $("#ktamv", md).textContent = $("#ktam", md).value; };
+  const v = $("#kfonte", md), cv = $("#kcanvas", md), ctx = cv.getContext("2d");
+  const desenhar = () => { if (!v.videoWidth) return; const sw = v.videoWidth, sh = v.videoHeight, layout = lay(); ctx.fillStyle = "#171225"; ctx.fillRect(0,0,270,480);
+    const cam = String(rp.cam || "").split(":").map(Number), temCam = cam.length === 4 && cam.every(Number.isFinite);
+    if ((layout === "react" || layout === "facecam") && temCam) { const [x,y,w,h] = cam; const alvo = 182.5, cw = sw*w, ch = sh*h, rec = Math.min(cw, ch*270/alvo), rx = sw*x + (cw-rec)/2;
+      ctx.drawImage(v, rx, sh*y, rec, ch, 0, 0, 270, alvo); const gh = 480-alvo, largura = sh*270/gh, gx = Math.max(0, Math.min(sw-largura, rp.gx != null && rp.src ? rp.gx * sw / (Math.max(1080, 2*Math.floor(sw*1190/sh/2))) : (sw-largura)/2));
+      ctx.drawImage(v, gx, 0, Math.min(sw,largura), sh, 0, alvo, 270, gh);
+    } else if (layout === "blur") { ctx.save(); ctx.filter = "blur(9px) brightness(.55)"; ctx.drawImage(v,0,0,sw,sh,0,0,270,480); ctx.restore(); const h = 270*sh/sw; ctx.drawImage(v,0,(480-h)/2,270,h); }
+    else { const w = Math.min(sw, sh*270/480); ctx.drawImage(v, (sw-w)/2, 0, w, sh, 0, 0, 270, 480); }
+  };
+  v.onloadedmetadata = () => { v.currentTime = +$("#ki", md).value || 0; }; v.onseeked = desenhar;
+  v.ontimeupdate = () => { if (v.currentTime >= +$("#kf", md).value) { v.pause(); v.currentTime = +$("#ki", md).value; $("#ktocar", md).textContent = "Reproduzir prévia"; } };
+  const animar = () => { if (!md.isConnected || v.paused) return; desenhar(); requestAnimationFrame(animar); };
+  $("#ktocar", md).onclick = async () => { if (v.paused) { if (v.currentTime < +$("#ki", md).value || v.currentTime >= +$("#kf", md).value) v.currentTime = +$("#ki", md).value; try { await v.play(); $("#ktocar", md).textContent = "Pausar prévia"; animar(); } catch(e) { toast("Não consegui reproduzir o vídeo original"); } } else { v.pause(); $("#ktocar", md).textContent = "Reproduzir prévia"; } };
+  ["#kg", "#kt", "#kestilo", "#ky", "#ktam", "#kcor"].forEach(s => $(s, md).oninput = atualizarTexto);
   const pinta = () => { const r = lay() === "react"; $("#kgancho", md).style.display = r ? "none" : ""; $("#ktitulo", md).style.display = r ? "" : "none";
     md.querySelectorAll(".lay").forEach(l => l.classList.toggle("on", l.querySelector("input").checked));
-    const du = (+$("#kf", md).value) - (+$("#ki", md).value); $("#kdur", md).textContent = `${Math.round(du)} s`; $("#kdur", md).style.color = du > 60 || du < 5 ? "var(--erro)" : ""; };
+    const du = (+$("#kf", md).value) - (+$("#ki", md).value); $("#kdur", md).textContent = `${Math.round(du)} s`; $("#kdur", md).style.color = du > 60 || du < 5 ? "var(--erro)" : ""; atualizarTexto(); desenhar(); };
   md.querySelectorAll("[name=klay]").forEach(r => r.onchange = pinta); $("#ki", md).oninput = pinta; $("#kf", md).oninput = pinta; pinta();
   $("#kfechar", md).onclick = () => md.remove();
   $("#kia", md).onclick = async () => { const b = $("#kia", md); b.disabled = true; b.textContent = "pensando…";
     try { const r = await api("/api/cortes/ganchos", { nome: d.nome, pick: c.n }); const lista = lay() === "react" ? r.titulos : r.ganchos;
       $("#ksug", md).innerHTML = lista.map(x => `<button class="mini" data-s="${esc(x)}">${esc(x)}</button>`).join("");
-      $("#ksug", md).querySelectorAll("[data-s]").forEach(s => s.onclick = () => { (lay() === "react" ? $("#kt", md) : $("#kg", md)).value = s.dataset.s; });
+      $("#ksug", md).querySelectorAll("[data-s]").forEach(s => s.onclick = () => { (lay() === "react" ? $("#kt", md) : $("#kg", md)).value = s.dataset.s; atualizarTexto(); });
     } catch (e) { toast(e.message); } b.disabled = false; b.innerHTML = ic("brilho") + "Sugerir 3 com IA"; };
   $("#kok", md).onclick = async () => {
-    const corpo = { nome: d.nome, pick: c.n, layout: lay(), gancho: $("#kg", md).value, titulo: $("#kt", md).value, estilo_titulo: $("#kte", md).value,
-      legenda: $("#kl", md).value, inicio: +$("#ki", md).value, fim: +$("#kf", md).value, palavroes: $("#kp", md).checked };
+    const corpo = { nome: d.nome, pick: c.n, layout: lay(), gancho: $("#kg", md).value, titulo: $("#kt", md).value, estilo_titulo: $("#kestilo", md).value,
+      legenda: $("#kl", md).value, inicio: +$("#ki", md).value, fim: +$("#kf", md).value, palavroes: $("#kp", md).checked,
+      texto_y: +$("#ky", md).value, texto_tamanho: +$("#ktam", md).value, texto_cor: $("#kcor", md).value, projeto_atualizar: projetoAtualizar };
     if (corpo.fim - corpo.inicio < 3) return toast("Trecho curto demais");
     try { const r = await api("/api/cortes/cortar", corpo); S.trabalho = r.trabalho; md.remove(); toast("Cortando… o clipe aparece aqui quando terminar"); gaveta(true); } catch (e) { toast(e.message); } };
 }

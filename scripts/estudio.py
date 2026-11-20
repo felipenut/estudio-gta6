@@ -29,7 +29,7 @@ sys.path.insert(0, str(AQUI))
 import cortes as CT  # noqa: E402  (tela Cortes e lives)
 import atualizar as ATU  # noqa: E402  (atualização automática pelo GitHub)
 
-VERSAO = 19
+VERSAO = 20
 
 
 def _versao_txt():
@@ -622,6 +622,31 @@ def finalizar_corte(nome, pick, codigo):
     except Exception as e:
         registrar(f"Avaliação ou agendamento não concluído: {type(e).__name__}: {e}")
         return 1
+
+
+def atualizar_projeto_clipe(nome, pick, projeto, codigo):
+    """Atualiza o projeto após renderizar, preservando o vídeo anterior."""
+    if codigo:
+        return codigo
+    import shutil
+    p = projeto_dir(projeto)
+    rot = ler(p / "roteiro.json") or {}
+    corte = rot.get("corte") or {}
+    if rot.get("tipo") != "clipe" or corte.get("trabalho") != nome or corte.get("pick") != pick or rot.get("idioma"):
+        raise ValueError("o projeto não corresponde a este clipe original")
+    if ler(p / "out" / "zernio.json"):
+        raise ValueError("o vídeo já foi agendado; cancele o agendamento antes de alterar")
+    origem = CT.trabalho_dir(nome) / "edits" / f"clip_{pick}.mp4"
+    alvo = p / "out" / "final.mp4"
+    reserva = p / "backup"; reserva.mkdir(exist_ok=True)
+    temporario = p / "out" / "final-atualizado.parcial.mp4"
+    shutil.copy2(origem, temporario)
+    if alvo.exists():
+        shutil.copy2(alvo, reserva / f"final-antes-edicao-{time.time_ns()}.mp4")
+    temporario.replace(alvo)
+    (p / "status.txt").write_text("PRONTO", encoding="utf-8")
+    TRABALHO["resultado"] = {"projeto_atualizado": p.name}
+    return 0
 
 
 def slug(txt, n=40):
@@ -1332,8 +1357,18 @@ class H(BaseHTTPRequestHandler):
             if u == "/api/cortes/cortar":
                 etapas = CT.etapas_cortar(corpo)
                 nome, pick = corpo["nome"], int(corpo["pick"])
+                projeto = corpo.get("projeto_atualizar")
+                if projeto:
+                    p = projeto_dir(projeto)
+                    rot = ler(p / "roteiro.json") or {}
+                    corte = rot.get("corte") or {}
+                    if rot.get("tipo") != "clipe" or corte.get("trabalho") != nome or corte.get("pick") != pick or rot.get("idioma"):
+                        raise ValueError("o projeto não corresponde a este clipe original")
+                    if ler(p / "out" / "zernio.json"):
+                        raise ValueError("cancele o agendamento antes de alterar este clipe")
                 iniciar("cortar", lambda: etapas, CT.trabalho_dir(nome) / "log.txt", corte=nome,
-                        depois=lambda codigo, saida: finalizar_corte(nome, pick, codigo))
+                        depois=(lambda codigo, saida: atualizar_projeto_clipe(nome, pick, projeto, codigo)) if projeto
+                        else (lambda codigo, saida: finalizar_corte(nome, pick, codigo)))
                 return self._json({"ok": True, "trabalho": TRABALHO})
             if u == "/api/cortes/avaliar":
                 return self._json({"ok": True, "avaliacao": CT.avaliar_clipe(corpo["nome"], int(corpo["pick"]))})
