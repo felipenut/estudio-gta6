@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#171222">
+  <title>Assinatura — Estúdio GTA 6 Shorts</title>
+  <style>
+    :root{color-scheme:dark;--fundo:#171222;--painel:#211a30;--linha:#44355e;--texto:#f5efff;--suave:#c0b4d7;--rosa:#ff4d9d;--laranja:#ff7b38;--verde:#45dec0}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -20%,#53336d 0,transparent 55%),var(--fundo);color:var(--texto);font:16px/1.55 "Segoe UI",Arial,sans-serif;display:grid;place-items:center;padding:24px}
+    main{width:min(100%,520px);background:linear-gradient(155deg,#241b34,#1b1628 65%);border:1px solid var(--linha);border-radius:24px;padding:clamp(24px,6vw,44px);box-shadow:0 28px 90px #08050d99}
+    .marca{font-weight:900;letter-spacing:.06em;text-transform:uppercase;font-style:italic;background:linear-gradient(90deg,var(--rosa),var(--laranja));color:transparent;background-clip:text;font-size:1.12rem}
+    h1{font-size:clamp(1.8rem,6vw,2.45rem);line-height:1.05;margin:22px 0 12px}p{color:var(--suave);margin:0 0 18px}.preco{font-size:2.25rem;font-weight:800;margin:24px 0 2px}.preco small{font-size:1rem;color:var(--suave);font-weight:500}.detalhe{font-size:.9rem;margin:0 0 24px}
+    label{display:block;font-weight:700;margin:18px 0 7px}input{width:100%;border:1px solid #66527f;background:#151120;border-radius:12px;padding:14px;color:var(--texto);font:inherit}input:focus-visible,button:focus-visible{outline:3px solid var(--verde);outline-offset:3px}
+    button{width:100%;margin-top:14px;border:0;border-radius:12px;padding:15px 18px;background:linear-gradient(100deg,var(--rosa),var(--laranja));color:#201326;font:800 1rem "Segoe UI",Arial,sans-serif;cursor:pointer}button:disabled{opacity:.55;cursor:wait}
+    #mensagem{min-height:28px;margin-top:14px;font-weight:650;color:var(--verde)}#mensagem.erro{color:#ff9baf}.beneficios{border-top:1px solid var(--linha);padding:19px 0 0;margin:24px 0 0;list-style:none;color:#e6ddf3}.beneficios li{margin:7px 0}.beneficios li:before{content:"✓";color:var(--verde);font-weight:900;margin-right:10px}.nota{font-size:.78rem;margin:20px 0 0;color:#9e91b6}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="marca">Estúdio GTA 6 Shorts</div>
+    <h1>Crie vídeos que prendem a atenção.</h1>
+    <p>Assine o acesso mensal ao Estúdio e produza, edite e organize seus clipes em um só lugar.</p>
+    <div class="preco" id="preco">—</div>
+    <p class="detalhe">Cobrança mensal pelo Mercado Pago. Os meios disponíveis aparecem na próxima etapa.</p>
+    <form id="formulario">
+      <label for="email">Seu e-mail</label>
+      <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="voce@exemplo.com">
+      <button id="botao" type="submit">Continuar para o Mercado Pago</button>
+    </form>
+    <div id="mensagem" role="status" aria-live="polite"></div>
+    <ul class="beneficios">
+      <li>Assinatura mensal</li>
+      <li>Checkout protegido pelo Mercado Pago</li>
+      <li>Confirmação conferida no servidor</li>
+    </ul>
+    <p class="nota">Ao continuar, você será direcionado ao ambiente seguro do Mercado Pago. A assinatura só fica ativa após a confirmação do pagamento.</p>
+  </main>
+  <script>
+    const $ = (seletor) => document.querySelector(seletor);
+    const mensagem = (texto, erro = false) => { $("#mensagem").textContent = texto; $("#mensagem").classList.toggle("erro", erro); };
+    const moeda = (centavos) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(centavos / 100);
+
+    async function conferirRetorno() {
+      const token = sessionStorage.getItem("sessao_checkout");
+      if (!new URLSearchParams(location.search).has("retorno") || !token) return;
+      $("#formulario").hidden = true;
+      mensagem("Conferindo a confirmação do Mercado Pago…");
+      const final = Date.now() + 90000;
+      while (Date.now() < final) {
+        try {
+          const resposta = await fetch("/api/status", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tokenSessao: token }), cache: "no-store"
+          });
+          const dados = await resposta.json();
+          if (dados.estado === "ativo") {
+            mensagem(`Assinatura confirmada. Acesso válido até ${new Date(dados.acessoAte).toLocaleDateString("pt-BR")}.`);
+            sessionStorage.removeItem("sessao_checkout");
+            return;
+          }
+          if (!resposta.ok) throw new Error(dados.erro || "Falha na consulta.");
+        } catch {
+          mensagem("Ainda não recebemos a confirmação. Esta página continuará consultando.");
+        }
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      }
+      mensagem("O Mercado Pago ainda está confirmando. Você pode voltar a esta página em alguns instantes.");
+    }
+
+    async function iniciar() {
+      try {
+        const resposta = await fetch("/api/config", { cache: "no-store" });
+        const dados = await resposta.json();
+        if (dados.valorCentavos) $("#preco").innerHTML = `${moeda(dados.valorCentavos)}<small> / mês</small>`;
+        if (!dados.pronto) {
+          $("#botao").disabled = true;
+          mensagem("Checkout em preparação. Tente novamente mais tarde.", true);
+        }
+      } catch {
+        $("#botao").disabled = true;
+        mensagem("Não foi possível carregar o checkout. Atualize a página.", true);
+      }
+      await conferirRetorno();
+    }
+
+    $("#formulario").addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      const botao = $("#botao");
+      botao.disabled = true;
+      mensagem("Preparando sua assinatura…");
+      try {
+        const resposta = await fetch("/api/assinar", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: $("#email").value.trim() })
+        });
+        const dados = await resposta.json();
+        if (!resposta.ok) throw new Error(dados.erro || "Não foi possível iniciar o checkout.");
+        sessionStorage.setItem("sessao_checkout", dados.tokenSessao);
+        location.assign(dados.checkoutUrl);
+      } catch (erro) {
+        mensagem(erro.message || "Não foi possível iniciar o checkout.", true);
+        botao.disabled = false;
+      }
+    });
+    iniciar();
+  </script>
+</body>
+</html>

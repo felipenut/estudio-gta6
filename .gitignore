@@ -9,6 +9,10 @@ primeira_config.json
 github_token.txt
 *.token
 .env
+.env.*
+!.env.example
+node_modules/
+.vercel/
 
 # registros e cópias locais
 app_log.txt
