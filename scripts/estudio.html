@@ -1003,8 +1003,8 @@ function modalCortar(d, c, antigo, projetoAtualizar = null) {
   const md = abrirModal(`<div class="cab"><b style="flex:1">${projetoAtualizar ? "Editar gancho" : `Cortar o momento #${c.n} (${fmtT(c.start)}–${fmtT(c.end)})`}</b><button id="kfechar">Fechar</button></div>
     <div class="corpo"><label style="margin-top:0">Formato</label>
       <div class="lays">${LAYOUTS.map(([k, t, dsc]) => `<label class="lay ${k === lay0 ? "on" : ""}"><input type="radio" name="klay" value="${k}" ${k === lay0 ? "checked" : ""}><b>${t}</b><span>${dsc}</span></label>`).join("")}</div>
-      <div id="kgancho"><label>Gancho (aparece nos 2 primeiros segundos)</label><input id="kg" maxlength="90" value="${esc(ant.gancho || "")}" placeholder="Ex.: Ninguém viu esse carro escondido"></div>
-      <div id="ktitulo"><label>Título (fica o clipe todo)</label><input id="kt" maxlength="110" value="${esc(ant.titulo || "")}" placeholder="Ex.: Speed FICOU CHOCADO com a polícia do GTA 6"></div>
+      <div id="kgancho"><label>Gancho (aparece nos primeiros 4 segundos)</label><input id="kg" maxlength="90" value="${esc(ant.gancho || "")}" placeholder="Ex.: Ninguém viu esse carro escondido"></div>
+      <div id="ktitulo"><label>Título (aparece nos primeiros 4 segundos)</label><input id="kt" maxlength="110" value="${esc(ant.titulo || "")}" placeholder="Ex.: Speed FICOU CHOCADO com a polícia do GTA 6"></div>
       <div class="linha" style="margin-top:8px"><button class="mini" id="kia">${ic("brilho")}Sugerir 3 com IA</button><span id="ksug" class="linha" style="gap:6px"></span></div>
       <label>Estilo da faixa</label><select id="kestilo" style="width:180px"><option value="box">faixa colorida</option><option value="outline">sem faixa</option></select>
       <div class="grid2" style="margin-top:12px;align-items:start"><div><div style="position:relative;width:216px;aspect-ratio:9/16;overflow:hidden;background:#000;border-radius:10px"><canvas id="kcanvas" width="270" height="480" style="display:block;width:100%;height:100%"></canvas><div id="ktexto" style="position:absolute;left:0;width:100%;transform:translateY(-50%);text-align:center;color:white;font-family:'Arial Black',sans-serif;font-weight:900;line-height:1.18;padding:5px 7px;white-space:normal;overflow-wrap:anywhere;text-shadow:1px 1px 3px #000"></div></div>
@@ -1035,7 +1035,8 @@ function modalCortar(d, c, antigo, projetoAtualizar = null) {
     else { const w = Math.min(sw, sh*270/480); ctx.drawImage(v, (sw-w)/2, 0, w, sh, 0, 0, 270, 480); }
   };
   v.onloadedmetadata = () => { v.currentTime = +$("#ki", md).value || 0; }; v.onseeked = desenhar;
-  v.ontimeupdate = () => { if (v.currentTime >= +$("#kf", md).value) { v.pause(); v.currentTime = +$("#ki", md).value; $("#ktocar", md).textContent = "Reproduzir prévia"; } };
+  v.ontimeupdate = () => { $("#ktexto", md).style.visibility = v.currentTime - (+$("#ki", md).value) < 4 ? "visible" : "hidden";
+    if (v.currentTime >= +$("#kf", md).value) { v.pause(); v.currentTime = +$("#ki", md).value; $("#ktocar", md).textContent = "Reproduzir prévia"; } };
   const animar = () => { if (!md.isConnected || v.paused) return; desenhar(); requestAnimationFrame(animar); };
   $("#ktocar", md).onclick = async () => { if (v.paused) { if (v.currentTime < +$("#ki", md).value || v.currentTime >= +$("#kf", md).value) v.currentTime = +$("#ki", md).value; try { await v.play(); $("#ktocar", md).textContent = "Pausar prévia"; animar(); } catch(e) { toast("Não consegui reproduzir o vídeo original"); } } else { v.pause(); $("#ktocar", md).textContent = "Reproduzir prévia"; } };
   ["#kg", "#kt", "#kestilo", "#ky", "#ktam", "#kcor"].forEach(s => $(s, md).oninput = atualizarTexto);

@@ -4,7 +4,7 @@
 loudness normalised to -14 LUFS. Writes jobs/<id>/edits/clip_<n>.mp4 + .json (metadata for check.py).
 
 usage: python cut.py jobs/<id> --pick 1 [--layout fill|blur|facecam|react] [--hook "TEXT"]
-                     [--cam auto|x:y:w:h] [--title "TEXT" --title-style box|outline --title-secs 0] [--captions word|bubble|none]
+                     [--cam auto|x:y:w:h] [--title "TEXT" --title-style box|outline --title-secs 4] [--captions word|bubble|none]
 """
 import argparse, sys
 from pathlib import Path
@@ -79,7 +79,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         cur.append(w)
     if cur:
         groups.append(cur)
-    hook_end = 2.6 if hook else 0
+    hook_end = 4.0 if hook else 0
     for gi, g in enumerate(groups):
         g_end = groups[gi + 1][0]["s"] if gi + 1 < len(groups) else g[-1]["e"] + 0.4
         g_end = min(g_end, g[-1]["e"] + 0.8)
@@ -201,9 +201,10 @@ def game_offset(video, s0, e0, src, cam_box):
 
 
 def titulo_e_faixa(text, style, secs, layout, posicao=None, tamanho=66, cor='rosa'):
-    """Título do clipe de reação (na emenda rosto/jogo) e a faixa branca atrás dele."""
+    """Gancho e faixa nos primeiros 3 a 5 segundos do clipe."""
     if not text:
         return None, None
+    secs = max(3.0, min(5.0, float(secs or 4)))
     tamanho = max(40, min(100, int(tamanho)))
     ty = max(250, min(1450, int(posicao if posicao is not None else (1050 if layout in ('react', 'facecam') else 480))))
     n = len(wrap(text, max(12, int(26 * 66 / tamanho))))
@@ -220,7 +221,7 @@ def main():
     ap.add_argument("--layout", choices=["fill", "blur", "facecam", "react"], default="blur")
     ap.add_argument("--title", default="", help="reaction title, e.g. 'Speed REALIZED why GTA 6 took 13 YEARS'")
     ap.add_argument("--title-style", choices=["box", "outline"], default="box")
-    ap.add_argument("--title-secs", type=float, default=0, help="0 = whole clip")
+    ap.add_argument("--title-secs", type=float, default=4, help="duração do gancho em segundos (3 a 5; padrão: 4)")
     ap.add_argument("--texto-y", type=int, default=None)
     ap.add_argument("--texto-tamanho", type=int, default=66)
     ap.add_argument("--texto-cor", choices=['rosa', 'laranja', 'roxo', 'escuro'], default='rosa')
@@ -228,6 +229,7 @@ def main():
     ap.add_argument("--hook", default="")
     ap.add_argument("--allow-profanity", action="store_true", help="keep swear words in captions (slurs are always masked)")
     ap.add_argument("--cam", default="auto", help="auto (find the webcam) or x:y:w:h fractions")
+    ap.add_argument("--game-x", type=int, default=None, help="enquadramento horizontal já calculado")
     ap.add_argument("--start", type=float); ap.add_argument("--end", type=float)
     a = ap.parse_args()
     d = Path(a.job); c = load_json(d / "candidates.json")
@@ -275,7 +277,7 @@ def main():
         side = 'left' if float(cam.split(':')[0]) + float(cam.split(':')[2]) / 2 < 0.5 else 'right'
     cap_y = CAP_Y[layout]
     texto = a.title or a.hook
-    title, band = titulo_e_faixa(texto, a.title_style, a.title_secs if a.title else 2.6, layout,
+    title, band = titulo_e_faixa(texto, a.title_style, a.title_secs, layout,
                                  a.texto_y, a.texto_tamanho, a.texto_cor)
     ass = out / f"clip_{a.pick}.ass"
     caps = a.captions
@@ -286,7 +288,11 @@ def main():
         from common import ffprobe
         vs = [x for x in ffprobe(c['source'])['streams'] if x.get('codec_type') == 'video'][0]
         src = (int(vs['width']), int(vs['height']))
-        gx = game_offset(c['source'], s0, e0, src, [float(t) for t in cam.split(':')])
+        if a.game_x is None:
+            gx = game_offset(c['source'], s0, e0, src, [float(t) for t in cam.split(':')])
+        else:
+            largura_jogo = max(W, even(src[0] * GAME_H / src[1]))
+            gx = max(0, min(largura_jogo - W, even(a.game_x)))
     v = video_filter(layout, cam, ass, band=band, cam_side=side, src=src, game_x=gx, face_expr=face_expr)
     mp4 = out / f"clip_{a.pick}.mp4"
     parcial = out / f"clip_{a.pick}.parcial.mp4"

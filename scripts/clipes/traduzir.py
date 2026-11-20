@@ -124,7 +124,7 @@ def main():
         print(f"({k}/{len(langs)}) {IDIOMAS.get(lang, lang)}: traduzindo com a IA…", flush=True)
         trad, h, t = traduzir_lote(lang, frases, hook, title)
         tw = espalhar(sents, trad) if rp.get("captions", "word") != "none" else []
-        titulo, band = titulo_e_faixa(t or h, rp.get("title_style", "box"), rp.get("title_secs", 0) if t else 2.6,
+        titulo, band = titulo_e_faixa(t or h, rp.get("title_style", "box"), rp.get("title_secs", 4),
                                       rp["layout"], rp.get("texto_y"), rp.get("texto_tamanho", 66), rp.get("texto_cor", "rosa"))
         ass = out / f"clip_{a.pick}_{lang}.ass"
         ass.write_text(build_ass(tw, s0, e0, '', CAP_Y[rp["layout"]], title=titulo, caps=rp.get("captions", "word"),

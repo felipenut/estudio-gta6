@@ -288,6 +288,8 @@ def etapas_cortar(corpo):
             x, y, w, h = map(float, cam.split(":"))
             if w > 0 and h > 0 and x + w <= 1.001 and y + h <= 1.001:
                 e += ["--cam", cam]
+                if layout == "react" and isinstance(render.get("gx"), int):
+                    e += ["--game-x", str(max(0, render["gx"]))]
     if (corpo.get("gancho") or "").strip() and layout != "react":
         e += ["--hook", corpo["gancho"].strip()[:90]]
     if (corpo.get("titulo") or "").strip() and layout == "react":
