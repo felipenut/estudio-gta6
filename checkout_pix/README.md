@@ -1,20 +1,20 @@
 # Checkout do Estúdio GTA 6 Shorts
 
-Serviço separado do programa Windows: página pública, criação de assinatura mensal no Mercado Pago, webhook assinado e registro persistente em Neon. O projeto é preparado para ser publicado na Vercel com o diretório `checkout_pix` como raiz.
+Serviço separado do programa Windows: página pública, criação de assinaturas mensal e trimestral no Mercado Pago, webhook assinado e registro persistente em Neon. O projeto é preparado para ser publicado na Vercel com o diretório `checkout_pix` como raiz.
 
 ## O que já faz
 
 - Recebe o e-mail do comprador e define o preço exclusivamente no servidor.
-- Cria assinatura mensal pendente no Mercado Pago e encaminha o comprador à tela hospedada pelo provedor.
+- Cria assinatura pendente no Mercado Pago para o plano mensal (R$ 29,90) ou trimestral (R$ 64,90) e encaminha o comprador à tela hospedada pelo provedor.
 - Mantém o token privado no servidor, valida a assinatura HMAC dos webhooks e consulta o recurso no Mercado Pago antes de atualizar o estado.
-- Só marca acesso como ativo quando encontra uma cobrança aprovada em BRL. Reenvios de aviso não duplicam o período pago.
+- Só marca acesso como ativo quando encontra uma cobrança aprovada em BRL pelo valor do plano escolhido. O pagamento mensal acrescenta um mês de acesso e o trimestral acrescenta três; reenvios de aviso não duplicam o período pago.
 - Mantém o checkout desativado até as variáveis obrigatórias estarem corretas.
 
 O Mercado Pago mostra os meios de pagamento habilitados para a conta durante o checkout. Esta página não gera nem simula um QR Pix próprio.
 
 ## Preparação
 
-1. Crie um projeto no Neon e execute `schema.sql` no SQL Editor.
+1. Crie um projeto no Neon e execute `schema.sql` no SQL Editor. O arquivo também adiciona as colunas novas a um banco que já usava a versão mensal.
 2. Importe o repositório na Vercel e defina `checkout_pix` como **Root Directory**.
 3. Conecte as variáveis do Neon e adicione as variáveis abaixo nos ambientes **Development** e **Preview**:
 
@@ -24,6 +24,7 @@ O Mercado Pago mostra os meios de pagamento habilitados para a conta durante o c
    - `MP_ACCESS_TOKEN`: Access Token de teste com prefixo `TEST-`.
    - `MP_WEBHOOK_SECRET`: segredo de assinatura de Webhooks da aplicação Mercado Pago.
    - `PLANO_MENSAL_BRL`: preço mensal em reais, por exemplo `29.90`.
+   - `PLANO_TRIMESTRAL_BRL`: preço trimestral em reais, por exemplo `64.90`.
 
 4. Publique um Preview e faça uma compra com os usuários de teste do Mercado Pago. A confirmação via webhook exige uma URL HTTPS pública. A API envia `APP_URL/api/webhook` em `notification_url` ao criar a assinatura e trata os eventos `subscription_preapproval`, `subscription_authorized_payment` e `payment`.
 
@@ -40,6 +41,6 @@ Esta entrega registra o estado da assinatura e o período pago. A ativação/lim
 ## Rotas
 
 - `GET /api/config`: configuração pública do checkout, sem credenciais.
-- `POST /api/assinar`: recebe `{ "email": "..." }` e devolve a URL do Mercado Pago e um token de sessão aleatório.
+- `POST /api/assinar`: recebe `{ "email": "...", "plano": "mensal" | "trimestral" }` e devolve a URL do Mercado Pago e um token de sessão aleatório. O servidor escolhe o preço e a recorrência; não confia em valores enviados pelo navegador.
 - `POST /api/status`: recebe `{ "tokenSessao": "..." }` e devolve apenas o estado daquela sessão.
 - `POST /api/webhook`: valida HMAC e consulta o pagamento/assinatura pela API do Mercado Pago.

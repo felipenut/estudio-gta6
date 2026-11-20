@@ -31,6 +31,35 @@ def run(cmd, check=True, capture=False):
     return r
 
 
+def renderizar_com_progresso(cmd, duracao):
+    """Executa o FFmpeg de um corte e informa o avanço sem mudar o vídeo gerado."""
+    cmd = [str(c) for c in cmd]
+    cmd[1:1] = ["-progress", "pipe:1", "-nostats"]
+    kw = {"creationflags": 0x08000000} if sys.platform.startswith("win") else {}
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True, encoding="utf-8", errors="replace", **kw)
+    instante_us, ultimo = 0, -1
+    try:
+        for linha in proc.stdout:
+            chave, _, valor = linha.strip().partition("=")
+            if chave in ("out_time_us", "out_time_ms"):
+                try:
+                    instante_us = int(valor)  # Ambos são microssegundos no protocolo do FFmpeg.
+                except ValueError:
+                    continue
+            elif chave == "progress" and duracao > 0:
+                pct = max(0, min(100, int(instante_us / (duracao * 1000000) * 100)))
+                if valor == "end":
+                    pct = 100
+                if pct != ultimo:
+                    print(f"renderização: {pct}%", flush=True)
+                    ultimo = pct
+    finally:
+        proc.stdout.close()
+        codigo = proc.wait()
+    if codigo:
+        sys.exit(f"renderização falhou ({codigo})")
+
+
 def ytdlp_base():
     """O mesmo yt-dlp do Estúdio (Python embutido + deno para o YouTube)."""
     sys.path.insert(0, str(SCRIPTS))

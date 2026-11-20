@@ -5,7 +5,7 @@ const {
   hash,
   mercadoPago,
   metodo,
-  preco,
+  obterPlano,
   responder,
   sql,
 } = require("./_comum");
@@ -29,17 +29,23 @@ module.exports = async function handler(req, res) {
     return;
   }
 
+  const planoId = req.body && typeof req.body.plano === "string" ? req.body.plano : "mensal";
+  const plano = obterPlano(planoId);
+  if (!plano) {
+    responder(res, 400, { erro: "Escolha um plano disponível." });
+    return;
+  }
+
   const id = crypto.randomUUID();
   const tokenSessao = crypto.randomBytes(32).toString("base64url");
-  const valorCentavos = preco();
-  const valor = valorCentavos / 100;
+  const valor = plano.valorCentavos / 100;
   const origem = baseUrl();
   const consulta = sql();
 
   try {
     await consulta`
-      INSERT INTO checkout_sessoes (id, token_hash, email, referencia_externa)
-      VALUES (${id}, ${hash(tokenSessao)}, ${email.trim().toLowerCase()}, ${id})
+      INSERT INTO checkout_sessoes (id, token_hash, email, referencia_externa, plano, valor_centavos, duracao_meses)
+      VALUES (${id}, ${hash(tokenSessao)}, ${email.trim().toLowerCase()}, ${id}, ${plano.id}, ${plano.valorCentavos}, ${plano.meses})
     `;
 
     const retorno = `${origem}/?retorno=mercado-pago`;
@@ -48,11 +54,11 @@ module.exports = async function handler(req, res) {
       method: "POST",
       headers: { "X-Idempotency-Key": id },
       body: JSON.stringify({
-        reason: "Estúdio GTA 6 Shorts — assinatura mensal",
+        reason: `Estúdio GTA 6 Shorts — plano ${plano.titulo.toLowerCase()}`,
         external_reference: id,
         payer_email: email.trim().toLowerCase(),
         auto_recurring: {
-          frequency: 1,
+          frequency: plano.meses,
           frequency_type: "months",
           transaction_amount: valor,
           currency_id: "BRL",

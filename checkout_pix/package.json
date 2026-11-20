@@ -2,7 +2,7 @@
   "name": "estudio-gta6-checkout-pix",
   "version": "1.0.0",
   "private": true,
-  "description": "Checkout mensal do Estúdio GTA 6 Shorts com Mercado Pago e Vercel.",
+  "description": "Checkout mensal e trimestral do Estúdio GTA 6 Shorts com Mercado Pago e Vercel.",
   "engines": {
     "node": ">=20"
   },

@@ -69,6 +69,18 @@ def gravar(p, dados):
     tmp.replace(p)
 
 
+def fim_log(p, limite=25000):
+    """Lê somente o final do log, mesmo quando o arquivo ficou grande."""
+    if not p.is_file():
+        return ""
+    with p.open("rb") as f:
+        f.seek(0, os.SEEK_END)
+        # UTF-8 usa até quatro bytes por caractere; a folga evita partir um caractere.
+        f.seek(max(0, f.tell() - limite * 4 - 4))
+        texto = f.read().decode("utf-8", errors="replace")
+        return texto.replace("\r\n", "\n").replace("\r", "\n")[-limite:]
+
+
 def projeto_dir(nome, exigir_roteiro=True):
     p = (VIDEOS / nome).resolve()
     if p.parent != VIDEOS.resolve() or not p.is_dir() or (exigir_roteiro and not (p / "roteiro.json").exists()):
@@ -216,14 +228,24 @@ def _executar(etapas, log, status, rotulo, base=0.0, span=1.0):
                 for linha in proc.stdout:
                     f.write(linha); f.flush()
                     saida_total.append(linha)
-                    for rx, fr in RE_SUB:
-                        m = rx.search(linha)
+                    # O corte usa uma faixa própria: a renderização ocupa a maior parte do trabalho.
+                    if etapa[0] == "clipes/cut.py":
+                        m = re.match(r"renderização:\s*(\d{1,3})%", linha)
                         if m:
-                            try:
-                                _progresso(base, span, etapas, n, fr(m))
-                            except (ValueError, ZeroDivisionError):
-                                pass
-                            break
+                            _progresso(base, span, etapas, n, 0.1 + 0.8 * min(100, int(m[1])) / 100)
+                        elif linha.startswith("(1/2)"):
+                            _progresso(base, span, etapas, n, 0.02)
+                        elif linha.startswith("(2/2)"):
+                            _progresso(base, span, etapas, n, 0.1)
+                    else:
+                        for rx, fr in RE_SUB:
+                            m = rx.search(linha)
+                            if m:
+                                try:
+                                    _progresso(base, span, etapas, n, fr(m))
+                                except (ValueError, ZeroDivisionError):
+                                    pass
+                                break
             finally:
                 codigo = proc.wait()
                 with TRAVA_PROCESSO:
@@ -340,8 +362,8 @@ def iniciar_lote(agendar=False):
         rotulo = f"LOTE {len(LOTE['feitos'])}/{n} prontos" + (" (parado)" if LOTE["parar"] else "")
         cod_z = 0
         if agendar and LOTE["feitos"]:
-            ini = zernio_estado()["sugestao_inicio"]
             intervalo = _zernio().config()["intervalo_h"]
+            ini = sugestao_inicio_zernio(intervalo)
             with open(log, "a", encoding="utf-8") as f:
                 f.write(f"agendando {len(LOTE['feitos'])} no Zernio a partir de {ini}, a cada {intervalo}h\n")
             TRABALHO.update(projeto=None, rotulo="LOTE → ZERNIO", log=str(VIDEOS / "_zernio_log.txt"), progresso=0.0)
@@ -518,6 +540,24 @@ def _zernio():
     return zernio
 
 
+def sugestao_inicio_zernio(intervalo, agendados=None):
+    """Sugere horário sem executar a checagem dos vídeos prontos."""
+    if agendados is None:
+        agendados = []
+        for d in VIDEOS.iterdir() if VIDEOS.exists() else []:
+            if d.is_dir() and not d.name.startswith((".", "_")) and (d / "roteiro.json").exists():
+                reg = ler(d / "out" / "zernio.json")
+                if reg:
+                    agendados.append(reg)
+    agora = datetime.datetime.now()
+    sug = (agora + datetime.timedelta(minutes=30)).replace(minute=0, second=0, microsecond=0) + datetime.timedelta(hours=1)
+    horarios = [datetime.datetime.strptime(a["horario"][:16], "%Y-%m-%dT%H:%M")
+                for a in agendados if a.get("horario")]
+    if horarios:
+        sug = max(sug, max(horarios) + datetime.timedelta(hours=float(intervalo)))
+    return sug.strftime("%Y-%m-%dT%H:%M")
+
+
 def zernio_estado():
     z = _zernio(); c = z.config()
     prontos, agendados = [], []
@@ -525,21 +565,17 @@ def zernio_estado():
         if not d.is_dir() or d.name.startswith((".", "_")) or not (d / "roteiro.json").exists():
             continue
         reg = ler(d / "out" / "zernio.json")
-        titulo = (ler(d / "roteiro.json") or {}).get("titulo", d.name)
+        rot = ler(d / "roteiro.json") or {}
+        titulo = rot.get("titulo", d.name)
         if reg:
             agendados.append({"nome": d.name, "titulo": titulo, **reg})
         elif video_final(d) and not (d / "postado.txt").exists():
             prontos.append({"nome": d.name, "titulo": titulo, "aprovado": aprovado(d), "checagem": checagem_projeto(d),
-                            "tipo": (ler(d / "roteiro.json") or {}).get("tipo") or "narrado"})
-    agora = datetime.datetime.now()
-    sug = (agora + datetime.timedelta(minutes=30)).replace(minute=0, second=0, microsecond=0) + datetime.timedelta(hours=1)
-    if agendados:
-        ult = max(datetime.datetime.strptime(a["horario"][:16], "%Y-%m-%dT%H:%M") for a in agendados if a.get("horario"))
-        sug = max(sug, ult + datetime.timedelta(hours=float(c["intervalo_h"])))
+                            "tipo": rot.get("tipo") or "narrado"})
     return {"configurado": bool(c["api_key"]),
             "contas": c["contas"], "intervalo_h": c["intervalo_h"], "fuso": c["fuso"],
             "prontos": prontos, "agendados": sorted(agendados, key=lambda a: a.get("horario", "")),
-            "sugestao_inicio": sug.strftime("%Y-%m-%dT%H:%M")}
+            "sugestao_inicio": sugestao_inicio_zernio(c["intervalo_h"], agendados)}
 
 
 def zernio_config(corpo):
@@ -1213,8 +1249,7 @@ class H(BaseHTTPRequestHandler):
                     log = BIB / "log.txt"
                 else:
                     log = Path(TRABALHO["log"] or "")
-                txt = log.read_text(encoding="utf-8", errors="replace") if log.is_file() else ""
-                return self._json({"log": txt[-25000:], "trabalho": TRABALHO})
+                return self._json({"log": fim_log(log), "trabalho": TRABALHO})
             if partes[:2] == ["api", "quadro"] and len(partes) == 4:
                 return self._arquivo(quadro_do_corte(partes[2], int(partes[3].split(".")[0])), "image/jpeg")
             if partes[:2] == ["api", "clipe"] and len(partes) == 4:
@@ -1247,7 +1282,7 @@ class H(BaseHTTPRequestHandler):
             if partes == ["api", "lote"]:
                 zc = _zernio().config()
                 return self._json({"fila": fila_lote(), "lote": LOTE, "zernio": bool(zc["api_key"] and zc["contas"]),
-                                   "sugestao_inicio": zernio_estado()["sugestao_inicio"], "intervalo_h": zc["intervalo_h"]})
+                                   "sugestao_inicio": sugestao_inicio_zernio(zc["intervalo_h"]), "intervalo_h": zc["intervalo_h"]})
             if partes == ["api", "temas"]:
                 t = temas_md()
                 return self._json({"temas": t, "historico": lista_projetos(), "restantes": len(t),

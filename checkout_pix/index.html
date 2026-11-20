@@ -12,6 +12,7 @@
     .marca{font-weight:900;letter-spacing:.06em;text-transform:uppercase;font-style:italic;background:linear-gradient(90deg,var(--rosa),var(--laranja));color:transparent;background-clip:text;font-size:1.12rem}
     h1{font-size:clamp(1.8rem,6vw,2.45rem);line-height:1.05;margin:22px 0 12px}p{color:var(--suave);margin:0 0 18px}.preco{font-size:2.25rem;font-weight:800;margin:24px 0 2px}.preco small{font-size:1rem;color:var(--suave);font-weight:500}.detalhe{font-size:.9rem;margin:0 0 24px}
     label{display:block;font-weight:700;margin:18px 0 7px}input{width:100%;border:1px solid #66527f;background:#151120;border-radius:12px;padding:14px;color:var(--texto);font:inherit}input:focus-visible,button:focus-visible{outline:3px solid var(--verde);outline-offset:3px}
+    .planos{border:0;padding:0;margin:22px 0 8px}.planos legend{font-weight:750;margin-bottom:9px}.plano-opcao{display:flex;align-items:center;gap:12px;margin:8px 0;padding:13px 15px;border:1px solid var(--linha);border-radius:12px;background:#171322;cursor:pointer}.plano-opcao.selecionado{border-color:var(--rosa);background:#24182d}.plano-opcao:focus-within{outline:3px solid var(--verde);outline-offset:3px}.plano-opcao input{width:18px;height:18px;flex:none;margin:0;padding:0;accent-color:var(--rosa)}.plano-opcao span{flex:1}.plano-opcao b,.plano-opcao small{display:block}.plano-opcao small{color:var(--suave);font-weight:500}.plano-opcao strong{white-space:nowrap}
     button{width:100%;margin-top:14px;border:0;border-radius:12px;padding:15px 18px;background:linear-gradient(100deg,var(--rosa),var(--laranja));color:#201326;font:800 1rem "Segoe UI",Arial,sans-serif;cursor:pointer}button:disabled{opacity:.55;cursor:wait}
     #mensagem{min-height:28px;margin-top:14px;font-weight:650;color:var(--verde)}#mensagem.erro{color:#ff9baf}.beneficios{border-top:1px solid var(--linha);padding:19px 0 0;margin:24px 0 0;list-style:none;color:#e6ddf3}.beneficios li{margin:7px 0}.beneficios li:before{content:"✓";color:var(--verde);font-weight:900;margin-right:10px}.nota{font-size:.78rem;margin:20px 0 0;color:#9e91b6}
   </style>
@@ -20,17 +21,22 @@
   <main>
     <div class="marca">Estúdio GTA 6 Shorts</div>
     <h1>Crie vídeos que prendem a atenção.</h1>
-    <p>Assine o acesso mensal ao Estúdio e produza, edite e organize seus clipes em um só lugar.</p>
-    <div class="preco" id="preco">—</div>
-    <p class="detalhe">Cobrança mensal pelo Mercado Pago. Os meios disponíveis aparecem na próxima etapa.</p>
+    <p>Assine o acesso ao Estúdio e produza, edite e organize seus clipes em um só lugar.</p>
+    <div class="preco"><span id="preco">—</span><small id="periodo"></small></div>
+    <p class="detalhe" id="detalhe">Escolha como prefere pagar.</p>
     <form id="formulario">
+      <fieldset class="planos">
+        <legend>Escolha seu plano</legend>
+        <label class="plano-opcao" data-plano="mensal"><input type="radio" name="plano" value="mensal" checked><span><b>Mensal</b><small data-valor>Carregando preço…</small></span></label>
+        <label class="plano-opcao" data-plano="trimestral"><input type="radio" name="plano" value="trimestral"><span><b>Trimestral</b><small data-valor>Carregando preço…</small></span></label>
+      </fieldset>
       <label for="email">Seu e-mail</label>
       <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="voce@exemplo.com">
       <button id="botao" type="submit">Continuar para o Mercado Pago</button>
     </form>
     <div id="mensagem" role="status" aria-live="polite"></div>
     <ul class="beneficios">
-      <li>Assinatura mensal</li>
+      <li>Planos mensal e trimestral</li>
       <li>Checkout protegido pelo Mercado Pago</li>
       <li>Confirmação conferida no servidor</li>
     </ul>
@@ -40,6 +46,36 @@
     const $ = (seletor) => document.querySelector(seletor);
     const mensagem = (texto, erro = false) => { $("#mensagem").textContent = texto; $("#mensagem").classList.toggle("erro", erro); };
     const moeda = (centavos) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(centavos / 100);
+    let planosCheckout = [];
+
+    function atualizarPlano() {
+      for (const cartao of document.querySelectorAll(".plano-opcao")) {
+        const radio = cartao.querySelector("input[name='plano']");
+        const plano = planosCheckout.find((item) => item.id === radio.value && Number(item.valorCentavos) > 0);
+        cartao.hidden = !plano;
+        if (plano) {
+          const periodo = plano.meses === 1 ? "mês" : `${plano.meses} meses`;
+          cartao.querySelector("[data-valor]").textContent = `${moeda(plano.valorCentavos)} / ${periodo}`;
+        }
+      }
+      let selecionado = document.querySelector("input[name='plano']:checked");
+      if (!selecionado || selecionado.closest(".plano-opcao").hidden) {
+        selecionado = [...document.querySelectorAll("input[name='plano']")].find((radio) => !radio.closest(".plano-opcao").hidden);
+        if (selecionado) selecionado.checked = true;
+      }
+      document.querySelectorAll(".plano-opcao").forEach((cartao) => {
+        cartao.classList.toggle("selecionado", cartao.querySelector("input").checked && !cartao.hidden);
+      });
+      const planoAtual = selecionado && planosCheckout.find((item) => item.id === selecionado.value);
+      if (!planoAtual || !planoAtual.valorCentavos) {
+        $("#preco").textContent = "—";
+        $("#periodo").textContent = "";
+        return;
+      }
+      $("#preco").textContent = moeda(planoAtual.valorCentavos);
+      $("#periodo").textContent = planoAtual.meses === 1 ? " / mês" : ` / ${planoAtual.meses} meses`;
+      $("#detalhe").textContent = `Cobrança recorrente a cada ${planoAtual.meses === 1 ? "mês" : `${planoAtual.meses} meses`} pelo Mercado Pago. Os meios disponíveis aparecem na próxima etapa.`;
+    }
 
     async function conferirRetorno() {
       const token = sessionStorage.getItem("sessao_checkout");
@@ -72,7 +108,8 @@
       try {
         const resposta = await fetch("/api/config", { cache: "no-store" });
         const dados = await resposta.json();
-        if (dados.valorCentavos) $("#preco").innerHTML = `${moeda(dados.valorCentavos)}<small> / mês</small>`;
+        planosCheckout = Array.isArray(dados.planos) ? dados.planos : [];
+        atualizarPlano();
         if (!dados.pronto) {
           $("#botao").disabled = true;
           mensagem("Checkout em preparação. Tente novamente mais tarde.", true);
@@ -84,6 +121,8 @@
       await conferirRetorno();
     }
 
+    document.querySelectorAll("input[name='plano']").forEach((radio) => radio.addEventListener("change", atualizarPlano));
+
     $("#formulario").addEventListener("submit", async (evento) => {
       evento.preventDefault();
       const botao = $("#botao");
@@ -92,7 +131,7 @@
       try {
         const resposta = await fetch("/api/assinar", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: $("#email").value.trim() })
+          body: JSON.stringify({ email: $("#email").value.trim(), plano: document.querySelector("input[name='plano']:checked")?.value || "" })
         });
         const dados = await resposta.json();
         if (!resposta.ok) throw new Error(dados.erro || "Não foi possível iniciar o checkout.");

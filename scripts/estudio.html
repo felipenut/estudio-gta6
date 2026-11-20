@@ -262,6 +262,31 @@ details > summary { cursor:pointer; color:var(--fraco); font-weight:600; } detai
 .lay.on { border-color:var(--rosa); background:var(--p2); } .lay input { position:absolute; opacity:0; pointer-events:none; } .lay span { color:var(--fraco); font-weight:400; font-size:12px; }
 .lay:focus-within { outline:2px solid var(--verde); outline-offset:2px; }
 
+/* Navegação por funções e área de projetos */
+aside { overflow:auto; }
+.menu-funcoes { display:flex; flex-direction:column; gap:3px; padding:18px 12px; }
+.menu-funcoes .grupo { padding:18px 12px 5px; font-size:11px; letter-spacing:.04em; }
+button.nav { width:100%; justify-content:flex-start; background:transparent; border:1px solid transparent; text-align:left; padding:10px 12px; min-height:44px; }
+button.nav:hover:not(:disabled), button.nav.ativo { background:var(--p2); border-color:transparent; }
+.pagina-cab { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:24px; }
+.pagina-cab .sub { margin:5px 0 0; }
+.sobretitulo { display:block; color:var(--fraco); font-size:12px; font-weight:700; margin-bottom:5px; }
+.projetos-ferramentas { display:flex; justify-content:space-between; align-items:end; gap:16px; margin-bottom:14px; }
+.projetos-ferramentas > div { width:min(440px, 100%); }
+.projetos-ferramentas label { margin-top:0; }
+.projetos-ferramentas .sub { margin:0 0 9px; white-space:nowrap; }
+.projetos-lista { border:1px solid var(--linha); border-radius:var(--r-painel); overflow:hidden; background:var(--p1); }
+.projeto-linha { display:flex; align-items:center; gap:14px; padding:15px 18px; border-bottom:1px solid var(--linha); }
+.projeto-linha:last-child { border-bottom:0; }
+.projeto-linha:hover { background:var(--p2); }
+.projeto-icone { display:grid; place-items:center; width:42px; height:42px; flex:none; color:var(--rosa); background:var(--p3); border-radius:var(--r-campo); font-size:20px; }
+.projeto-info { flex:1; min-width:0; }
+.projeto-info b, .projeto-info span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.projeto-info b { font-size:15px; } .projeto-info span { color:var(--fraco); font-size:13px; }
+.projetos-lista > .vazio { border:0; }
+.boas-vindas { background:var(--p2); padding:28px; }
+.boas-vindas h2 { font:700 30px/1.15 var(--titulo); letter-spacing:0; }
+
 /* ---- primeira abertura, telas menores e movimento reduzido ---- */
 body.primeira aside { display:none; } body.primeira .app { grid-template-columns:1fr !important; } body.primeira #gaveta { left:0; }
 @media (max-width:1100px) {
@@ -271,7 +296,11 @@ body.primeira aside { display:none; } body.primeira .app { grid-template-columns
   .resumo-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 @media (max-width:760px) {
-  .app { grid-template-columns:1fr; } aside { display:none; } #gaveta { left:0; } .grid2 { grid-template-columns:1fr; }
+  .app { display:flex; flex-direction:column; } aside { display:block; flex:none; border-right:0; border-bottom:1px solid var(--linha); overflow-x:auto; }
+  .menu-funcoes { flex-direction:row; padding:7px 10px; width:max-content; } .menu-funcoes .grupo { display:none; }
+  button.nav { width:auto; white-space:nowrap; } main { flex:1; min-height:0; } #gaveta { left:0; } .grid2 { grid-template-columns:1fr; }
+  .projetos-ferramentas { align-items:stretch; flex-direction:column; gap:4px; } .projetos-ferramentas .sub { margin:0; }
+  .projeto-linha { flex-wrap:wrap; } .projeto-linha .pill { display:none; }
   main { padding:18px 16px 120px; } header h1 { font-size:24px; }
   .resumo-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .cal-dia { min-height:64px; padding:4px; } .cal-evento { font-size:9px; }
 }
@@ -288,21 +317,21 @@ body.primeira aside { display:none; } body.primeira .app { grid-template-columns
   <div id="barra"><i></i></div>
 </header>
 <div class="app">
-  <aside>
-    <nav class="topo" aria-label="Criar"><button class="prim" style="width:100%" onclick="ir('novo')"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Novo vídeo</button>
-      <button id="blote" style="width:100%" onclick="botaoLote()" title="Gera, em fila, todos os projetos com roteiro e sem vídeo pronto">▶ Gerar lote</button></nav>
-    <div class="nav" role="link" tabindex="0" data-v="inicio" onclick="ir('inicio')"><svg class="ic" aria-hidden="true"><use href="#i-grafico"/></svg>Visão geral</div>
-    <div class="grupo" id="glista">Projetos</div>
-    <input class="filtro" id="filtro" type="search" placeholder="Buscar projeto" aria-label="Buscar projeto" oninput="filtrarLista()">
-    <div class="lista" id="lista" role="list"></div>
-    <nav class="rodape" aria-label="Ferramentas">
-      <div class="nav" role="link" tabindex="0" data-v="cortes" onclick="ir('cortes')"><svg class="ic" aria-hidden="true"><use href="#i-tesoura"/></svg>Cortes e lives <span id="navlive"></span></div>
-      <div class="nav" role="link" tabindex="0" data-v="biblioteca" onclick="ir('biblioteca')"><svg class="ic" aria-hidden="true"><use href="#i-filme"/></svg>Biblioteca de cenas</div>
-      <div class="nav" role="link" tabindex="0" data-v="temas" onclick="ir('temas')"><svg class="ic" aria-hidden="true"><use href="#i-ideia"/></svg>Temas e histórico</div>
-      <div class="nav" role="link" tabindex="0" data-v="agendar" onclick="ir('agendar')"><svg class="ic" aria-hidden="true"><use href="#i-agenda"/></svg>Agendar no Zernio</div>
-      <div class="nav" role="link" tabindex="0" data-v="resultados" onclick="ir('resultados')"><svg class="ic" aria-hidden="true"><use href="#i-grafico"/></svg>Resultados</div>
-      <div class="nav" role="link" tabindex="0" data-v="ajustes" onclick="ir('ajustes')"><svg class="ic" aria-hidden="true"><use href="#i-ajustes"/></svg>Ajustes e skill</div>
-      </nav>
+  <aside aria-label="Navegação principal">
+    <nav class="menu-funcoes" aria-label="Funções do Estúdio">
+      <button class="nav" data-v="inicio" onclick="ir('inicio')"><svg class="ic" aria-hidden="true"><use href="#i-grafico"/></svg>Visão geral</button>
+      <button class="nav" data-v="novo" onclick="ir('novo')"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Novo vídeo</button>
+      <button class="nav" data-v="projetos" onclick="ir('projetos')"><svg class="ic" aria-hidden="true"><use href="#i-pasta"/></svg>Projetos</button>
+      <div class="grupo">Produção</div>
+      <button class="nav" data-v="cortes" onclick="ir('cortes')"><svg class="ic" aria-hidden="true"><use href="#i-tesoura"/></svg>Cortes e lives <span id="navlive"></span></button>
+      <button class="nav" data-v="biblioteca" onclick="ir('biblioteca')"><svg class="ic" aria-hidden="true"><use href="#i-filme"/></svg>Biblioteca de cenas</button>
+      <button class="nav" data-v="temas" onclick="ir('temas')"><svg class="ic" aria-hidden="true"><use href="#i-ideia"/></svg>Temas e histórico</button>
+      <div class="grupo">Publicação</div>
+      <button class="nav" data-v="agendar" onclick="ir('agendar')"><svg class="ic" aria-hidden="true"><use href="#i-agenda"/></svg>Agendar no Zernio</button>
+      <button class="nav" data-v="resultados" onclick="ir('resultados')"><svg class="ic" aria-hidden="true"><use href="#i-grafico"/></svg>Resultados</button>
+      <div class="grupo">Estúdio</div>
+      <button class="nav" data-v="ajustes" onclick="ir('ajustes')"><svg class="ic" aria-hidden="true"><use href="#i-ajustes"/></svg>Ajustes e skill</button>
+    </nav>
   </aside>
   <main id="main" tabindex="-1"></main>
 </div>
@@ -317,9 +346,6 @@ const TIPOS = ["gancho", "promessa", "historia", "curiosidade", "piada", "duplo_
 const ic = (n) => `<svg class="ic" aria-hidden="true"><use href="#i-${n}"/></svg>`;
 function toast(m) { const t = $("#toast"); t.textContent = m; t.classList.toggle("erro", /erro|falh|não |✗|inválid/i.test(m)); t.classList.add("on");
   clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("on"), Math.min(7000, 3200 + m.length * 30)); }
-function filtrarLista() { const q = ($("#filtro").value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  let n = 0; document.querySelectorAll("#lista .proj").forEach(el => { const ok = !q || el.textContent.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q); el.style.display = ok ? "" : "none"; n += ok; });
-  $("#glista").textContent = q ? `Projetos (${n})` : "Projetos"; }
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { const md = [...document.querySelectorAll(".modal")].pop(); if (md) { md.remove(); return; } if ($("#gaveta").classList.contains("aberta")) gaveta(false); }
   if ((e.key === "Enter" || e.key === " ") && e.target.matches?.(".nav,.proj,.aba,tr.click,[role=button]")) { e.preventDefault(); e.target.click(); }
@@ -333,22 +359,16 @@ function classeStatus(s) { if (!s) return ""; if (s.startsWith("ERRO")) return "
 function thumbDe(id) { const [v, n] = id.split("#"); return `/bib/miniaturas/${v}_${String(n).padStart(3, "0")}.jpg`; }
 
 /* ---------- navegação ---------- */
-async function ir(view, extra = {}) { Object.assign(S, { view }, extra); marcarNav(); try { await lista(); } catch (e) {} render(); }
-async function abrirProjeto(nome, aba) { S.projeto = nome; S.view = "projeto"; if (aba) S.aba = aba; try { await carregarProjeto(); await lista(); render(); } catch (e) { erroTela(e); } }
-async function carregarProjeto() { S.dados = await api("/api/projeto/" + encodeURIComponent(S.projeto)); S.rot = S.dados.roteiro ? JSON.parse(JSON.stringify(S.dados.roteiro)) : null; }
-async function lista() {
-  const j = await api("/api/projetos"); S.trabalho = j.trabalho;
-  $("#lista").innerHTML = j.projetos.map(p => `<div class="proj ${S.view === "projeto" && p.nome === S.projeto ? "ativo" : ""}" role="listitem" tabindex="0" onclick="abrirProjeto('${esc(p.nome)}')">
-    <div class="t">${esc(p.titulo)}</div><div class="n">${esc(p.nome)}</div>${p.status ? `<span class="pill ${classeStatus(p.status)}">${esc(p.status)}</span>` : ""}</div>`).join("")
-    || `<div class="vazio" style="margin:8px;padding:20px 14px">Nenhum vídeo ainda. Comece em <b>Novo vídeo</b> ou em <b>Cortes e lives</b>.</div>`;
-  if ($("#filtro") && $("#filtro").value) filtrarLista();
-}
+async function ir(view, extra = {}) { Object.assign(S, { view }, extra); marcarNav(); return render(); }
+async function abrirProjeto(nome, aba) { S.projeto = nome; S.view = "projeto"; if (aba) S.aba = aba; marcarNav(); try { await carregarProjeto(); if (S.view === "projeto" && S.projeto === nome) render(); } catch (e) { erroTela(e); } }
+async function carregarProjeto() { const nome = S.projeto, dados = await api("/api/projeto/" + encodeURIComponent(nome)); if (S.projeto !== nome) return; S.dados = dados; S.rot = dados.roteiro ? JSON.parse(JSON.stringify(dados.roteiro)) : null; }
+async function lista() { const j = await api("/api/projetos"); S.trabalho = j.trabalho; return j; }
 const VERSAO_PAGINA = 21;
 function erroTela(e) {
   $("#main").innerHTML = `<div class="aviso-box"><b>Não consegui abrir esta tela.</b><br>${esc(e.message || e)}<br><br>
     Se você acabou de atualizar o Estúdio, feche a janela preta do Estúdio e abra o <b>estudio.bat</b> de novo.</div>`;
 }
-function marcarNav() { const v = S.view; document.querySelectorAll(".nav").forEach(n => { const on = n.dataset.v === v || (v === "corte" && n.dataset.v === "cortes");
+function marcarNav() { const v = S.view; document.querySelectorAll(".nav").forEach(n => { const on = n.dataset.v === v || (v === "projeto" && n.dataset.v === "projetos") || (v === "corte" && n.dataset.v === "cortes");
   n.classList.toggle("ativo", on); on ? n.setAttribute("aria-current", "page") : n.removeAttribute("aria-current"); }); }
 async function render() {
   marcarNav();
@@ -356,6 +376,7 @@ async function render() {
   try {
     if (S.view === "inicio") return await viewInicio(m);
     if (S.view === "novo") return await viewNovo(m);
+    if (S.view === "projetos") return await viewProjetos(m);
     if (S.view === "biblioteca") return await viewBiblioteca(m);
     if (S.view === "temas") return await viewTemas(m);
     if (S.view === "agendar") return await viewAgendar(m);
@@ -376,6 +397,7 @@ async function conferirVersao() {
 
 /* ---------- trabalho em andamento ---------- */
 let pollLog = null;
+let tickEmAndamento = false;
 function gaveta(abrir = true) { $("#gaveta").classList.toggle("aberta", abrir); if (abrir) atualizarLog(); }
 async function atualizarLog() {
   const t = S.trabalho || {}; const q = t.projeto ? `?projeto=${encodeURIComponent(t.projeto)}` : t.corte ? `?corte=${encodeURIComponent(t.corte)}` : (["zernio", "lote", "tendencias", "lives", "perguntas"].includes(t.acao) ? "?atual=1" : (t.acao ? "?biblioteca=1" : ""));
@@ -420,9 +442,12 @@ function pintarLote(l) {
   else { b.textContent = "▶ Gerar lote"; b.classList.remove("rodando"); }
 }
 async function tick() {
+  if (tickEmAndamento) return;
+  tickEmAndamento = true;
   try {
     const j = await api("/api/estado"); const t = j.trabalho; const antes = S.trabalho; S.trabalho = t; pintarLote(j.lote); bannerAtualizacao(j.atualizacao); if (!S.avisouAtu) { S.avisouAtu = true; avisoAtualizado(j.atualizado); }
     if (antes && antes.acao === "lote" && t.acao === "lote" && antes.projeto !== t.projeto && !t.fim) { lista(); if (antes.projeto === S.projeto && S.view === "projeto") { carregarProjeto().then(render); } }
+    atualizarAgendamentoProjeto(t);
     $("#job").classList.toggle("rodando", rodando(t));
     const pct = Math.round((t.progresso || 0) * 100), on = rodando(t);
     $("#barra").classList.toggle("on", on); $("#barra i").style.width = on ? Math.max(2, pct) + "%" : "0";
@@ -438,14 +463,14 @@ async function tick() {
     if (rodando(t) && ($("#gaveta").classList.contains("aberta") || (S.view === "projeto" && S.aba === "log"))) atualizarLog();
     if (antes && rodando(antes) && !rodando(t) && t.id === antes.id) aoTerminar(t);
     const nl = $("#navlive"); if (nl) nl.innerHTML = j.live && j.live.rodando ? `<span class="pill erro" title="Gravando live">● REC ${j.live.trechos}</span>` : "";
-  } catch (e) {}
+  } catch (e) {} finally { tickEmAndamento = false; }
 }
 async function aoTerminar(t) {
   const resumo = t.cancelado ? "interrompido" : (t.acao === "lote" && S.lote?.parar ? "parado após o vídeo atual" : t.codigo === 0 ? "pronto ✓" : "deu erro ✗ (veja o log)");
   toast(`${t.rotulo}: ${resumo}`); await lista();
   if (t.codigo === 0 && t.resultado?.projeto_atualizado && S.view === "projeto" && S.projeto === t.resultado.projeto_atualizado) { await carregarProjeto(); S.aba = "video"; render(); }
   if (S.view === "projeto" && t.projeto === S.projeto) { await carregarProjeto(); if (t.codigo === 0) S.aba = { gerar: "revisao", previa: "enquadramento", capa: "video", narrar: "roteiro" }[t.acao] || S.aba; render(); }
-  if (S.view === "biblioteca") render();
+  if (["inicio", "projetos", "biblioteca"].includes(S.view)) render();
   if (["tendencias", "perguntas"].includes(t.acao) && S.view === "temas") render();
   if (["momentos", "cortar", "traduzir_clipe", "lives"].includes(t.acao) && ["cortes", "corte"].includes(S.view)) {
     if (t.acao === "momentos" && t.codigo === 0 && t.corte) { S.corte = t.corte; S.view = "corte"; }
@@ -458,6 +483,8 @@ setInterval(tick, 2000);
 
 /* ---------- visão geral ---------- */
 function proximaEtapa(p) {
+  if (p.postado || /^POSTADO/i.test(p.status || "")) return { titulo: "Publicado", texto: "Projeto concluído. Veja o vídeo e os resultados.", botao: "Abrir projeto", aba: "video" };
+  if (p.agendado || /^AGENDADO/i.test(p.status || "")) return { titulo: "Publicação agendada", texto: "Acompanhe o envio e os resultados.", botao: "Ver agendamento", view: "agendar", aba: "video" };
   if (/^ERRO/i.test(p.status || "") && p.tem_roteiro && !p.tem_video) return { titulo: "Projeto com erro", texto: p.status, botao: "Ver log e corrigir", aba: "log" };
   if (!p.tem_roteiro) return { titulo: "Pedido criado", texto: "Abra o pedido para continuar o roteiro.", botao: "Abrir pedido", aba: "pedido" };
   if (!p.tem_video) return { titulo: "Roteiro pronto", texto: "Confira o roteiro e gere o vídeo.", botao: "Continuar roteiro", aba: "roteiro" };
@@ -469,17 +496,20 @@ function proximaEtapa(p) {
 }
 async function viewInicio(m) {
   const j = await api("/api/projetos"), ps = j.projetos || [];
-  const pendentes = ps.filter(p => !p.postado && !p.agendado), revisar = ps.filter(p => p.tem_video && (p.tipo === "clipe" ? !p.checagem_ok : !p.aprovado) && !p.agendado && !p.postado).length;
-  const prontos = ps.filter(p => p.tem_video && (p.tipo === "clipe" ? p.checagem_ok : p.aprovado) && !p.agendado && !p.postado).length;
+  if (S.view !== "inicio") return;
+  const publicado = p => p.postado || /^POSTADO/i.test(p.status || "");
+  const agendado = p => p.agendado || /^AGENDADO/i.test(p.status || "");
+  const pendentes = ps.filter(p => !publicado(p) && !agendado(p)), revisar = pendentes.filter(p => p.tem_video && (p.tipo === "clipe" ? !p.checagem_ok : !p.aprovado)).length;
+  const prontos = pendentes.filter(p => p.tem_video && (p.tipo === "clipe" ? p.checagem_ok : p.aprovado)).length;
   const primeiro = pendentes[0] || ps[0], etapa = primeiro && proximaEtapa(primeiro);
   m.innerHTML = `<div class="boas-vindas"><div><h2>Seu estúdio, em um só lugar</h2><p>Veja o que falta, retome um projeto ou comece o próximo vídeo.</p></div>
       <div class="linha"><button class="prim" onclick="ir('novo')">${ic("plus")}Novo vídeo</button><button onclick="ir('cortes')">${ic("tesoura")}Cortes e lives</button></div></div>
     <div class="resumo-grid"><div class="resumo"><b>${ps.length}</b><span>projetos</span></div><div class="resumo"><b>${revisar}</b><span>aguardando revisão</span></div>
-      <div class="resumo"><b>${prontos}</b><span>prontos para agendar</span></div><div class="resumo"><b>${ps.filter(p => p.agendado && !p.postado).length}</b><span>agendados</span></div></div>
-    ${primeiro ? `<div class="cartao continuar"><div class="texto"><span>CONTINUAR DE ONDE PAREI</span><b>${esc(primeiro.titulo)}</b><span>${esc(etapa.texto)} · ${esc(primeiro.nome)}</span></div>
+      <div class="resumo"><b>${prontos}</b><span>prontos para agendar</span></div><div class="resumo"><b>${ps.filter(p => agendado(p) && !publicado(p)).length}</b><span>agendados</span></div></div>
+    ${primeiro ? `<div class="cartao continuar"><div class="texto"><span>Continuar de onde parei</span><b>${esc(primeiro.titulo)}</b><span>${esc(etapa.texto)} · ${esc(primeiro.nome)}</span></div>
       <span class="pill ${primeiro.tem_video ? "ok" : ""}">${esc(etapa.titulo)}</span><button class="prim" id="continuar">${esc(etapa.botao)}</button></div>`
       : `<div class="vazio"><b>Seu primeiro vídeo começa aqui.</b><br>Crie um pedido ou encontre um momento de uma live.</div>`}
-    <div class="linha" style="margin:22px 0 8px"><h3 style="margin:0">Projetos recentes</h3><span style="flex:1"></span><button class="mini" onclick="ir('temas')">Explorar temas</button></div>
+    <div class="linha" style="margin:22px 0 8px"><h3 style="margin:0">Projetos recentes</h3><span style="flex:1"></span><button class="mini" onclick="ir('projetos')">Ver todos os projetos</button></div>
     ${ps.length ? ps.slice(0, 8).map(p => { const e = proximaEtapa(p); return `<div class="cartao continuar" style="padding:12px 16px"><div class="texto"><b>${esc(p.titulo)}</b><span>${esc(p.nome)} · ${esc(e.titulo)}</span></div>
       <span class="pill ${p.tem_video ? "ok" : ""}">${p.tem_video ? "vídeo pronto" : p.tem_roteiro ? "em produção" : "pedido"}</span><button class="mini" data-abrir="${esc(p.nome)}" data-aba="${esc(e.aba || "video")}" data-view="${esc(e.view || "")}">${esc(e.botao)}</button></div>`; }).join("")
       : `<p class="sub">Os projetos que você criar aparecerão aqui para continuar de onde parou.</p>`}`;
@@ -487,9 +517,30 @@ async function viewInicio(m) {
   m.querySelectorAll("[data-abrir]").forEach(b => b.onclick = () => b.dataset.view ? ir(b.dataset.view) : abrirProjeto(b.dataset.abrir, b.dataset.aba));
 }
 
+/* ---------- projetos ---------- */
+async function viewProjetos(m) {
+  const j = await lista(), projetos = j.projetos || [];
+  if (S.view !== "projetos") return;
+  m.innerHTML = `<div class="pagina-cab"><div><span class="sobretitulo">Seu conteúdo</span><h2>Projetos</h2><p class="sub">Encontre um vídeo e continue de onde parou.</p></div>
+    <div class="linha"><button id="blote" onclick="botaoLote()" title="Gera, em fila, os projetos com roteiro e sem vídeo pronto">${ic("pilha")}Gerar lote</button><button class="prim" onclick="ir('novo')">${ic("plus")}Novo vídeo</button></div></div>
+    <div class="projetos-ferramentas"><div><label for="busca-projetos">Buscar projetos</label><input id="busca-projetos" type="search" placeholder="Busque por título, pasta ou status"></div><span id="contagem-projetos" class="sub" aria-live="polite"></span></div>
+    <div id="projetos-lista" class="projetos-lista"></div>`;
+  pintarLote(S.lote);
+  const normalizar = t => String(t || "").toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const pintar = () => {
+    const q = normalizar($("#busca-projetos").value);
+    const encontrados = projetos.filter(p => normalizar([p.titulo, p.nome, p.status].join(" ")).includes(q));
+    $("#contagem-projetos").textContent = `${encontrados.length} de ${projetos.length} projeto(s)`;
+    $("#projetos-lista").innerHTML = encontrados.map((p, i) => { const e = proximaEtapa(p); return `<div class="projeto-linha"><span class="projeto-icone">${ic(p.tipo === "clipe" ? "tesoura" : "video")}</span><div class="projeto-info"><b>${esc(p.titulo || p.nome)}</b><span>${esc(e.titulo)} · ${esc(p.nome)}</span></div><span class="pill ${classeStatus(p.status)}">${esc(p.status || e.titulo)}</span><button data-projeto-indice="${i}">Abrir ${ic("seta")}</button></div>`; }).join("") || `<div class="vazio">${projetos.length ? "Nenhum projeto corresponde à busca." : "Nenhum projeto ainda. Comece criando um vídeo ou um corte."}</div>`;
+    $("#projetos-lista").querySelectorAll("[data-projeto-indice]").forEach(b => b.onclick = () => { const p = encontrados[Number(b.dataset.projetoIndice)], e = proximaEtapa(p); abrirProjeto(p.nome, e.aba || "video"); });
+  };
+  $("#busca-projetos").oninput = pintar; pintar();
+}
+
 /* ---------- NOVO VÍDEO ---------- */
 async function viewNovo(m) {
   const temas = await api("/api/temas");
+  if (S.view !== "novo") return;
   const amanha = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
   m.innerHTML = `<h2>Novo vídeo</h2><p class="sub">Registre o tema aqui. O roteiro, as cenas, a capa e o post são feitos pelo Claude no chat: depois de criar o pedido, é só mandar a mensagem que aparece abaixo.</p>
     <div class="cartao">
@@ -506,7 +557,7 @@ async function viewNovo(m) {
   m.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { temaCat = b.dataset.t; $("#ntema").value = b.dataset.t; $("#ntema").focus(); });
   $("#ncriar").onclick = async () => {
     try { const j = await api("/api/criar", { tema: $("#ntema").value, data_post: $("#ndata").value, notas: $("#nnotas").value, fontes: $("#nfontes").value, tema_catalogo: temaCat });
-      toast("Pedido criado"); await lista(); await abrirProjeto(j.projeto, "roteiro"); } catch (e) { toast(e.message); }
+      toast("Pedido criado"); await abrirProjeto(j.projeto, "roteiro"); } catch (e) { toast(e.message); }
   };
 }
 function msgClaude(nome, ped) {
@@ -549,6 +600,18 @@ function etapasGuiadas(d, r) {
     { id: "agendar", nome: "Agendar", feito: !!(d.zernio || d.postado) }];
   const atual = etapas.findIndex(x => !x.feito); return etapas.map((x, i) => ({ ...x, atual: i === atual }));
 }
+function atualizarAgendamentoProjeto(t) {
+  if (S.view !== "projeto" || !S.dados || !S.rot) return;
+  const ocupado = rodando(t), d = S.dados, r = S.rot;
+  const botao = $("#bagendar"), aviso = $("#espera-agendamento");
+  if (botao) {
+    botao.disabled = !!ocupado || !d.video_pronto || d.postado;
+    botao.title = ocupado ? "Aguarde o trabalho atual terminar" : (!d.video_pronto ? "Gere o vídeo primeiro" : d.postado ? "Este vídeo já foi marcado como postado" : "Agendar este vídeo no Zernio");
+  }
+  if (aviso) aviso.hidden = !ocupado;
+  const etapa = $("[data-fluxo=agendar]");
+  if (etapa) { const e = etapasGuiadas(d, r).find(x => x.id === "agendar"); etapa.disabled = !!ocupado || !e || (!e.feito && !e.atual); }
+}
 function viewProjeto(m) {
   const d = S.dados, oc = rodando(S.trabalho), r = S.rot, clipe = r && r.tipo === "clipe";
   if (clipe && !["video", "log"].includes(S.aba)) S.aba = "video";
@@ -565,6 +628,8 @@ function viewProjeto(m) {
         : `<button id="bagendar" ${oc || !d.video_pronto || d.postado ? "disabled" : ""} title="${d.video_pronto ? "Agendar este vídeo no Zernio" : "Gere o vídeo primeiro"}">${ic("agenda")}Agendar</button>`) : ""}
       <button id="bpost" title="Projetos postados não entram no Gerar lote">${d.postado ? "✓ Postado (desfazer)" : "Marcar como postado"}</button>
       <span style="flex:1"></span><span class="pill ${classeStatus(d.status)}">${esc(d.status || "—")}</span></div>
+    ${r && !d.zernio && !d.postado && d.video_pronto ? `<p id="espera-agendamento" class="aviso-box" ${oc ? "" : "hidden"}>Aguarde o trabalho atual terminar para agendar. O botão será liberado automaticamente.</p>` : ""}
+    ${clipe && !d.zernio && !d.postado ? `<p class="sub">Pronto para agendar ainda não significa agendado. O envio automático exige checagem aprovada, nota acima de 7,5 e análise de conteúdo pela IA. Você também pode agendar manualmente.</p>` : ""}
     ${r ? `<div class="fluxo" aria-label="Próximas etapas">${etapasGuiadas(d, r).map((x, i, a) => `<button class="${x.feito ? "feito" : x.atual ? "atual" : ""}" data-fluxo="${x.id}" ${oc || (!x.feito && !x.atual) ? "disabled" : ""} aria-current="${x.atual ? "step" : "false"}"><span class="n">${x.feito ? "✓" : i + 1}</span>${esc(x.nome)}</button>`).join("")}</div>` : ""}
     <div class="abas" role="tablist">${(clipe ? [["video", "Vídeo e post"], ["log", "Log"]] : r ? [["roteiro", "Roteiro"], ["enquadramento", "Enquadramento e cenas"], ["video", "Vídeo, capa e post"], ["revisao", d.aprovado ? "Revisão ✓" : "Revisão"], ["log", "Log"]] : [["pedido", "Pedido"], ["log", "Log"]]).map(([k, n]) =>
       `<div class="aba ${S.aba === k ? "ativa" : ""}" role="tab" tabindex="0" aria-selected="${S.aba === k}" data-aba="${k}">${n}</div>`).join("")}</div><div id="conteudo"></div>`;
@@ -914,6 +979,7 @@ const LAYOUTS = [["blur", "Desfocado", "vídeo inteiro no meio, fundo desfocado 
   ["facecam", "Jogo + câmera", "câmera do streamer em cima (38%), jogo embaixo"]];
 async function viewCortes(m) {
   const j = await api("/api/cortes"), oc = rodando(S.trabalho), lv = j.live || {}, L = j.lives || {};
+  if (S.view !== "cortes") return;
   const hora = (ts) => new Date(ts * 1000).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   const noAr = (ts) => { if (!ts) return ""; const h = (Date.now() / 1000 - ts) / 3600; return h < 1 ? Math.round(h * 60) + " min" : h.toFixed(1).replace(".0", "") + " h"; };
   m.innerHTML = `<h2>Cortes e lives</h2><p class="sub">Clipes verticais de lives e vídeos de outros criadores: o Estúdio acha os melhores momentos (volume, empolgação, chat e o "mais repetido" do YouTube), corta em 9:16 com legenda e gancho e manda para o Agendar. Credite sempre o criador e prefira quem permite cortes (campanhas de clipagem). Nada de vazamento, "jogue antes" ou pirataria.</p>
@@ -964,7 +1030,9 @@ async function viewCortes(m) {
 
 async function viewCorte(m) {
   if (!S.corte) return ir("cortes");
+  const corte = S.corte;
   const d = await api("/api/corte/" + encodeURIComponent(S.corte)), oc = rodando(S.trabalho), n = encodeURIComponent(d.nome);
+  if (S.view !== "corte" || S.corte !== corte) return;
   const sinais = [d.sinais.words ? `fala (${d.sinais.words} palavras)` : "", "volume", d.sinais.heatmap ? "mais repetido do YouTube" : "", d.sinais.chat ? "chat" : ""].filter(Boolean).join(" · ");
   const ckPill = (ch) => !ch ? "" : `<span class="pill ${ch.ok ? (ch.itens.some(i => !i.ok) ? "rodando" : "ok") : "erro"}" title="${esc(ch.itens.filter(i => !i.ok).map(i => i.nome + (i.detalhe ? " (" + i.detalhe + ")" : "")).join("\n") || "tudo certo")}">${ch.ok ? "checagem ✓" : "✗ checagem"}</span>`;
   m.innerHTML = `<div class="topo-proj"><button onclick="ir('cortes')">← Cortes</button><h2 style="margin-left:6px">${esc(d.info.title || d.nome)}</h2>
@@ -1128,6 +1196,7 @@ function modalAgendarClipe(d, c) {
 /* ---------- BIBLIOTECA ---------- */
 async function viewBiblioteca(m) {
   const b = await api("/api/biblioteca"), F = S.bibFiltro, oc = rodando(S.trabalho);
+  if (S.view !== "biblioteca") return;
   if (F.filtro === "pendentes" && !b.videos.some(v => v.pendentes)) F.filtro = "boas";
   m.innerHTML = `<h2>Biblioteca de cenas</h2><p class="sub">${b.videos.length} vídeos · ${b.videos.reduce((s, v) => s + v.cenas, 0)} cenas · ${b.videos.reduce((s, v) => s + v.pendentes, 0)} sem etiqueta · status: ${esc(b.status || "—")}</p>
     ${b.variedade ? `<div class="${b.variedade.livres < 150 ? "aviso-box" : "sub"}" style="margin:0 0 12px">Variedade: ${b.variedade.boas} cenas boas, ${b.variedade.usadas_recentes} usadas nos últimos 10 vídeos, <b>${b.variedade.livres} livres</b>. A escolha automática evita as usadas.${b.variedade.livres < 150 ? " Poucas cenas livres: baixe mais vídeos oficiais/gameplay e peça ao Claude para etiquetar." : ""}</div>` : ""}
@@ -1189,6 +1258,7 @@ async function agendarUm(nome, titulo, horarioAnterior) {
 }
 async function viewAgendar(m) {
   const z = await api("/api/zernio"), oc = rodando(S.trabalho);
+  if (S.view !== "agendar") return;
   const fmt = (iso) => { const d = new Date(iso); return d.toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); };
   if (!(S.calMes instanceof Date) || Number.isNaN(+S.calMes)) S.calMes = new Date(z.sugestao_inicio);
   if (Number.isNaN(+S.calMes)) S.calMes = new Date();
@@ -1269,6 +1339,7 @@ async function viewAgendar(m) {
 }
 async function viewTemas(m) {
   const j = await api("/api/temas"), oc = rodando(S.trabalho), td = j.tendencias || {};
+  if (S.view !== "temas") return;
   const nfmt = (n) => n >= 1e6 ? (n / 1e6).toFixed(1).replace(".0", "") + " mi" : n >= 1e3 ? Math.round(n / 1e3) + " mil" : String(n);
   const usar = (tema, cat) => { S.temaCat = cat || tema; S.temaPre = tema; ir("novo"); };
   m.innerHTML = `<h2>Temas e histórico</h2><p class="sub">Fontes para nunca ficar sem conteúdo: as <b>tendências</b> do YouTube (inclusive o que está subindo agora), as <b>perguntas dos fãs</b>, os <b>segredos</b> achados nos vídeos, os <b>códigos</b>, as <b>séries infinitas</b> e o <b>banco</b> curado. Tema usado sai sozinho da lista.</p>
@@ -1389,6 +1460,7 @@ async function abaRevisao(c) {
 /* ---------- RESULTADOS ---------- */
 async function viewResultados(m) {
   const r = await api("/api/resultados"), oc = rodando(S.trabalho);
+  if (S.view !== "resultados") return;
   const n = (x) => (x || 0) >= 1e6 ? (x / 1e6).toFixed(1).replace(".0", "") + " mi" : (x || 0) >= 1e3 ? (x / 1e3).toFixed(1).replace(".0", "") + " mil" : String(x || 0);
   const vs = r.videos || [], tot = r.total || {};
   m.innerHTML = `<div class="linha"><h2 style="margin:0;flex:1">Resultados</h2><button class="prim" id="ratual" ${oc ? "disabled" : ""}>${ic("atualizar")}Atualizar números do Zernio</button></div>
@@ -1421,6 +1493,7 @@ function bannerAtualizacao(a) {
 /* ---------- AJUSTES / PRIMEIRA CONFIGURAÇÃO ---------- */
 async function viewAjustes(m, primeira) {
   const c = await api("/api/config"), v = c.variacao, oc = rodando(S.trabalho);
+  if (S.view !== (primeira ? "config" : "ajustes")) return;
   const passo = (n, tit, corpo, ok) => `<div class="cartao"><div class="linha" style="margin-bottom:8px"><b style="font-size:16px;flex:1">${primeira ? n + ". " : ""}${tit}</b>${ok === undefined ? "" : `<span class="pill ${ok ? "ok" : ""}">${ok ? "pronto" : "pendente"}</span>`}</div>${corpo}</div>`;
   const nomeVoz = Object.fromEntries(c.vozes);
   m.innerHTML = `<h2>${primeira ? "Bem-vindo ao Estúdio GTA 6 Shorts" : "Ajustes e skill"}</h2>
@@ -1472,7 +1545,7 @@ async function viewAjustes(m, primeira) {
 async function porHash() {
   const h = new URLSearchParams(location.hash.slice(1));
   if (h.get("p")) return abrirProjeto(h.get("p"), h.get("aba") || "roteiro");
-  const v = location.hash.slice(1); if (["inicio", "novo", "biblioteca", "temas", "agendar", "resultados", "ajustes", "cortes"].includes(v)) return ir(v);
+  const v = location.hash.slice(1); if (["inicio", "novo", "projetos", "biblioteca", "temas", "agendar", "resultados", "ajustes", "cortes"].includes(v)) return ir(v);
   return ir("inicio");
 }
 window.addEventListener("hashchange", porHash);

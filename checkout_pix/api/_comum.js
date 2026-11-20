@@ -16,11 +16,23 @@ function metodo(req, res, esperado) {
   return false;
 }
 
-function preco() {
-  const valor = String(process.env.PLANO_MENSAL_BRL || "").trim().replace(",", ".");
+function paraCentavos(valorOriginal) {
+  const valor = String(valorOriginal || "").trim().replace(",", ".");
   if (!/^\d{1,5}(\.\d{1,2})?$/.test(valor)) return null;
   const centavos = Math.round(Number(valor) * 100);
   return centavos > 0 ? centavos : null;
+}
+
+function precos() {
+  return [
+    { id: "mensal", titulo: "Mensal", meses: 1, valorCentavos: paraCentavos(process.env.PLANO_MENSAL_BRL) },
+    { id: "trimestral", titulo: "Trimestral", meses: 3, valorCentavos: paraCentavos(process.env.PLANO_TRIMESTRAL_BRL) },
+  ];
+}
+
+function obterPlano(id) {
+  const plano = precos().find((item) => item.id === id);
+  return plano && plano.valorCentavos ? plano : null;
 }
 
 function baseUrl() {
@@ -36,6 +48,7 @@ function baseUrl() {
 function configuracao() {
   const ambiente = process.env.MP_AMBIENTE || "teste";
   const token = process.env.MP_ACCESS_TOKEN || "";
+  const planos = precos();
   const sandbox = ambiente === "teste" && token.startsWith("TEST-");
   const producao = ambiente === "producao"
     && token.startsWith("APP_USR-")
@@ -43,16 +56,17 @@ function configuracao() {
   const pronto = Boolean(
     process.env.DATABASE_URL
     && process.env.MP_WEBHOOK_SECRET
-    && preco()
+    && planos.every((plano) => plano.valorCentavos)
     && baseUrl()
     && (sandbox || producao)
   );
   return {
     pronto,
     ambiente: sandbox ? "teste" : producao ? "producao" : "desligado",
-    valorCentavos: preco(),
+    planos,
+    valorCentavos: planos[0].valorCentavos,
     moeda: "BRL",
-    frequencia: "mensal",
+    frequencia: "variável",
     motivo: pronto ? "" : "O checkout ainda não foi configurado no servidor.",
   };
 }
@@ -125,7 +139,7 @@ module.exports = {
   idNotificacao,
   mercadoPago,
   metodo,
-  preco,
+  obterPlano,
   responder,
   sql,
 };

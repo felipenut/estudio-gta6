@@ -37,7 +37,7 @@ async function registrarPagamento(consulta, pagamento) {
   if (!idReferencia && !idAssinatura) return;
 
   const sessoes = await consulta`
-    SELECT id, estado_pagamento, acesso_ate
+    SELECT id, estado_pagamento, acesso_ate, valor_centavos, duracao_meses
     FROM checkout_sessoes
     WHERE (${idReferencia || null}::text IS NOT NULL AND referencia_externa = ${idReferencia || null})
        OR (${idAssinatura || null}::text IS NOT NULL AND assinatura_mp = ${idAssinatura || null})
@@ -49,8 +49,9 @@ async function registrarPagamento(consulta, pagamento) {
   const status = String(pagamento.status || "unknown");
   const valor = Number(pagamento.transaction_amount || 0);
   const moeda = String(pagamento.currency_id || "");
-  const valorEsperado = configuracao().valorCentavos / 100;
-  const aprovado = status === "approved" && moeda === "BRL" && valor === valorEsperado;
+  const aprovado = status === "approved"
+    && moeda === "BRL"
+    && Math.round(valor * 100) === Number(sessao.valor_centavos);
   const pagoEm = pagamento.date_approved || pagamento.date_last_updated || new Date().toISOString();
 
   await consulta`
@@ -73,7 +74,7 @@ async function registrarPagamento(consulta, pagamento) {
       UPDATE checkout_sessoes
       SET estado_pagamento = 'approved',
           ultimo_pagamento = ${String(pagamento.id)},
-          acesso_ate = GREATEST(COALESCE(acesso_ate, '-infinity'::timestamptz), ${pagoEm}::timestamptz + interval '1 month'),
+          acesso_ate = GREATEST(COALESCE(acesso_ate, '-infinity'::timestamptz), ${pagoEm}::timestamptz + ${sessao.duracao_meses} * interval '1 month'),
           atualizado_em = now()
       WHERE id = ${sessao.id}
     `;
@@ -88,7 +89,7 @@ async function registrarPagamento(consulta, pagamento) {
             ELSE ${status}
           END,
           acesso_ate = (
-            SELECT MAX(pago_em) + interval '1 month'
+            SELECT MAX(pago_em) + ${sessao.duracao_meses} * interval '1 month'
             FROM checkout_pagamentos
             WHERE sessao_id = ${sessao.id} AND estado = 'approved' AND pago_em IS NOT NULL
           ),

@@ -13,7 +13,7 @@ usage: python cut.py jobs/<id> --pick 1 [--layout fill|blur|facecam|react] [--ho
 import argparse, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
-from common import load_json, run, save_json, tool
+from common import load_json, renderizar_com_progresso, save_json, tool
 
 W, H = 1080, 1920
 
@@ -136,7 +136,9 @@ def video_filter(layout, cam, ass, band=None, cam_side='right', src=None, game_x
     if layout == "fill":
         v = f"[0:v]scale=-2:{H},crop={W}:{H}[v]"
     elif layout == "blur":
-        v = (f"[0:v]split[a][b];[a]scale=-2:{H},crop={W}:{H},boxblur=24:2,eq=brightness=-0.08[bg];"
+        # O fundo é desfocado: calculá-lo em 1/4 da resolução mantém o efeito e reduz o custo.
+        v = (f"[0:v]split[a][b];[a]scale=-2:{H // 4},crop={W // 4}:{H // 4},boxblur=6:2,"
+             f"eq=brightness=-0.08,scale={W}:{H}[bg];"
              f"[b]scale={W}:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2-80[v]")
     elif layout == 'react':
         sw, sh = src
@@ -214,19 +216,23 @@ FOLGA = 0.15                               # mantém um respiro em volta das pal
 LOOP_SECS = 0.4
 
 
-def db_por_decimo(wav):
-    """Volume (dB) a cada 0,1 s do audio.wav (16 kHz mono) que o moments.py já gravou."""
+def db_por_decimo(wav, inicio=0, fim=None):
+    """Volume (dB) em blocos de 0,1 s; inicio e fim são índices de blocos absolutos."""
     try:
         import wave, numpy as np
         with wave.open(str(wav)) as w:
-            x = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float32) / 32768
+            total = w.getnframes()
+            primeiro = min(total, max(0, int(inicio)) * 1600)
+            ultimo = total if fim is None else min(total, max(primeiro, int(fim) * 1600))
+            w.setpos(primeiro)
+            x = np.frombuffer(w.readframes(ultimo - primeiro), dtype=np.int16).astype(np.float32) / 32768
         n = len(x) // 1600
         return 20 * np.log10(np.sqrt((x[: n * 1600].reshape(n, 1600) ** 2).mean(1) + 1e-9))
     except Exception:
         return None
 
 
-def trechos_mantidos(words, s0, e0, db=None, pico=None, max_corte=0.35):
+def trechos_mantidos(words, s0, e0, db=None, pico=None, max_corte=0.35, db_inicio=0):
     """Partes do clipe que ficam (tempos relativos ao começo do clipe). Sai só pausa entre falas que também é
     silenciosa (ação sem fala fica), nunca perto do pico, e no máximo 35% do clipe."""
     dur = e0 - s0
@@ -236,7 +242,7 @@ def trechos_mantidos(words, s0, e0, db=None, pico=None, max_corte=0.35):
     ref = None
     if db is not None and len(db):                       # nível da VOZ: mediana do volume enquanto alguém fala
         import numpy as np
-        falas = [db[int(w["s"] * 10):max(int(w["s"] * 10) + 1, int(w["e"] * 10))] for w in ws]
+        falas = [db[int(w["s"] * 10) - db_inicio:max(int(w["s"] * 10) + 1, int(w["e"] * 10)) - db_inicio] for w in ws]
         falas = np.concatenate([f for f in falas if len(f)]) if any(len(f) for f in falas) else []
         ref = float(np.median(falas)) if len(falas) else None
     cortes = []
@@ -244,10 +250,10 @@ def trechos_mantidos(words, s0, e0, db=None, pico=None, max_corte=0.35):
         g0, g1 = a["e"] + FOLGA, b["s"] - FOLGA
         if b["s"] - a["e"] <= PAUSA_MIN or g1 - g0 < 0.35:
             continue
-        if pico is not None and g1 > pico - 1.5 and g0 < pico + 1.5:
+        if pico is not None and g1 - s0 > pico - 1.5 and g0 - s0 < pico + 1.5:
             continue
         if ref is not None:
-            seg = db[int(g0 * 10):int(g1 * 10)]
+            seg = db[int(g0 * 10) - db_inicio:int(g1 * 10) - db_inicio]
             if len(seg) and float(seg.max()) > ref - 6:          # algo alto na pausa (ação, explosão): fica
                 continue
         cortes.append((g0 - s0, g1 - s0))
@@ -376,7 +382,7 @@ def comando_render(src, s0, e0, rp, ass, band, saida, voz_mp3=None, hook_secs=2.
             a = filtro_audio(manter, rp.get("voz", True), rp.get("loop"), dur)
         v = v + ";" + a
         mapa += ["-map", "[ao]"]
-    cmd += ["-filter_complex", v, *mapa, "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
+    cmd += ["-filter_complex", v, *mapa, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart", str(saida)]
     return cmd
 
@@ -466,8 +472,12 @@ def main():
     pico_abs = pick.get("peak")
     manter = [(0.0, round(e0 - s0, 3))]
     if "pausas" in ed:
-        manter = trechos_mantidos(words, s0, e0, db_por_decimo(d / "audio.wav"),
-                                  (pico_abs - s0) if pico_abs is not None else None)
+        inicio_db = max(0, int(s0 * 10))
+        # Uma palavra iniciada no corte pode terminar depois de e0; inclua-a na referência da voz.
+        fim_db = max([e0] + [w["e"] for w in words if s0 <= w["s"] < e0 and w["w"]])
+        db = db_por_decimo(d / "audio.wav", inicio_db, int(fim_db * 10) + 1)
+        manter = trechos_mantidos(words, s0, e0, db,
+                                  (pico_abs - s0) if pico_abs is not None else None, db_inicio=inicio_db)
     dur = duracao_editada(manter)
     pico_ed = mapear(pico_abs - s0, manter) if pico_abs is not None and s0 <= pico_abs <= e0 else None
     zoom = expr_zoom(dur, pico_ed) if "zoom" in ed and layout in ("blur", "fill") else None
@@ -494,7 +504,7 @@ def main():
     parcial = out / f"clip_{a.pick}.parcial.mp4"
     meta_anterior = load_json(out / f"clip_{a.pick}.json") if (out / f"clip_{a.pick}.json").exists() else {}
     print(f"(2/2) renderizando {dur:.0f}s em 1080x1920 ({layout}{', ' + ', '.join(sorted(ed)) if ed else ''})…", flush=True)
-    run(comando_render(c["source"], s0, e0, rp, ass, band, parcial))
+    renderizar_com_progresso(comando_render(c["source"], s0, e0, rp, ass, band, parcial), dur)
     if mp4.exists():
         import shutil, time
         pasta_backup = out / "backup"; pasta_backup.mkdir(exist_ok=True)
