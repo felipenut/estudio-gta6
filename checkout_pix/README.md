@@ -21,18 +21,19 @@ O Mercado Pago mostra os meios de pagamento habilitados para a conta durante o c
    - `DATABASE_URL`: conexão Neon com SSL.
    - `APP_URL`: endereço HTTPS do checkout, sem barra no final.
    - `MP_AMBIENTE`: `teste`.
-   - `MP_ACCESS_TOKEN`: Access Token de teste com prefixo `TEST-`.
+   - `MP_CONFIRMAR_TESTE`: `SIM` para autorizar o token de teste atual, que usa o prefixo `APP_USR-`.
+   - `MP_ACCESS_TOKEN`: Access Token copiado com o ambiente **Teste** selecionado no painel do Mercado Pago. Nas credenciais atuais, o token de teste começa com `APP_USR-`; `TEST-` antigo também é aceito.
    - `MP_WEBHOOK_SECRET`: segredo de assinatura de Webhooks da aplicação Mercado Pago.
    - `PLANO_MENSAL_BRL`: preço mensal em reais, por exemplo `29.90`.
    - `PLANO_TRIMESTRAL_BRL`: preço trimestral em reais, por exemplo `64.90`.
 
 4. Publique um Preview e faça uma compra com os usuários de teste do Mercado Pago. A confirmação via webhook exige uma URL HTTPS pública. A API envia `APP_URL/api/webhook` em `notification_url` ao criar a assinatura e trata os eventos `subscription_preapproval`, `subscription_authorized_payment` e `payment`.
 
-O endpoint retorna HTTP 503 e a página não aceita compra se faltar uma configuração ou se o ambiente não corresponder ao prefixo do token.
+O endpoint retorna HTTP 503 e a página não aceita compra se faltar uma configuração ou se o ambiente não corresponder ao prefixo do token. Como `APP_USR-` também pode identificar tokens de produção, o modo de teste exige `MP_CONFIRMAR_TESTE=SIM` e é bloqueado em implantações Vercel Production.
 
 ## Produção
 
-O padrão é teste e o token `APP_USR-` é recusado nesse modo. Para ligar produção somente depois de validar o Preview, configure `MP_AMBIENTE=producao`, `MP_ACCESS_TOKEN` de produção, `MP_CONFIRMAR_PRODUCAO=SIM`, segredo de webhook de produção, URL de produção e preço aprovado. Use os escopos de ambiente da Vercel para não misturar credenciais.
+O padrão é teste. Em Vercel Production, o modo de teste fica bloqueado mesmo que `MP_CONFIRMAR_TESTE=SIM` esteja definido. Para ligar produção somente depois de validar o Preview, configure `MP_AMBIENTE=producao`, `MP_ACCESS_TOKEN` de produção e `MP_CONFIRMAR_PRODUCAO=SIM`, além do segredo de webhook, URL e preço de produção. Use os escopos de ambiente da Vercel para não misturar credenciais.
 
 ## Limite desta etapa
 

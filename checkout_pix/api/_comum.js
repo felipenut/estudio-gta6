@@ -49,7 +49,10 @@ function configuracao() {
   const ambiente = process.env.MP_AMBIENTE || "teste";
   const token = process.env.MP_ACCESS_TOKEN || "";
   const planos = precos();
-  const sandbox = ambiente === "teste" && token.startsWith("TEST-");
+  const testeEmAmbienteSeguro = ambiente === "teste" && process.env.VERCEL_ENV !== "production";
+  const tokenDeTeste = token.startsWith("TEST-")
+    || (token.startsWith("APP_USR-") && process.env.MP_CONFIRMAR_TESTE === "SIM");
+  const sandbox = testeEmAmbienteSeguro && tokenDeTeste;
   const producao = ambiente === "producao"
     && token.startsWith("APP_USR-")
     && process.env.MP_CONFIRMAR_PRODUCAO === "SIM";
