@@ -374,7 +374,7 @@ async function ir(view, extra = {}) { Object.assign(S, { view }, extra); marcarN
 async function abrirProjeto(nome, aba) { S.projeto = nome; S.view = "projeto"; if (aba) S.aba = aba; marcarNav(); try { await carregarProjeto(); if (S.view === "projeto" && S.projeto === nome) render(); } catch (e) { erroTela(e); } }
 async function carregarProjeto() { const nome = S.projeto, dados = await api("/api/projeto/" + encodeURIComponent(nome)); if (S.projeto !== nome) return; S.dados = dados; S.rot = dados.roteiro ? JSON.parse(JSON.stringify(dados.roteiro)) : null; }
 async function lista() { const j = await api("/api/projetos"); S.trabalho = j.trabalho; return j; }
-const VERSAO_PAGINA = 27;
+const VERSAO_PAGINA = 28;
 function erroTela(e) {
   $("#main").innerHTML = `<div class="aviso-box"><b>Não consegui abrir esta tela.</b><br>${esc(e.message || e)}<br><br>
     Se você acabou de atualizar o Estúdio, feche a janela preta do Estúdio e abra o <b>estudio.bat</b> de novo.</div>`;
@@ -1411,11 +1411,21 @@ function modalLoteCortes(d) {
 function modalCortar(d, c, antigo, projetoAtualizar = null) {
   const ant = antigo || {}, lay0 = ant.layout || "facecam";
   const rp = ant.render || {};
+  const camposQuadro = [["x","Câmera · horizontal"],["y","Câmera · vertical"],["largura","Largura da câmera"],["altura","Altura da câmera"],["jogo","Jogo · horizontal"]];
+  const quadro = {...{x:50,y:50,largura:25,altura:30,jogo:50}, ...d.enquadramento};
+  const caixaAnterior = String(rp.cam || "").split(":").map(Number);
+  if (ant.layout === "facecam" && caixaAnterior.length === 4) {
+    const [x,y,w,h] = caixaAnterior;
+    Object.assign(quadro,{x:Math.round(100*x/Math.max(.001,1-w)), y:Math.round(100*y/Math.max(.001,1-h)), largura:Math.round(w*100), altura:Math.round(h*100), jogo:rp.posicao_jogo ?? 50});
+  }
   const ed0 = rp.edicao || ["pausas", "zoom", "voz"];
   const sugerido = antigo ? "" : (c.gancho_sugerido || "");
   const md = abrirModal(`<div class="cab"><b style="flex:1">${projetoAtualizar ? "Editar gancho" : `Cortar o momento #${c.n} (${fmtT(c.start)}–${fmtT(c.end)})`}</b><button id="kfechar">Fechar</button></div>
     <div class="corpo"><label style="margin-top:0">Formato</label>
       <div class="lays">${LAYOUTS.map(([k, t, dsc]) => `<label class="lay ${k === lay0 ? "on" : ""}"><input type="radio" name="klay" value="${k}" ${k === lay0 ? "checked" : ""}><b>${t}</b><span>${dsc}</span></label>`).join("")}</div>
+      <div id="kenquad"><label><input id="kmanual" type="checkbox" ${d.enquadramento || (ant.layout === "facecam" && caixaAnterior.length === 4) ? "checked" : ""}> Ajustar enquadramento</label>
+      <div id="kcontroles"><p class="sub">Ao cortar, o Estúdio salva estas posições para os próximos cortes deste canal.</p>
+      ${camposQuadro.map(([k,t]) => `<label for="quadro-${k}">${t}</label><input id="quadro-${k}" type="range" min="${["altura","largura"].includes(k)?5:0}" max="100" value="${Number(quadro[k])}">`).join("")}</div></div>
       <div id="kgancho"><label>Gancho (aparece nos primeiros 4 segundos)</label><input id="kg" maxlength="90" value="${esc(ant.gancho || sugerido)}" placeholder="Ex.: Ninguém viu esse carro escondido"></div>
       <div id="ktitulo"><label>Título (aparece nos primeiros 4 segundos)</label><input id="kt" maxlength="110" value="${esc(ant.titulo || sugerido)}" placeholder="Ex.: Speed FICOU CHOCADO com a polícia do GTA 6"></div>
       <div class="linha" style="margin-top:8px"><button class="mini" id="kia">${ic("brilho")}Sugerir 3 com IA</button><span id="ksug" class="linha" style="gap:6px"></span></div>
@@ -1446,10 +1456,13 @@ function modalCortar(d, c, antigo, projetoAtualizar = null) {
     $("#kyv", md).textContent = Math.round(+$("#ky", md).value / 1920 * 100) + "% da altura"; $("#ktamv", md).textContent = $("#ktam", md).value; };
   const v = $("#kfonte", md), cv = $("#kcanvas", md), ctx = cv.getContext("2d");
   const desenhar = () => { if (!v.videoWidth) return; const sw = v.videoWidth, sh = v.videoHeight, layout = lay(); ctx.fillStyle = "#171225"; ctx.fillRect(0,0,270,480);
-    const cam = String(rp.cam || "").split(":").map(Number), temCam = cam.length === 4 && cam.every(Number.isFinite);
+    const manual = layout === "facecam" && $("#kmanual",md).checked;
+    const valor = k => +$("#quadro-"+k,md).value/100;
+    const wManual = valor("largura"), hManual = valor("altura");
+    const cam = manual ? [valor("x")*(1-wManual),valor("y")*(1-hManual),wManual,hManual] : String(rp.cam || "").split(":").map(Number), temCam = cam.length === 4 && cam.every(Number.isFinite);
     if ((layout === "react" || layout === "facecam") && temCam) { const [x,y,w,h] = cam; const alvo = 182.5, cw = sw*w, ch = sh*h, rec = Math.min(cw, ch*270/alvo), rx = sw*x + (cw-rec)/2;
-      ctx.drawImage(v, rx, sh*y, rec, ch, 0, 0, 270, alvo); const gh = 480-alvo, largura = sh*270/gh, gx = Math.max(0, Math.min(sw-largura, rp.gx != null && rp.src ? rp.gx * sw / (Math.max(1080, 2*Math.floor(sw*1190/sh/2))) : (sw-largura)/2));
-      ctx.drawImage(v, gx, 0, Math.min(sw,largura), sh, 0, alvo, 270, gh);
+      const altura = Math.min(ch, rec*alvo/270); ctx.drawImage(v, rx, sh*y+(ch-altura)/2, rec, altura, 0, 0, 270, alvo); const gh = 480-alvo, largura = sh*270/gh, gx = Math.max(0, Math.min(sw-largura, rp.gx != null && rp.src ? rp.gx * sw / (Math.max(1080, 2*Math.floor(sw*1190/sh/2))) : (sw-largura)/2));
+      ctx.drawImage(v, manual ? Math.max(0,sw-largura)*valor("jogo") : gx, 0, Math.min(sw,largura), sh, 0, alvo, 270, gh);
     } else if (layout === "blur") { ctx.save(); ctx.filter = "blur(9px) brightness(.55)"; ctx.drawImage(v,0,0,sw,sh,0,0,270,480); ctx.restore(); const h = 270*sh/sw; ctx.drawImage(v,0,(480-h)/2,270,h); }
     else { const w = Math.min(sw, sh*270/480); ctx.drawImage(v, (sw-w)/2, 0, w, sh, 0, 0, 270, 480); }
   };
@@ -1464,11 +1477,13 @@ function modalCortar(d, c, antigo, projetoAtualizar = null) {
     if (v.currentTime < inicio || v.currentTime >= fim) v.currentTime = inicio; try { await v.play(); $("#ktocar", md).textContent = "Pausar prévia"; animar(); } catch(e) { toast("Não consegui reproduzir o vídeo original"); } } else { v.pause(); $("#ktocar", md).textContent = "Reproduzir prévia"; } };
   ["#kg", "#kt", "#kestilo", "#ky", "#ktam", "#kcor"].forEach(s => $(s, md).oninput = atualizarTexto);
   const pinta = () => { const r = lay() === "react"; $("#kgancho", md).style.display = r ? "none" : ""; $("#ktitulo", md).style.display = r ? "" : "none";
+    $("#kenquad",md).hidden = lay() !== "facecam"; $("#kcontroles",md).hidden = !$("#kmanual",md).checked;
     md.querySelectorAll(".lay").forEach(l => l.classList.toggle("on", l.querySelector("input").checked));
     const inicio = lerTempoVideo($("#ki", md).value), fim = lerTempoVideo($("#kf", md).value), du = inicio == null || fim == null ? NaN : fim - inicio;
     $("#kdur", md).textContent = Number.isFinite(du) ? formatarTempoVideo(du) : "min:seg";
     $("#kdur", md).style.color = !Number.isFinite(du) || du > 60 || du < 5 ? "var(--erro)" : ""; atualizarTexto(); desenhar(); };
   md.querySelectorAll("[name=klay]").forEach(r => r.onchange = pinta); $("#ki", md).oninput = pinta; $("#kf", md).oninput = pinta; pinta();
+  $("#kmanual",md).onchange = pinta; camposQuadro.forEach(([k]) => $("#quadro-"+k,md).oninput = desenhar);
   $("#kfechar", md).onclick = () => md.remove();
   $("#kia", md).onclick = async () => { const b = $("#kia", md); b.disabled = true; b.textContent = "pensando…";
     try { const r = await api("/api/cortes/ganchos", { nome: d.nome, pick: c.n }); const lista = lay() === "react" ? r.titulos : r.ganchos;
@@ -1484,6 +1499,7 @@ function modalCortar(d, c, antigo, projetoAtualizar = null) {
       legenda: $("#kl", md).value, inicio, fim, palavroes: $("#kp", md).checked,
       texto_y: +$("#ky", md).value, texto_tamanho: +$("#ktam", md).value, texto_cor: $("#kcor", md).value, projeto_atualizar: projetoAtualizar,
       pergunta: $("#kq", md).value, edicao: [...md.querySelectorAll("[data-ed]:checked")].map(x => x.dataset.ed) };
+    if (lay() === "facecam") corpo.enquadramento = $("#kmanual",md).checked ? Object.fromEntries(camposQuadro.map(([k]) => [k,+$("#quadro-"+k,md).value])) : null;
     if (corpo.fim - corpo.inicio < 3) return toast("Trecho curto demais");
     try { const r = await api("/api/cortes/cortar", corpo); S.trabalho = r.trabalho; md.remove(); toast("Cortando… o clipe aparece aqui quando terminar"); gaveta(true); } catch (e) { toast(e.message); } };
 }

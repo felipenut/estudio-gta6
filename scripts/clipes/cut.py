@@ -131,7 +131,7 @@ def even(n):
     return int(n) // 2 * 2
 
 
-def video_filter(layout, cam, ass, band=None, cam_side='right', src=None, game_x=None, face_expr=None):
+def video_filter(layout, cam, ass, band=None, cam_side='right', src=None, game_x=None, face_expr=None, posicao_jogo=50):
     """Layout + burned-caption filter graph ending in [vo]. Reused by translate.py."""
     if layout == "fill":
         v = (f"[0:v]scale={W}:{H}:force_original_aspect_ratio=increase:force_divisible_by=2,"
@@ -160,7 +160,7 @@ def video_filter(layout, cam, ass, band=None, cam_side='right', src=None, game_x
         altura_cam = even(H * 0.38)
         altura_jogo = H - altura_cam
         v = (f"[0:v]split[a][b];[a]crop=iw*{w}:ih*{h}:iw*{x}:ih*{y},scale={W}:{altura_cam}:force_original_aspect_ratio=increase,"
-             f"crop={W}:{altura_cam}[cam];[b]scale=-2:{altura_jogo},crop={W}:{altura_jogo}[game];[cam][game]vstack[v]")
+             f"crop={W}:{altura_cam}[cam];[b]scale=-2:{altura_jogo},crop={W}:{altura_jogo}:(iw-ow)*{posicao_jogo}/100:0[game];[cam][game]vstack[v]")
     if band:
         y0, bh, secs, *cores = band
         cor = cores[0] if cores else '0xB92F78'
@@ -369,7 +369,7 @@ def comando_render(src, s0, e0, rp, ass, band, saida, voz_mp3=None, hook_secs=2.
     """Comando ffmpeg completo (usado pelo cut.py e pelo traduzir.py, para as versões saírem iguais)."""
     manter = [tuple(x) for x in (rp.get("manter") or [])]
     dur = duracao_editada(manter) if manter else (e0 - s0)
-    v = video_filter(rp["layout"], rp["cam"], ass, band=band, cam_side=rp.get("side") or "right",
+    v = video_filter(rp["layout"], rp["cam"], ass, band=band, posicao_jogo=rp.get("posicao_jogo", 50), cam_side=rp.get("side") or "right",
                      src=tuple(rp["src"]) if rp.get("src") else None, game_x=rp.get("gx"),
                      face_expr=tuple(rp["face_expr"]) if rp.get("face_expr") else None)
     v = filtro_edicao(v, manter, rp.get("zoom"), dur, rp.get("loop"))
@@ -430,6 +430,7 @@ def main():
     ap.add_argument("--hook", default="")
     ap.add_argument("--allow-profanity", action="store_true", help="keep swear words in captions (slurs are always masked)")
     ap.add_argument("--cam", default="auto", help="auto (find the webcam) or x:y:w:h fractions")
+    ap.add_argument("--posicao-jogo", type=int, choices=range(101), default=50)
     ap.add_argument("--game-x", type=int, default=None, help="enquadramento horizontal já calculado")
     ap.add_argument("--start", type=float); ap.add_argument("--end", type=float)
     ap.add_argument("--edicao", default=EDICAO_PADRAO, help="pausas,zoom,voz,loop (ou 'nenhuma')")
@@ -513,7 +514,7 @@ def main():
         else:
             largura_jogo = max(W, even(src[0] * GAME_H / src[1]))
             gx = max(0, min(largura_jogo - W, even(a.game_x)))
-    rp = {"layout": layout, "cam": cam, "side": side, "src": src, "gx": gx, "face_expr": face_expr,
+    rp = {"posicao_jogo": a.posicao_jogo, "layout": layout, "cam": cam, "side": side, "src": src, "gx": gx, "face_expr": face_expr,
           "manter": manter if len(manter) > 1 else None, "zoom": zoom, "voz": "voz" in ed, "loop": "loop" in ed,
           "threads": a.threads}
     mp4 = out / f"clip_{a.pick}.mp4"
@@ -535,7 +536,7 @@ def main():
                                             "projetos": meta_anterior.get("projetos") or {},
                                             "source_url": info.get("webpage_url"), "source_title": info.get("title"),
                                             "source_channel": info.get("channel") or info.get("uploader"),
-                                            "render": {"layout": layout, "cam": cam, "side": side, "src": src, "gx": gx,
+                                            "render": {"posicao_jogo": a.posicao_jogo, "layout": layout, "cam": cam, "side": side, "src": src, "gx": gx,
                                                        "face_expr": face_expr, "title_style": a.title_style,
                                                        "title_secs": a.title_secs, "captions": caps,
                                                        "texto_y": a.texto_y, "texto_tamanho": a.texto_tamanho, "texto_cor": a.texto_cor,

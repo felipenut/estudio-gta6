@@ -225,7 +225,7 @@ def detalhe(nome):
             s["trabalho"] = tn if (CORTES / tn / "candidates.json").exists() else None
         trechos.append(s)
     rodando = bool(LIVE["proc"] and LIVE["trabalho"] == d.name and LIVE["proc"].poll() is None)
-    return {"nome": d.name, "info": info, "canal": canal, "momentos": cand.get("candidates") or [],
+    return {"nome": d.name, "info": info, "canal": canal, "enquadramento": _ler(arquivo_enquadramento(d)), "momentos": cand.get("candidates") or [],
             "sinais": cand.get("signals") or {}, "duracao": cand.get("duration"), "clipes": clipes,
             "tem_fonte": bool(cand.get("source") and Path(cand["source"]).exists()),
             "live": est, "trechos": trechos, "live_rodando": rodando}
@@ -291,6 +291,16 @@ def etapas_momentos(corpo):
     return nome, etapas
 
 
+def arquivo_enquadramento(d):
+    import hashlib
+    info = _ler(d / "info.json", {})
+    canal = info.get("uploader_id") or info.get("channel") or info.get("uploader")
+    if not canal:
+        return d / "enquadramento.json"
+    chave = hashlib.sha256(canal.encode("utf-8")).hexdigest()
+    return CORTES / "_enquadramentos" / (chave + ".json")
+
+
 def etapas_cortar(corpo):
     d = trabalho_dir(corpo["nome"])
     pick = int(corpo["pick"])
@@ -329,6 +339,20 @@ def etapas_cortar(corpo):
     if isinstance(ed, (list, tuple)):
         ed = [x for x in ed if x in ("pausas", "zoom", "voz", "loop")]
         e += ["--edicao", ",".join(ed) if ed else "nenhuma"]
+    if layout == "facecam":
+        arquivo = arquivo_enquadramento(d)
+        ajuste = corpo.get("enquadramento", _ler(arquivo))
+        if ajuste is not None:
+            valores = [int(ajuste[k]) for k in ("x", "y", "largura", "altura", "jogo")]
+            x, y, largura, altura, jogo = valores
+            if not (0 <= x <= 100 and 0 <= y <= 100 and 5 <= largura <= 100 and 5 <= altura <= 100 and 0 <= jogo <= 100):
+                raise ValueError("Confira o enquadramento da câmera e do jogo.")
+            cam_manual = (x / 100 * (1 - largura / 100), y / 100 * (1 - altura / 100), largura / 100, altura / 100)
+            e += ["--cam", ":".join(f"{v:.6f}" for v in cam_manual), "--posicao-jogo", str(jogo)]
+            if "enquadramento" in corpo:
+                _gravar(arquivo, dict(zip(("x", "y", "largura", "altura", "jogo"), valores)))
+        elif "enquadramento" in corpo:
+            arquivo.unlink(missing_ok=True)
     return [e]
 
 
