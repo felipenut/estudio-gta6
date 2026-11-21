@@ -20,7 +20,10 @@ ESTILO_PADRAO = {
     "volume_musica": 0.13, "zoom": 0.06,
     "sfx": True, "volume_sfx": 0.45, "loudness": -14, "barra_progresso": False,
     "cartela_tamanho": 210, "cartela_y": 470,
+    "transicoes": "auto", "transicao_a_cada": 3,      # transição forte só a cada N trocas de assunto (o resto é corte seco)
 }
+TRANSICOES = ("corte", "zoom", "whip", "glitch", "flash")
+SOM_TRANSICAO = {"zoom": "whoosh_cine", "whip": "whoosh", "glitch": "glitch", "flash": "whoosh"}
 
 
 # ---------------------------------------------------------------- alinhamento texto x narração
@@ -143,7 +146,8 @@ def planejar_cortes(rot, alinhado, total, sel, est):
                            "cena_biblioteca": "cena" in ref, "foco": c["foco"], "foco_fixo": c["foco_fixo"], "tags": c["tags"], "descricao": c.get("descricao", ""),
                            "layout": ref.get("layout") or s.get("layout") or c["layout_cena"] or est["layout"],
                            "imagem": s.get("imagem"), "tipo": s.get("tipo", ""),
-                           "zoom": ref.get("zoom", s.get("zoom", est["zoom"]))})
+                           "zoom": ref.get("zoom", s.get("zoom", est["zoom"])),
+                           "tremer": bool(s.get("tremer"))})
     return cortes
 
 
@@ -204,16 +208,25 @@ def tarjas(arquivo, ini, dur):
     return _CROPS[chave]
 
 
-def zoom_expr(z, dur, idx):
+def zoom_expr(z, dur, idx, soco=False):
     n = max(1, round((dur + 0.1) * FPS))
-    return f"1+{z}*on/{n}" if idx % 2 == 0 else f"1+{z}*(1-on/{n})"
+    base = f"1+{z}*on/{n}" if idx % 2 == 0 else f"1+{z}*(1-on/{n})"
+    # transição "zoom": entra 22% mais perto e assenta em ~0,25 s
+    return f"{base}+0.22*max(0,1-on/{round(0.25 * FPS)})" if soco else base
 
 
-def zoompan(z, dur, idx, w, h):
-    """push-in / pull-out suave, alternando a cada corte (fps antes para não mudar a velocidade)."""
-    if z <= 0:
+def zoompan(z, dur, idx, w, h, soco=False, tremer=False):
+    """push-in / pull-out suave, alternando a cada corte (fps antes para não mudar a velocidade).
+    soco = entrada com zoom forte (transição); tremer = câmera tremendo (cenas de ação)."""
+    if tremer:
+        z = max(z, 0.05)
+    if z <= 0 and not soco:
         return ""
-    return (f",fps={FPS},zoompan=z='{zoom_expr(z, dur, idx)}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+    x, y = "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)"
+    if tremer:
+        x += "+iw*0.007*sin(on*2.3)+iw*0.004*sin(on*5.1)"
+        y += "+ih*0.006*cos(on*2.9)"
+    return (f",fps={FPS},zoompan=z='{zoom_expr(z, dur, idx, soco)}':x='{x}':y='{y}'"
             f":d=1:s={w}x{h}:fps={FPS}")
 
 
@@ -223,6 +236,7 @@ def filtro_layout(c, est, idx):
     cheio            — recorte 9:16 em tela cheia (corta as laterais; use `foco` para escolher a parte).
     moldura          — faixa central de altura moldura_altura (corta um pouco as laterais) com fundo desfocado."""
     z = float(c.get("zoom", est["zoom"]) or 0)
+    mov = (bool(c.get("soco")), bool(c.get("tremer")))
     iw, ih = dims(c["arquivo"])
     pre = ""
     t = tarjas(c["arquivo"], c["src_in"], c["dur"])
@@ -243,15 +257,15 @@ def filtro_layout(c, est, idx):
     fundo = f"[a]{cobrir},boxblur=30:3,eq=brightness=-0.18:saturation=1.15[bg]"
     if layout == "inteiro":
         fh = int(round(ih * W / iw / 2) * 2)
-        return (f"[0:v]{pre}split[a][b];{fundo};[b]scale={W}:{fh}{zoompan(z, c['dur'], idx, W, fh)}[fg];"
+        return (f"[0:v]{pre}split[a][b];{fundo};[b]scale={W}:{fh}{zoompan(z, c['dur'], idx, W, fh, *mov)}[fg];"
                 f"[bg][fg]overlay=0:(H-h)/2")
     if layout == "moldura":
         mh = est["moldura_altura"]
         return (f"[0:v]{pre}split[a][b];{fundo};"
                 f"[b]scale={W}:{mh}:force_original_aspect_ratio=increase,"
-                f"crop={W}:{mh}:(iw-{W})*{fx}:(ih-{mh})/2{zoompan(z, c['dur'], idx, W, mh)}[fg];"
+                f"crop={W}:{mh}:(iw-{W})*{fx}:(ih-{mh})/2{zoompan(z, c['dur'], idx, W, mh, *mov)}[fg];"
                 f"[bg][fg]overlay=0:(H-h)/2")
-    return f"[0:v]{pre}{cobrir}{zoompan(z, c['dur'], idx, W, H)}"
+    return f"[0:v]{pre}{cobrir}{zoompan(z, c['dur'], idx, W, H, *mov)}"
 
 
 TAGS_INTEIRO = {"logo", "texto", "capa", "cover art", "data", "mapa", "anuncio"}
@@ -392,7 +406,8 @@ def assinatura_corte(c, idx, est):
     except OSError:
         mt = 0
     chave = json.dumps([str(arq), mt, round(c["src_in"], 3), round(c["dur"], 3), c["layout"], c["foco"],
-                        c.get("zoom"), idx % 2, c.get("imagem"), est["zoom"], est["moldura_altura"], 3],
+                        c.get("zoom"), idx % 2, c.get("imagem"), est["zoom"], est["moldura_altura"], 3,
+                        bool(c.get("soco")), bool(c.get("tremer"))],
                        sort_keys=True, default=str)
     return hashlib.md5(chave.encode()).hexdigest()[:16]
 
@@ -483,6 +498,51 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     Path(destino).write_text(cab + "\n".join(linhas) + "\n", encoding="utf-8")
 
 
+def planejar_transicoes(rot, cortes, tseg, est):
+    """Corte seco na maioria das trocas; transição forte só nas viradas: quando o roteiro pede ("transicao"),
+    na revelação ("revelacao": true, glitch com riser) ou, no modo auto, a cada N trocas de assunto."""
+    segs, lista, ciclo = rot["segmentos"], [], ["zoom", "whip", "flash"]
+    auto = est.get("transicoes", "auto") != "nenhuma"
+    a_cada = max(2, int(est.get("transicao_a_cada", 3) or 3))
+    fortes = 0
+    for i in sorted(tseg):
+        if i == 0:
+            continue
+        s = segs[i]
+        tipo = s.get("transicao")
+        if tipo not in TRANSICOES:
+            tipo = "glitch" if s.get("revelacao") else (ciclo[fortes % len(ciclo)] if auto and i % a_cada == 0 else "corte")
+        if tipo == "corte" and not s.get("revelacao"):
+            continue
+        t = tseg[i][0]
+        lista.append({"seg": i, "t": round(t, 3), "tipo": tipo, "revelacao": bool(s.get("revelacao"))})
+        if tipo != "corte":
+            fortes += 1
+        if tipo == "zoom":
+            primeiro = min((c for c in cortes if c["seg"] == i), key=lambda c: c["t0"], default=None)
+            if primeiro:
+                primeiro["soco"] = True
+    return lista
+
+
+def filtros_transicao(transicoes):
+    """Filtros com tempo (enable) aplicados no vídeo inteiro, na hora de cada troca."""
+    f = []
+    for tr in transicoes:
+        t = tr["t"]
+        janela = lambda a, b: f"enable='between(t,{max(0, t + a):.3f},{t + b:.3f})'"
+        if tr["tipo"] == "zoom":
+            f.append(f"gblur=sigma=14:{janela(-0.05, 0.1)}")
+        elif tr["tipo"] == "whip":
+            f.append(f"gblur=sigma=55:sigmaV=0.01:{janela(-0.08, 0.1)}")
+        elif tr["tipo"] == "glitch":
+            f += [f"rgbashift=rh=-26:bh=26:rv=6:{janela(0, 0.2)}", f"noise=alls=55:allf=t:{janela(0, 0.12)}",
+                  f"rgbashift=rh=18:bh=-18:{janela(0.2, 0.27)}"]
+        elif tr["tipo"] == "flash":
+            f += [f"drawbox=c=white@0.85:t=fill:{janela(-0.02, 0.05)}", f"drawbox=c=white@0.4:t=fill:{janela(0.05, 0.12)}"]
+    return f
+
+
 def escrever_srt(alinhado, destino, por_bloco=4):
     blocos, out = [alinhado[i:i + por_bloco] for i in range(0, len(alinhado), por_bloco)], []
     for n, b in enumerate(blocos, 1):
@@ -554,6 +614,9 @@ def main():
             musica = str(Path("musicas") / nome_m)
             print(f"música: {musica}")
     tseg = tempos_segmentos(cortes, len(rot["segmentos"]), total)
+    transicoes = planejar_transicoes(rot, cortes, tseg, est)
+    import efeitos as EF
+    eventos_efeitos = EF.planejar(rot, tseg, total)
     cartelas = []
     for i, sg in enumerate(rot["segmentos"]):
         if sg.get("cartela") and i in tseg:
@@ -564,7 +627,8 @@ def main():
                                         "estilo": est, "narracao": str(narr),
                                         "musica": str(Path(musica).resolve()) if musica else None,
                                         "sfx": str(out / "sfx.wav") if est["sfx"] else None,
-                                        "cortes": cortes, "palavras": alinhado, "cartelas": cartelas})
+                                        "cortes": cortes, "palavras": alinhado, "cartelas": cartelas,
+                                        "transicoes": transicoes, "efeitos": eventos_efeitos})
     fontes = out / "fonts"; fontes.mkdir(exist_ok=True)
     for f in FONTES.glob("*.ttf"):
         shutil.copy(f, fontes / f.name)
@@ -573,7 +637,8 @@ def main():
     if a.so_plano or (not a.lote and not (out / "previa_enquadramento.jpg").exists()):
         previa_enquadramento(cortes, out / "previa_enquadramento.jpg")
         salvar_cache()
-    print(f"plano: {len(cortes)} cortes, {len(alinhado)} palavras, {total:.1f}s")
+    print(f"plano: {len(cortes)} cortes, {len(alinhado)} palavras, {total:.1f}s, "
+          f"{sum(t['tipo'] != 'corte' for t in transicoes)} transições, {len(eventos_efeitos)} efeitos")
     if a.so_plano:
         return
 
@@ -596,9 +661,13 @@ def main():
     rodar([ffmpeg_bin(), "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", "lista.txt",
            "-c", "copy", "../video_mudo.mp4"], cwd=tmp)
 
+    camadas, sons_efeitos = [], []
+    if eventos_efeitos:
+        print(f"desenhando {len(eventos_efeitos)} efeitos de interface…", flush=True)
+        camadas, sons_efeitos = EF.renderizar(eventos_efeitos, tmp / "efeitos")
     sfx = None
     if est["sfx"]:
-        sfx = trilha_sfx(out, tmp, rot, cortes, alinhado, total, est)
+        sfx = trilha_sfx(out, tmp, rot, cortes, alinhado, total, est, transicoes, sons_efeitos)
 
     # passo final (cwd=out para o filtro ass não sofrer com caminhos do Windows)
     cmd = [ffmpeg_bin(), "-y", "-v", "error", "-i", "video_mudo.mp4", "-i", "narracao.mp3"]
@@ -618,7 +687,16 @@ def main():
     alvo = est["loudness"]
     partes.append(f"{''.join(mix)}amix=inputs={len(mix)}:duration=first:normalize=0,"
                   f"loudnorm=I={alvo}:TP=-1.5:LRA=11,aresample=48000[a]")
-    v = "[0:v]ass=legenda.ass:fontsdir=fonts"
+    camada_inicio = n_in
+    for cam in camadas:                                   # sequências PNG dos efeitos de interface
+        cmd += ["-framerate", str(FPS), "-i", cam["padrao"]]
+        n_in += 1
+    trans = filtros_transicao(transicoes)
+    v = "[0:v]" + (",".join(trans) + "," if trans else "") + "null[vb0]"
+    for j, cam in enumerate(camadas):
+        v += (f";[{camada_inicio + j}:v]format=rgba,setpts=PTS-STARTPTS+{cam['t0']:.3f}/TB[ef{j}]"
+              f";[vb{j}][ef{j}]overlay={cam['x']}:{cam['y']}:eof_action=pass[vb{j + 1}]")
+    v += f";[vb{len(camadas)}]ass=legenda.ass:fontsdir=fonts"
     if est["barra_progresso"]:
         v += (f",drawbox=x=0:y=0:w=iw:h=14:color=black@0.45:t=fill,"
               f"drawbox=x=0:y=0:w='iw*t/{total}':h=14:color=0x{cor_rgb_hex(est['cor_destaque'])}@0.95:t=fill")
@@ -642,26 +720,43 @@ SFX_RECEITAS = {   # sintetizados pelo ffmpeg: sem baixar nada
     "whoosh": "anoisesrc=d=0.42:c=pink:a=0.7:r=48000,bandpass=f=1500:width_type=o:w=2,"
               "afade=t=in:d=0.26:curve=exp,afade=t=out:st=0.26:d=0.16",
     "pop": "aevalsrc='0.7*sin(2*PI*(1300-7000*t)*t)*exp(-45*t)':d=0.1:s=48000",
+    "whoosh_cine": "anoisesrc=d=0.9:c=pink:a=0.8:r=48000,bandpass=f=900:width_type=o:w=2.5,"
+                   "afade=t=in:d=0.55:curve=exp,afade=t=out:st=0.55:d=0.35",
+    "glitch": "aevalsrc='0.45*sin(2*PI*(700+500*mod(floor(t*45),3))*t)*mod(floor(t*70),2)*exp(-5*t)"
+              "+0.3*random(0)*exp(-9*t)':d=0.38:s=48000",
+    "riser": "aevalsrc='(0.32*sin(2*PI*(180*t+330*t*t))+0.18*random(0))*pow(t/1.5,2)':d=1.5:s=48000,highpass=f=140",
+    "notificacao": "aevalsrc='0.42*sin(2*PI*1320*t)*exp(-16*t)*lt(t,0.12)"
+                   "+0.42*sin(2*PI*1760*(t-0.12))*exp(-12*(t-0.12))*gte(t,0.12)':d=0.42:s=48000",
+    "dinheiro": "aevalsrc='0.35*(sin(2*PI*2093*t)+0.6*sin(2*PI*3136*t))*exp(-9*t)"
+                "+0.38*sin(2*PI*2637*(t-0.09))*exp(-7*(t-0.09))*gt(t,0.09)+0.18*random(0)*exp(-40*t)':d=0.7:s=48000",
+    "relogio": "aevalsrc='0.55*sin(2*PI*2500*t)*exp(-120*t)+0.25*random(0)*exp(-200*t)':d=0.06:s=48000",
 }
+SFX_ROTEIRO = ("impacto", "whoosh", "pop", "whoosh_cine", "glitch", "riser", "notificacao", "dinheiro", "relogio")
 
 
-def trilha_sfx(out, tmp, rot, cortes, alinhado, total, est):
-    """impacto no início, whoosh em cada troca de assunto (segmento), pop nas palavras em destaque."""
+def trilha_sfx(out, tmp, rot, cortes, alinhado, total, est, transicoes=(), sons_efeitos=()):
+    """impacto no início, som só nas transições fortes (riser antes da revelação), sons dos efeitos de interface
+    e pop nas palavras em destaque. Sons de interface muito colados são pulados para não poluir."""
     for nome, receita in SFX_RECEITAS.items():
         f = tmp / f"{nome}.wav"
         if not f.exists():
             rodar([ffmpeg_bin(), "-y", "-v", "error", "-f", "lavfi", "-i", receita, "-ac", "1", str(f)])
     eventos = [("impacto", 0.0, 1.0)]
-    vistos = {0}
-    for c in cortes:
-        if c["seg"] not in vistos:
-            vistos.add(c["seg"])
-            eventos.append(("whoosh", max(0.0, c["t0"] - 0.2), 0.8))
-    for p in alinhado:
-        if p.get("destaque"):
+    for tr in transicoes:
+        if tr["tipo"] in SOM_TRANSICAO:
+            antes = 0.45 if tr["tipo"] == "zoom" else 0.15
+            eventos.append((SOM_TRANSICAO[tr["tipo"]], max(0.0, tr["t"] - antes), 0.8))
+        if tr.get("revelacao"):
+            eventos.append(("riser", max(0.0, tr["t"] - 1.5), 0.9))
+    interface = sorted((n, t, v) for n, t, v in sons_efeitos if n in SFX_RECEITAS)
+    eventos += interface
+    ocupados = [t for _, t, _ in eventos]
+    for p in alinhado:          # pop no destaque, se não houver outro som perto
+        if p.get("destaque") and all(abs(p["inicio"] - t) > 0.5 for t in ocupados):
             eventos.append(("pop", p["inicio"], 0.6))
+            ocupados.append(p["inicio"])
     for i, s in enumerate(rot["segmentos"]):        # efeitos extras pedidos no roteiro: "sfx": "impacto"
-        if s.get("sfx") in SFX_RECEITAS:
+        if s.get("sfx") in SFX_ROTEIRO:
             t0 = min((c["t0"] for c in cortes if c["seg"] == i), default=None)
             if t0 is not None:
                 eventos.append((s["sfx"], t0, 1.0))
