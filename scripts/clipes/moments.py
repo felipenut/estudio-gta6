@@ -18,7 +18,7 @@ HYPE = re.compile(r"\b(no way|oh my god|omg|what|wait|bro|let'?s go|holy|insane|
 CHAT_HYPE = re.compile(r"(LMAO|LOL|KEKW|OMEGALUL|W+\b|CLIP|💀|😂|🔥|NO WAY|HOLY|KKKK|CLIPA|CARACA|MEU DEUS|JAJA)", re.I)
 
 
-FUNDO = {}   # download do vídeo em 1080p rodando em segundo plano enquanto o áudio é analisado
+FUNDO = {}   # download do vídeo rodando em segundo plano enquanto o áudio é analisado
 
 
 def _duracao(arquivo):
@@ -33,7 +33,7 @@ def _ja_coberto(arquivo, precisa):
 
 
 def fetch(src, d, max_min, info_de=None, video_junto=False):
-    """Baixa primeiro só o áudio (uns 40 MB, a análise começa em segundos) e deixa o vídeo em 1080p baixando em
+    """Baixa primeiro só o áudio (uns 40 MB, a análise começa em segundos) e deixa o vídeo baixando em
     segundo plano; esperar_video() espera por ele antes de gravar os momentos. video_junto=True baixa tudo agora."""
     info = {}
     if is_url(src):
@@ -68,7 +68,7 @@ def fetch(src, d, max_min, info_de=None, video_junto=False):
             for velho in d.glob("source-*.parcial.mp4*"):       # restos de tentativas no outro modo
                 if not velho.name.startswith(temporario.name):
                     velho.unlink(missing_ok=True)
-            video = ytdlp_base() + ["--no-playlist", "--newline", "-S", "res:1080,fps:30", "-f", "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080]/b",
+            video = ytdlp_base() + ["--no-playlist", "--newline", "-S", "res:720,fps:30", "-f", "bv*[height<=720][ext=mp4]+ba[ext=m4a]/bv*[height<=720]+ba/b[height<=720]/b",
                                     "--merge-output-format", "mp4", "-N", "4", "-o", str(temporario), *secoes, src]
             # Ao recortar uma fonte longa, o ffmpeg já traz o áudio junto com a imagem.
             # Use esse áudio na análise para evitar uma segunda transferência do mesmo intervalo.
@@ -119,7 +119,7 @@ def iniciar_video(cmd, temporario, destino, d):
     kw = {"creationflags": 0x08000000} if sys.platform.startswith("win") else {}
     proc = subprocess.Popen([str(c) for c in cmd], stdout=log, stderr=subprocess.STDOUT, text=True, **kw)
     FUNDO.update(proc=proc, temporario=temporario, destino=destino, log=log, log_path=d / "download_video.log")
-    print("   vídeo em 1080p baixando em segundo plano", flush=True)
+    print("   vídeo baixando em segundo plano", flush=True)
 
     def parar():                      # se a análise parar no meio, não deixa o download órfão
         if proc.poll() is None:
@@ -133,7 +133,7 @@ def fonte_de_audio(vid):
 
 
 def esperar_video():
-    """Espera o vídeo em 1080p terminar (os cortes e a prévia usam source.mp4)."""
+    """Espera o vídeo terminar (os cortes e a prévia usam source.mp4)."""
     import re as _re, time
     proc = FUNDO.get("proc")
     if not proc:
@@ -146,7 +146,7 @@ def esperar_video():
         except OSError:
             pct = 0
         if pct >= ultimo + 10:
-            print(f"   esperando o vídeo em 1080p terminar de baixar ({pct:.0f}%)…", flush=True)
+            print(f"   esperando o vídeo terminar de baixar ({pct:.0f}%)…", flush=True)
             ultimo = pct
         time.sleep(2)
     FUNDO["log"].close()
@@ -155,7 +155,7 @@ def esperar_video():
         sys.exit(f"o download do vídeo falhou ({proc.returncode}):\n{cauda}")
     FUNDO["temporario"].replace(FUNDO["destino"])
     FUNDO.clear()
-    print("   vídeo em 1080p baixado", flush=True)
+    print("   vídeo baixado", flush=True)
 
 
 def segundos_wav(wav):
