@@ -44,7 +44,12 @@ def fetch(src, d, max_min, info_de=None, video_junto=False):
         if salvo.get("duration") and chat_pronto and _ja_coberto(vid, min(salvo["duration"], limite)):
             print("   vídeo e dados já baixados; reaproveitando a fonte", flush=True)
             return vid, salvo
-        info = ytdlp_json(src)
+        try:
+            info = ytdlp_json(src, ["--no-playlist"])
+        except SystemExit as erro:
+            if "confirm you" in str(erro).lower() and "bot" in str(erro).lower():
+                sys.exit("O YouTube pediu confirmação de login e bloqueou o download. Se tiver o MP4, cole o caminho dele no campo da busca.")
+            raise
         if info.get("is_live"):
             sys.exit("este vídeo está ao vivo. Use o Modo ao vivo para gravar.")
         save_json(d / "info.json", {k: info.get(k) for k in ("id", "title", "uploader", "channel", "uploader_id", "webpage_url",
@@ -63,7 +68,7 @@ def fetch(src, d, max_min, info_de=None, video_junto=False):
             for velho in d.glob("source-*.parcial.mp4*"):       # restos de tentativas no outro modo
                 if not velho.name.startswith(temporario.name):
                     velho.unlink(missing_ok=True)
-            video = ytdlp_base() + ["--newline", "-f", "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080]/b",
+            video = ytdlp_base() + ["--no-playlist", "--newline", "-S", "res:1080,fps:30", "-f", "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080]/b",
                                     "--merge-output-format", "mp4", "-N", "4", "-o", str(temporario), *secoes, src]
             # Ao recortar uma fonte longa, o ffmpeg já traz o áudio junto com a imagem.
             # Use esse áudio na análise para evitar uma segunda transferência do mesmo intervalo.
@@ -80,7 +85,7 @@ def fetch(src, d, max_min, info_de=None, video_junto=False):
             run(ytdlp_base() + ["--skip-download", "--write-subs", "--sub-langs", "live_chat", "-o", str(d / "chat"), src], check=False)
     else:
         vid = Path(src).resolve()
-        meta = {"title": vid.stem, "webpage_url": str(vid)}
+        meta = {"title": vid.stem, "webpage_url": ""}
         if info_de and (Path(info_de) / "info.json").exists():      # trecho do modo ao vivo: herda canal e link da live
             pai = load_json(Path(info_de) / "info.json")
             meta.update({k: pai.get(k) for k in ("title", "channel", "uploader", "webpage_url") if pai.get(k)})

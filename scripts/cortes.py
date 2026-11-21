@@ -281,7 +281,14 @@ def etapas_momentos(corpo):
             raise FileNotFoundError("trecho")
         src, extra = str(f), ["--info-de", str(pai)]
     else:
-        src, extra = _url_ok(corpo.get("url")), []
+        entrada = str(corpo.get("url") or "").strip().strip('"')
+        if re.match(r"^[A-Za-z]:[\\/]", entrada):
+            arquivo = Path(entrada).resolve()
+            if arquivo.suffix.lower() != ".mp4" or not arquivo.is_file():
+                raise ValueError("Escolha um arquivo MP4 que exista neste computador.")
+            src, extra = str(arquivo), []
+        else:
+            src, extra = _url_ok(entrada), []
     nome = nome_trabalho(src)
     (CORTES / nome).mkdir(parents=True, exist_ok=True)
     script = "clipes/momentos_prioritarios.py" if corpo.get("priorizar") is True else "clipes/moments.py"

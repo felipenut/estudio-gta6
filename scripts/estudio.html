@@ -374,7 +374,7 @@ async function ir(view, extra = {}) { Object.assign(S, { view }, extra); marcarN
 async function abrirProjeto(nome, aba) { S.projeto = nome; S.view = "projeto"; if (aba) S.aba = aba; marcarNav(); try { await carregarProjeto(); if (S.view === "projeto" && S.projeto === nome) render(); } catch (e) { erroTela(e); } }
 async function carregarProjeto() { const nome = S.projeto, dados = await api("/api/projeto/" + encodeURIComponent(nome)); if (S.projeto !== nome) return; S.dados = dados; S.rot = dados.roteiro ? JSON.parse(JSON.stringify(dados.roteiro)) : null; }
 async function lista() { const j = await api("/api/projetos"); S.trabalho = j.trabalho; return j; }
-const VERSAO_PAGINA = 28;
+const VERSAO_PAGINA = 29;
 function erroTela(e) {
   $("#main").innerHTML = `<div class="aviso-box"><b>Não consegui abrir esta tela.</b><br>${esc(e.message || e)}<br><br>
     Se você acabou de atualizar o Estúdio, feche a janela preta do Estúdio e abra o <b>estudio.bat</b> de novo.</div>`;
@@ -1104,7 +1104,7 @@ function configurarBuscaMomentos(form) {
     evento.preventDefault();
     if (form.dataset.enviando === "sim" || rodando(S.trabalho)) return;
     const valores = Object.fromEntries(Object.entries(campos).map(([k, el]) => [k, k === "url" ? el.value.trim() : el.valueAsNumber]));
-    if (!/^https?:\/\//i.test(valores.url)) { toast("Cole um link completo, começando com https://"); campos.url.focus(); return; }
+    if (!/^[a-z]:[\\/]/i.test(valores.url.replace(/^"|"$/g, "")) && !/^https?:\/\//i.test(valores.url)) { toast("Cole um link completo ou o caminho de um MP4 no computador"); campos.url.focus(); return; }
     form.dataset.enviando = "sim";
     $("#mestado", form).textContent = "Iniciando análise…";
     atualizarBuscaMomentos(S.trabalho);
@@ -1134,9 +1134,9 @@ async function viewCortes(m) {
     <div class="grid2">
       <div class="cartao"><b>${ic("busca")} Buscar melhores momentos</b>
         <form id="form-momentos">
-          <label for="murl">Link do vídeo ou da live encerrada</label>
-          <input id="murl" type="url" inputmode="url" placeholder="https://www.youtube.com/watch?v=…" aria-describedby="mfonte" required>
-          <p class="sub" id="mfonte" style="margin:4px 0 0">YouTube, Twitch e Kick.</p>
+          <label for="murl">Link do vídeo ou caminho do MP4</label>
+          <input id="murl" type="text" placeholder="https://www.youtube.com/watch?v=…" aria-describedby="mfonte" required>
+          <p class="sub" id="mfonte" style="margin:4px 0 0">YouTube, Twitch, Kick ou MP4 local. Para usar um vídeo do PC, copie o caminho pelo Explorador de Arquivos.</p>
           <fieldset><legend>Quanto do vídeo analisar</legend><div class="modos-busca">
             ${Object.entries(MODOS_MOMENTOS).map(([k, op]) => `<label class="lay"><input type="radio" name="modo-momentos" value="${k}"><b>${op.titulo}</b><span>Até ${op.minutos} min</span></label>`).join("")}
           </div></fieldset>
