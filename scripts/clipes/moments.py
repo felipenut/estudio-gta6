@@ -65,13 +65,17 @@ def fetch(src, d, max_min, info_de=None, video_junto=False):
                     velho.unlink(missing_ok=True)
             video = ytdlp_base() + ["--newline", "-f", "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080]/b",
                                     "--merge-output-format", "mp4", "-N", "4", "-o", str(temporario), *secoes, src]
-            if video_junto:
+            # Ao recortar uma fonte longa, o ffmpeg já traz o áudio junto com a imagem.
+            # Use esse áudio na análise para evitar uma segunda transferência do mesmo intervalo.
+            audio_pronto = any(_ja_coberto(f, precisa) for f in d.glob("audio_fonte.*")
+                               if ".parcial" not in f.name and f.suffix not in (".part", ".ytdl"))
+            if video_junto or (cortar and not audio_pronto):
+                print("   baixando o trecho com imagem e áudio juntos para a análise e os cortes…", flush=True)
                 run(video)
                 temporario.replace(vid)
             else:
-                audio = baixar_audio(src, d, precisa, secoes)
                 iniciar_video(video, temporario, vid, d)
-                FUNDO["audio"] = audio
+                FUNDO["audio"] = baixar_audio(src, d, precisa, secoes)
         if info.get("was_live") and not list(d.glob("chat*.live_chat.json")):  # YouTube chat replay
             run(ytdlp_base() + ["--skip-download", "--write-subs", "--sub-langs", "live_chat", "-o", str(d / "chat"), src], check=False)
     else:
