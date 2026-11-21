@@ -284,7 +284,8 @@ def etapas_momentos(corpo):
         src, extra = _url_ok(corpo.get("url")), []
     nome = nome_trabalho(src)
     (CORTES / nome).mkdir(parents=True, exist_ok=True)
-    etapas = [["clipes/moments.py", src, "--top", str(top), "--min", f"{mn:g}", "--max", f"{mx:g}",
+    script = "clipes/momentos_prioritarios.py" if corpo.get("priorizar") is True else "clipes/moments.py"
+    etapas = [[script, src, "--top", str(top), "--min", f"{mn:g}", "--max", f"{mx:g}",
                "--max-minutes", str(minutos)] + extra,
               ["clipes/secrets_map.py", "scan", str(CORTES / nome)]]
     return nome, etapas

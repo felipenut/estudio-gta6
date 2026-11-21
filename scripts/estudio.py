@@ -13,10 +13,12 @@ Abre http://127.0.0.1:8765 (só neste computador). Funções:
     lives agora, versões em outros idiomas; checagem antes do Zernio (motor adaptado do gtavi-claudecode, MIT).
 Só executa etapas fixas do pipeline (nada de comando arbitrário). Só biblioteca padrão do Python.
 """
-import argparse, datetime, json, mimetypes, os, re, subprocess, sys, threading, time, webbrowser
+import argparse, base64, ctypes, datetime, json, mimetypes, os, re, subprocess, sys, threading, time, uuid, webbrowser
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse, parse_qs, unquote
+from urllib.request import Request, urlopen
 
 AQUI = Path(__file__).resolve().parent
 FERR = AQUI.parent
@@ -26,10 +28,16 @@ BIB = RAIZ / "biblioteca"
 LIB = BIB / "biblioteca.json"
 MUSICAS = RAIZ / "musicas"
 sys.path.insert(0, str(AQUI))
+import lote_cortes as LC  # fila de produção entre fontes
 import cortes as CT  # noqa: E402  (tela Cortes e lives)
 import atualizar as ATU  # noqa: E402  (atualização automática pelo GitHub)
 
-VERSAO = 21
+VERSAO = 27
+URL_CHECKOUT_LICENCAS = "https://estudio-gta6-checkout.vercel.app/api/licenca"
+URL_CHECKOUT_CONFIG = "https://estudio-gta6-checkout.vercel.app/api/config"
+ARQ_LICENCA = Path(os.getenv("LOCALAPPDATA") or Path.home()) / "Estudio GTA 6" / "licenca.json"
+ARQ_CONFIG_LICENCA = ARQ_LICENCA.with_name("licenca_config.json")
+CHECKOUT_LICENCA = {"valor": None, "consultado": 0.0}
 
 
 def _versao_txt():
@@ -44,7 +52,9 @@ TRABALHO = {"id": 0, "projeto": None, "acao": None, "rotulo": None, "log": None,
             "codigo": None, "resultado": None, "progresso": 0.0, "etapa": "", "corte": None,
             "cancelando": False, "cancelado": False, "repetivel": False}
 TRAVA = threading.Lock()
+TRAVA_ENQUADRAMENTO = threading.Lock()
 TRAVA_PROCESSO = threading.Lock()
+TRAVA_FILA_CORTES = threading.Lock()
 PROCESSO_ATUAL = None
 REPETIR = None
 SEM_JANELA = {"creationflags": 0x08000000} if sys.platform.startswith("win") else {}   # sem piscar console no Windows
@@ -67,6 +77,130 @@ def gravar(p, dados):
     tmp = Path(str(p) + ".tmp")
     tmp.write_text(json.dumps(dados, ensure_ascii=False, indent=1), encoding="utf-8")
     tmp.replace(p)
+
+
+def _proteger_dado_local(dado, proteger):
+    """Protege a licença com DPAPI no Windows; base64 mantém o fluxo de desenvolvimento nos outros sistemas."""
+    if not sys.platform.startswith("win"):
+        return dado
+
+    class BLOB(ctypes.Structure):
+        _fields_ = [("cbData", ctypes.c_ulong), ("pbData", ctypes.POINTER(ctypes.c_ubyte))]
+
+    origem = ctypes.create_string_buffer(dado, len(dado))
+    entrada = BLOB(len(dado), ctypes.cast(origem, ctypes.POINTER(ctypes.c_ubyte)))
+    saida = BLOB()
+    crypt32 = ctypes.WinDLL("crypt32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.LocalFree.argtypes = [ctypes.c_void_p]
+    kernel32.LocalFree.restype = ctypes.c_void_p
+    if proteger:
+        crypt32.CryptProtectData.argtypes = [ctypes.POINTER(BLOB), ctypes.c_wchar_p, ctypes.POINTER(BLOB),
+                                             ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong, ctypes.POINTER(BLOB)]
+        crypt32.CryptProtectData.restype = ctypes.c_int
+        ok = crypt32.CryptProtectData(ctypes.byref(entrada), "Estúdio GTA 6", None, None, None, 1, ctypes.byref(saida))
+    else:
+        crypt32.CryptUnprotectData.argtypes = [ctypes.POINTER(BLOB), ctypes.POINTER(ctypes.c_wchar_p),
+                                               ctypes.POINTER(BLOB), ctypes.c_void_p, ctypes.c_void_p,
+                                               ctypes.c_ulong, ctypes.POINTER(BLOB)]
+        crypt32.CryptUnprotectData.restype = ctypes.c_int
+        ok = crypt32.CryptUnprotectData(ctypes.byref(entrada), None, None, None, None, 1, ctypes.byref(saida))
+    if not ok:
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        return ctypes.string_at(saida.pbData, saida.cbData)
+    finally:
+        kernel32.LocalFree(saida.pbData)
+
+
+def _licenca_local():
+    """Lê a licença local sem expor o código na API ou em logs."""
+    dados = ler(ARQ_LICENCA, {}) or {}
+    try:
+        protegido = base64.b64decode(dados.get("chave_protegida", ""), validate=True)
+        chave = _proteger_dado_local(protegido, False).decode("utf-8") if protegido else ""
+    except Exception:
+        chave = ""
+    return {**dados, "chave": chave}
+
+
+def _salvar_licenca(chave, dispositivo, acesso_ate):
+    protegido = _proteger_dado_local(chave.encode("utf-8"), True)
+    gravar(ARQ_LICENCA, {"chave_protegida": base64.b64encode(protegido).decode("ascii"),
+                         "dispositivo": dispositivo, "acesso_ate": acesso_ate,
+                         "verificado_em": datetime.datetime.now(datetime.timezone.utc).isoformat()})
+
+
+def _chamar_licenca(acao="validar", chave=None):
+    local = _licenca_local()
+    dispositivo = local.get("dispositivo") or str(uuid.uuid4())
+    codigo = (chave or local.get("chave") or "").strip()
+    if not codigo:
+        return {"ativo": False, "erro": "Cole o código da licença que você recebeu após o pagamento."}, 403
+    corpo = json.dumps({"acao": acao, "chave": codigo, "dispositivo": dispositivo}).encode("utf-8")
+    pedido = Request(URL_CHECKOUT_LICENCAS, data=corpo, headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urlopen(pedido, timeout=12) as resposta:
+            dados = json.loads(resposta.read().decode("utf-8"))
+        if dados.get("ativo") and dados.get("acessoAte"):
+            _salvar_licenca(codigo, dispositivo, dados["acessoAte"])
+        return dados, 200
+    except HTTPError as erro:
+        try:
+            dados = json.loads(erro.read().decode("utf-8"))
+        except Exception:
+            dados = {"erro": "Não foi possível validar a licença agora."}
+        return dados, erro.code
+    except (URLError, TimeoutError, OSError):
+        try:
+            acesso = datetime.datetime.fromisoformat(str(local.get("acesso_ate", "")).replace("Z", "+00:00"))
+            verificado = datetime.datetime.fromisoformat(str(local.get("verificado_em", "")).replace("Z", "+00:00"))
+            agora = datetime.datetime.now(datetime.timezone.utc)
+            if acesso > agora and agora - verificado <= datetime.timedelta(days=3):
+                return {"ativo": True, "acessoAte": local.get("acesso_ate"), "offline": True}, 200
+        except Exception:
+            pass
+        return {"ativo": False, "erro": "Conecte-se à internet para validar sua licença."}, 503
+
+
+def _licenca_permite():
+    if not _licenciamento_ativo():
+        return True
+    local = _licenca_local()
+    try:
+        acesso = datetime.datetime.fromisoformat(str(local.get("acesso_ate", "")).replace("Z", "+00:00"))
+        verificado = datetime.datetime.fromisoformat(str(local.get("verificado_em", "")).replace("Z", "+00:00"))
+        agora = datetime.datetime.now(datetime.timezone.utc)
+        return bool(local.get("chave") and acesso > agora and agora - verificado <= datetime.timedelta(days=3))
+    except Exception:
+        return False
+
+
+def _licenciamento_ativo():
+    """Só aplica o bloqueio quando o checkout de produção estiver liberado."""
+    agora_mono = time.monotonic()
+    if CHECKOUT_LICENCA["valor"] is not None and agora_mono - CHECKOUT_LICENCA["consultado"] < 300:
+        return CHECKOUT_LICENCA["valor"]
+    try:
+        pedido = Request(URL_CHECKOUT_CONFIG, headers={"Cache-Control": "no-cache"})
+        with urlopen(pedido, timeout=5) as resposta:
+            dados = json.loads(resposta.read().decode("utf-8"))
+        ativo = bool(dados.get("pronto") and dados.get("ambiente") == "producao")
+        ARQ_CONFIG_LICENCA.parent.mkdir(parents=True, exist_ok=True)
+        gravar(ARQ_CONFIG_LICENCA, {"obrigatoria": ativo,
+                                    "verificado_em": datetime.datetime.now(datetime.timezone.utc).isoformat()})
+    except Exception:
+        dados = ler(ARQ_CONFIG_LICENCA, {}) or {}
+        ativo = bool(dados.get("obrigatoria"))
+        try:
+            verificado = datetime.datetime.fromisoformat(str(dados.get("verificado_em", "")).replace("Z", "+00:00"))
+            if datetime.datetime.now(datetime.timezone.utc) - verificado > datetime.timedelta(days=30):
+                ativo = False
+        except Exception:
+            ativo = False
+    CHECKOUT_LICENCA["valor"] = ativo
+    CHECKOUT_LICENCA["consultado"] = agora_mono
+    return ativo
 
 
 def fim_log(p, limite=25000):
@@ -135,6 +269,14 @@ def cancelar_trabalho():
                 raise ValueError("o lote já está enviando vídeos ao Zernio; confira o status no Zernio")
             LOTE["parar"] = True
             return {"ok": True, "depois": "do vídeo atual"}
+        if acao == "cortes_escala":
+            arquivo_fila_cortes().with_suffix(".parar").touch()
+            TRABALHO["pausando"] = True
+            return {"ok": True, "depois": "dos cortes em andamento"}
+        if acao == "cortes_links":
+            arquivo_fila_links().with_suffix(".parar").touch()
+            TRABALHO["pausando"] = True
+            return {"ok": True, "depois": "do que já está baixando, analisando ou cortando"}
         TRABALHO["cancelando"] = True
     with TRAVA_PROCESSO:
         proc = PROCESSO_ATUAL
@@ -172,21 +314,22 @@ def etapas_projeto(acao, p):
 
 ROTULOS = {"checar": "CHECAGEM", "previa": "PRÉVIA", "gerar": "VÍDEO", "narrar": "NARRAÇÃO", "capa": "CAPA",
            "ae": "AFTER EFFECTS", "criar": "CRIAÇÃO", "criar_gerar": "CRIAÇÃO + VÍDEO", "baixar": "DOWNLOAD",
-           "oficiais": "VÍDEOS OFICIAIS", "lote": "LOTE", "zernio": "AGENDAMENTO", "tendencias": "TENDÊNCIAS", "etiquetar": "ETIQUETAS (IA)", "indexar": "INDEXAÇÃO",
+           "oficiais": "VÍDEOS OFICIAIS", "lote": "LOTE", "cortes_lote": "CORTES EM LOTE", "cortes_escala": "PRODUÇÃO DE CORTES", "cortes_links": "FILA DE LINKS", "zernio": "AGENDAMENTO", "tendencias": "TENDÊNCIAS", "etiquetar": "ETIQUETAS (IA)", "indexar": "INDEXAÇÃO",
            "momentos": "MOMENTOS", "cortar": "CORTE", "traduzir_clipe": "TRADUÇÃO DO CLIPE", "lives": "LIVES AGORA",
            "perguntas": "PERGUNTAS DOS FÃS", "traduzir_video": "VERSÃO TRADUZIDA"}
 
 
 PESOS = {"checar_roteiro.py": 0.3, "narrar.py": 1.5, "montar.py": 10, "exportar_ae.py": 0.5, "zernio.py": 10,
-         "baixar.py": 8, "biblioteca.py": 4, "tendencias.py": 1, "clipes/moments.py": 10, "clipes/secrets_map.py": 0.2,
-         "clipes/cut.py": 5, "clipes/traduzir.py": 6, "clipes/streams.py": 1, "clipes/perguntas.py": 1,
+         "baixar.py": 8, "biblioteca.py": 4, "tendencias.py": 1, "clipes/moments.py": 10, "clipes/momentos_prioritarios.py": 10, "clipes/secrets_map.py": 0.2,
+         "lote_cortes.py": 10, "fila_links.py": 10, "clipes/cut.py": 5, "clipes/traduzir.py": 6, "clipes/streams.py": 1, "clipes/perguntas.py": 1,
          "traduzir_roteiro.py": 1}
 NOMES = {"checar_roteiro.py": "checando roteiro", "narrar.py": "narração", "montar.py": "montando vídeo",
          "exportar_ae.py": "After Effects", "zernio.py": "enviando ao Zernio", "baixar.py": "baixando", "biblioteca.py": "indexando", "tendencias.py": "buscando no YouTube",
-         "clipes/moments.py": "achando momentos", "clipes/secrets_map.py": "procurando segredos", "clipes/cut.py": "cortando",
+         "clipes/moments.py": "achando momentos", "clipes/momentos_prioritarios.py": "achando momentos", "clipes/secrets_map.py": "procurando segredos", "lote_cortes.py": "produzindo os cortes da fila", "fila_links.py": "baixando, analisando e cortando", "clipes/cut.py": "cortando",
          "clipes/traduzir.py": "traduzindo", "clipes/streams.py": "procurando lives", "clipes/perguntas.py": "lendo o Reddit",
          "traduzir_roteiro.py": "traduzindo o roteiro"}
-RE_SUB = [(re.compile(r"corte (\d+)/(\d+)"), lambda m: 0.85 * int(m[1]) / int(m[2])),
+RE_SUB = [(re.compile(r"^progresso da fila: (\d+)%"), lambda m: min(100, int(m[1])) / 100),
+          (re.compile(r"corte (\d+)/(\d+)"), lambda m: 0.85 * int(m[1]) / int(m[2])),
           (re.compile(r"\((\d+)/(\d+)\)"), lambda m: (int(m[1]) - 0.5) / int(m[2])),
           (re.compile(r"\[download\]\s+([\d.]+)%"), lambda m: float(m[1]) / 100),
           (re.compile(r"^loudness:"), lambda m: 0.97), (re.compile(r"^ok: .*final\.mp4"), lambda m: 0.92)]
@@ -237,6 +380,30 @@ def _executar(etapas, log, status, rotulo, base=0.0, span=1.0):
                             _progresso(base, span, etapas, n, 0.02)
                         elif linha.startswith("(2/2)"):
                             _progresso(base, span, etapas, n, 0.1)
+                    elif etapa[0] in ("clipes/moments.py", "clipes/momentos_prioritarios.py"):
+                        fase = re.match(r"^\(([1-4])/4\)\s*", linha)
+                        baixar = re.match(r"^\[download\]\s+([\d.]+)%", linha)
+                        transcricao = re.match(r"^transcrição prioritária:\s*(\d+)/(\d+)", linha)
+                        completa = re.match(r"^transcrição completa:\s*(\d+)%", linha)
+                        if fase:
+                            indice = int(fase[1]) - 1
+                            TRABALHO["etapa"] = ("Baixando ou reabrindo o vídeo", "Analisando o áudio",
+                                                  "Transcrevendo a fala", "Selecionando os melhores momentos")[indice]
+                            _progresso(base, span, etapas, n, (0.02, 0.30, 0.41, 0.89)[indice])
+                        elif transcricao and int(transcricao[2]):
+                            atual, total = int(transcricao[1]), int(transcricao[2])
+                            TRABALHO["etapa"] = f"Transcrição prioritária · {atual}/{total} regiões"
+                            _progresso(base, span, etapas, n, 0.41 + 0.46 * atual / total)
+                        elif completa:
+                            pct = min(100, int(completa[1]))
+                            TRABALHO["etapa"] = f"Transcrevendo a fala · {pct}%"
+                            anterior = TRABALHO["progresso"]
+                            _progresso(base, span, etapas, n, 0.41 + 0.46 * pct / 100)
+                            TRABALHO["progresso"] = max(anterior, TRABALHO["progresso"])
+                        elif baixar and TRABALHO["etapa"] == "Baixando ou reabrindo o vídeo":
+                            anterior = TRABALHO["progresso"]
+                            _progresso(base, span, etapas, n, 0.02 + 0.25 * float(baixar[1]) / 100)
+                            TRABALHO["progresso"] = max(anterior, TRABALHO["progresso"])
                     else:
                         for rx, fr in RE_SUB:
                             m = rx.search(linha)
@@ -270,8 +437,8 @@ def iniciar(acao, etapas_fn, log, status=None, projeto=None, depois=None, corte=
             raise RuntimeError(f"já rodando: {TRABALHO['rotulo']} ({TRABALHO['projeto'] or 'biblioteca'})")
         TRABALHO.update(id=TRABALHO["id"] + 1, projeto=projeto, acao=acao, rotulo=ROTULOS.get(acao, acao),
                         log=str(log), inicio=time.time(), fim=None, codigo=None, resultado=None,
-                        progresso=0.0, etapa="", corte=corte, cancelando=False, cancelado=False,
-                        repetivel=acao not in ("zernio", "lote", "traduzir_video"))
+                        progresso=0.0, etapa="", corte=corte, cancelando=False, cancelado=False, pausando=False,
+                        repetivel=acao not in ("zernio", "lote", "cortes_lote", "cortes_escala", "cortes_links", "traduzir_video"))
         REPETIR = ({"acao": acao, "etapas_fn": etapas_fn, "log": log, "status": status, "projeto": projeto,
                     "depois": depois, "corte": corte} if TRABALHO["repetivel"] else None)
 
@@ -291,7 +458,7 @@ def iniciar(acao, etapas_fn, log, status=None, projeto=None, depois=None, corte=
         cancelado = bool(TRABALHO.get("cancelando"))
         if cancelado and status:
             status.write_text("CANCELADO", encoding="utf-8")
-        TRABALHO.update(fim=time.time(), codigo=130 if cancelado else codigo, cancelado=cancelado, cancelando=False,
+        TRABALHO.update(fim=time.time(), codigo=130 if cancelado else codigo, cancelado=cancelado, cancelando=False, pausando=False,
                         progresso=1.0 if codigo == 0 else TRABALHO["progresso"])
 
     threading.Thread(target=corre, daemon=True).start()
@@ -312,11 +479,12 @@ def fila_lote():
         return []
     return [d.name for d in sorted(VIDEOS.iterdir())
             if d.is_dir() and not d.name.startswith((".", "_")) and (d / "roteiro.json").exists()
-            and not (d / "postado.txt").exists() and not video_final(d)]
+            and not (d / "postado.txt").exists() and not video_final(d)
+            and (ler(d / "roteiro.json") or {}).get("tipo") != "clipe"]
 
 
-def iniciar_lote(agendar=False):
-    """agendar=True: ao terminar, manda os vídeos feitos para o Zernio (a partir do próximo horário livre)."""
+def iniciar_lote(agendar=False, selecionados=None):
+    """Produz os narrados selecionados e, se solicitado, agenda os aprovados pela checagem."""
     global REPETIR
     log = VIDEOS / "_lote_log.txt"
     if agendar:
@@ -327,11 +495,15 @@ def iniciar_lote(agendar=False):
         if ocupado():
             raise RuntimeError(f"já rodando: {TRABALHO['rotulo']} ({TRABALHO['projeto'] or 'biblioteca'})")
         fila = fila_lote()
+        if selecionados is not None:
+            if not isinstance(selecionados, list) or not selecionados or any(n not in fila for n in selecionados):
+                raise ValueError("a seleção mudou. Reabra o lote e escolha os vídeos disponíveis")
+            fila = [n for n in fila if n in selecionados]
         if not fila:
             raise ValueError("nenhum projeto com roteiro e sem vídeo pronto")
         TRABALHO.update(id=TRABALHO["id"] + 1, projeto=fila[0], acao="lote", rotulo=f"LOTE 1/{len(fila)}",
                         log=str(VIDEOS / fila[0] / "log.txt"), inicio=time.time(), fim=None, codigo=None, resultado=None,
-                        progresso=0.0, etapa="", cancelando=False, cancelado=False, repetivel=False)
+                        progresso=0.0, etapa="", corte=None, cancelando=False, cancelado=False, repetivel=False)
         REPETIR = None
         LOTE.update(ativo=True, parar=False, fila=fila, feitos=[], erros=[], atual=fila[0], agendar=bool(agendar))
 
@@ -347,7 +519,9 @@ def iniciar_lote(agendar=False):
             TRABALHO.update(projeto=nome, rotulo=f"LOTE {i}/{n}", log=str(p / "log.txt"))
             t0 = time.time()
             try:
-                codigo, _ = _executar(etapas_projeto("gerar", p), p / "log.txt", p / "status.txt", f"VÍDEO (lote {i}/{n})",
+                etapas = etapas_projeto("gerar", p)[:-1]  # After Effects fica disponível sob demanda.
+                etapas[-1].append("--lote")
+                codigo, _ = _executar(etapas, p / "log.txt", p / "status.txt", f"VÍDEO (lote {i}/{n})",
                                       base=(i - 1) / n, span=1 / n)
             except Exception as e:
                 codigo = 1
@@ -361,26 +535,247 @@ def iniciar_lote(agendar=False):
                 f.write(f"{'OK  ' if codigo == 0 else 'ERRO'} {nome} ({time.time() - t0:.0f}s)\n")
         rotulo = f"LOTE {len(LOTE['feitos'])}/{n} prontos" + (" (parado)" if LOTE["parar"] else "")
         cod_z = 0
-        if agendar and LOTE["feitos"]:
-            intervalo = _zernio().config()["intervalo_h"]
-            ini = sugestao_inicio_zernio(intervalo)
-            with open(log, "a", encoding="utf-8") as f:
-                f.write(f"agendando {len(LOTE['feitos'])} no Zernio a partir de {ini}, a cada {intervalo}h\n")
-            TRABALHO.update(projeto=None, rotulo="LOTE → ZERNIO", log=str(VIDEOS / "_zernio_log.txt"), progresso=0.0)
-            try:
-                cod_z, _ = _executar([["zernio.py", "agendar", "--projetos", ",".join(LOTE["feitos"]), "--inicio", ini,
-                                       "--intervalo", str(intervalo)]], VIDEOS / "_zernio_log.txt", None, "AGENDAMENTO")
-            except Exception as e:
-                cod_z = 1
-                with open(log, "a", encoding="utf-8") as f:
-                    f.write(f"ERRO ao agendar: {e}\n")
-            rotulo += " + agendados" if cod_z == 0 else " (agendamento com erro)"
+        if agendar and LOTE["feitos"] and not LOTE["parar"]:
+            log_z = VIDEOS / "_zernio_log.txt"
+            with TRAVA:
+                if not LOTE["parar"]:
+                    TRABALHO.update(projeto=None, rotulo="LOTE → ZERNIO", log=str(log_z), progresso=0.0)
+            if not LOTE["parar"]:
+                try:
+                    prontos = []
+                    with log_z.open("a", encoding="utf-8") as f:
+                        for nome in LOTE["feitos"]:
+                            checagem = checagem_projeto(VIDEOS / nome)
+                            if checagem and checagem["ok"]:
+                                prontos.append(nome)
+                            else:
+                                f.write(f"Não agendado: {nome} — revise a checagem no projeto.\n")
+                    cod_z = int(len(prontos) != len(LOTE["feitos"]))
+                    if prontos:
+                        horarios = plano_diario(len(prontos))
+                        envio, _ = _executar([etapa_envio(prontos, horarios[0], horarios=horarios)],
+                                             log_z, None, "AGENDAMENTO EM LOTE")
+                        cod_z = cod_z or envio
+                except Exception as e:
+                    cod_z = 1
+                    with log_z.open("a", encoding="utf-8") as f:
+                        f.write(f"ERRO ao agendar: {e}\n")
+                rotulo += " + agendados" if cod_z == 0 else " (confira o agendamento)"
         LOTE.update(ativo=False, atual=None)
         TRABALHO.update(fim=time.time(), codigo=0 if not LOTE["erros"] and not cod_z else 1, projeto=None,
-                        log=str(VIDEOS / "_zernio_log.txt") if agendar and LOTE["feitos"] else str(log), progresso=1.0,
+                        log=str(VIDEOS / "_zernio_log.txt") if agendar and LOTE["feitos"] and not LOTE["parar"] else str(log), progresso=1.0,
                         rotulo=rotulo)
 
     threading.Thread(target=corre, daemon=True).start()
+
+
+def iniciar_lote_cortes(corpo):
+    nome = corpo["nome"]
+    pasta = CT.trabalho_dir(nome)
+    candidatos = {c["n"]: c for c in (ler(pasta / "candidates.json") or {}).get("candidates", [])}
+    picks = list(dict.fromkeys(corpo.get("picks", [])))
+    if not 1 <= len(picks) <= 15 or any(type(n) is not int or n not in candidatos for n in picks):
+        raise ValueError("selecione de 1 a 15 momentos deste vídeo")
+    preparar_projetos = corpo.get("preparar_projetos") is True
+    log = pasta / "log.txt"
+    layout = corpo.get("layout")
+    fila = []
+    for pick in picks:
+        sugestao = candidatos[pick].get("gancho_sugerido") or ""
+        opcoes = {"nome": nome, "pick": pick, "layout": layout, "legenda": corpo.get("legenda"),
+                  "gancho": sugestao, "titulo": sugestao}
+        fila.append((pick, CT.etapas_cortar(opcoes)))
+
+    def produzir(codigo, saida):
+        prontos, erros = [], []
+        for i, (pick, etapas) in enumerate(fila):
+            if TRABALHO.get("cancelando"):
+                break
+            try:
+                mp4 = pasta / "edits" / f"clip_{pick}.mp4"
+                meta = ler(mp4.with_suffix(".json")) or {}
+                if not (mp4.is_file() and meta):
+                    cod, _ = _executar(etapas, log, None, f"CORTE {i + 1}/{len(fila)} · momento {pick}",
+                                       base=i / len(fila), span=1 / len(fila))
+                    if cod:
+                        if not TRABALHO.get("cancelando"):
+                            erros.append(pick)
+                        continue
+                    meta = ler(mp4.with_suffix(".json")) or {}
+                if TRABALHO.get("cancelando"):
+                    break
+                if preparar_projetos:
+                    projeto = (meta.get("projetos") or {}).get("orig")
+                    if not projeto or not (VIDEOS / projeto).is_dir():
+                        CT.para_projeto({"nome": nome, "pick": pick})
+                prontos.append(pick)
+            except Exception as e:
+                erros.append(pick)
+                with log.open("a", encoding="utf-8") as f:
+                    f.write(f"ERRO no momento {pick}: {e}\n")
+        TRABALHO.update(resultado={"clipes_prontos": prontos, "clipes_com_erro": erros},
+                        rotulo=f"CORTES EM LOTE · {len(prontos)}/{len(fila)} prontos")
+        return int(bool(erros))
+
+    iniciar("cortes_lote", lambda: [], log, depois=produzir, corte=nome)
+
+
+def arquivo_fila_cortes():
+    return CT.CORTES / "_fila_cortes.json"
+
+
+def estado_fila_cortes():
+    fila = ler(arquivo_fila_cortes()) or {}
+    falhas = [i for i in fila.get("itens", []) if i["estado"] == "erro"]
+    return {"fila": LC.resumir_fila(fila), "fontes": LC.fontes_disponiveis(), "falhas": falhas[:20],
+            "paralelos_sugeridos": paralelos_sugeridos()}
+
+
+def paralelos_sugeridos():
+    """Quantos cortes renderizar ao mesmo tempo: os filtros (legenda, desfoque) usam a CPU."""
+    nucleos = os.cpu_count() or 1
+    return 1 if nucleos < 6 else 2 if nucleos < 12 else 3 if nucleos < 16 else 4
+
+
+def iniciar_fila_cortes(corpo):
+    arquivo = arquivo_fila_cortes()
+    acao = corpo.get("acao")
+    with TRAVA_FILA_CORTES:
+        if ocupado():
+            raise RuntimeError("aguarde o trabalho atual terminar")
+        fila = ler(arquivo) or {}
+        if acao == "iniciar":
+            anterior = LC.resumir_fila(fila)
+            if (anterior["pendentes"] or anterior["erros"]) and corpo.get("substituir") is not True:
+                raise ValueError("já há uma fila incompleta. Retome-a ou escolha substituir a fila")
+            nomes = corpo.get("fontes")
+            if not isinstance(nomes, list) or not nomes or any(not isinstance(n, str) for n in nomes):
+                raise ValueError("selecione os vídeos de origem")
+            if len(nomes) > 1000:
+                raise ValueError("selecione até mil vídeos de origem por vez")
+            paralelos = corpo.get("paralelos", 1)
+            if type(paralelos) is not int or paralelos not in (1, 2, 3, 4):
+                raise ValueError("escolha de um a quatro cortes em paralelo")
+            layout, legenda = corpo.get("layout"), corpo.get("legenda")
+            if layout not in CT.LAYOUTS or legenda not in ("word", "bubble", "none"):
+                raise ValueError("escolha o formato e a legenda")
+            itens = []
+            for nome in dict.fromkeys(nomes):
+                pasta = CT.trabalho_dir(nome)
+                dados = ler(pasta / "candidates.json") or {}
+                if not dados.get("source") or not Path(dados["source"]).is_file():
+                    raise ValueError(f"fonte indisponível: {nome}")
+                vistos = set()
+                for cand in dados.get("candidates", []):
+                    pick = cand["n"]
+                    if pick in vistos or LC.corte_pronto(pasta, pick):
+                        continue
+                    vistos.add(pick)
+                    itens.append({"nome": nome, "pick": pick, "trecho": [cand["start"], cand["end"]],
+                                  "estado": "pendente", "detalhe": ""})
+            if not 1 <= len(itens) <= 1000:
+                raise ValueError("selecione fontes com 1 a 1.000 cortes pendentes no total")
+            fila = {"itens": itens, "layout": layout, "legenda": legenda, "paralelos": paralelos,
+                    "rapido": corpo.get("rapido") is True}
+        elif acao == "retomar":
+            estados = {"pendente", "renderizando"}
+            if corpo.get("repetir_erros") is True:
+                estados.add("erro")
+            if not any(i["estado"] in estados for i in fila.get("itens", [])):
+                raise ValueError("não há cortes para processar nesta fila")
+            for item in fila["itens"]:
+                if item["estado"] in estados:
+                    item.update(estado="pendente", detalhe="")
+        else:
+            raise ValueError("ação de fila inválida")
+        fila["pausada"] = False
+        LC.gravar_fila(arquivo, fila)
+        arquivo.with_suffix(".parar").unlink(missing_ok=True)
+
+        def concluir(codigo, saida):
+            estado = LC.resumir_fila(ler(arquivo) or {})
+            TRABALHO.update(resultado=estado,
+                            rotulo=f"CORTES · {estado['prontos']}/{estado['total']} prontos")
+            if estado["pausada"] and estado["pendentes"]:
+                TRABALHO["cancelando"] = True
+            return codigo
+
+        iniciar("cortes_escala", lambda: [["lote_cortes.py", str(arquivo)]],
+                CT.CORTES / "_fila_cortes_log.txt", depois=concluir)
+
+
+def arquivo_fila_links():
+    return CT.CORTES / "_fila_links.json"
+
+
+def estado_fila_links():
+    import fila_links as FL
+    fila = ler(arquivo_fila_links()) or {}
+    itens = [{k: i.get(k) for k in ("url", "titulo", "estado", "detalhe", "cortes_prontos")} for i in fila.get("itens", [])]
+    return {"fila": FL.resumir(fila), "itens": itens[:300], "opcoes": fila.get("opcoes"),
+            "paralelos_sugeridos": paralelos_sugeridos()}
+
+
+def iniciar_fila_links(corpo):
+    """Vários links de uma vez: baixa, analisa e corta em linha de produção (fila_links.py)."""
+    import fila_links as FL
+    arquivo = arquivo_fila_links()
+    acao = corpo.get("acao")
+    with TRAVA_FILA_CORTES:
+        if ocupado():
+            raise RuntimeError("aguarde o trabalho atual terminar")
+        fila = ler(arquivo) or {}
+        if acao == "iniciar":
+            if FL.resumir(fila)["pendentes"] and corpo.get("substituir") is not True:
+                raise ValueError("já há uma fila de links incompleta. Retome-a ou escolha substituir")
+            urls = corpo.get("urls")
+            if not isinstance(urls, list) or not all(isinstance(u, str) for u in urls):
+                raise ValueError("cole os links, um por linha")
+            urls = list(dict.fromkeys(CT._url_ok(u) for u in urls if u.strip()))
+            if not 1 <= len(urls) <= 200:
+                raise ValueError("cole de 1 a 200 links")
+            paralelos = corpo.get("paralelos", 1)
+            if type(paralelos) is not int or paralelos not in (1, 2, 3, 4):
+                raise ValueError("escolha de um a quatro cortes em paralelo")
+            layout, legenda = corpo.get("layout"), corpo.get("legenda")
+            if layout not in CT.LAYOUTS or legenda not in ("word", "bubble", "none"):
+                raise ValueError("escolha o formato e a legenda")
+            por_video = corpo.get("cortes_por_video", 3)
+            if type(por_video) is not int or not 1 <= por_video <= 15:
+                raise ValueError("escolha de 1 a 15 cortes por vídeo")
+            top = max(3, min(15, int(corpo.get("top") or 8)))
+            mn = max(5, min(60, float(corpo.get("min") or 15)))
+            mx = max(mn + 5, min(90, float(corpo.get("max") or 40)))
+            minutos = max(5, min(240, int(corpo.get("minutos") or 45)))
+            fila = {"itens": [{"url": u, "nome": CT.nome_trabalho(u), "estado": "pendente", "detalhe": "", "cortes_prontos": 0}
+                              for u in urls],
+                    "opcoes": {"top": max(top, por_video), "min": mn, "max": mx, "minutos": minutos,
+                               "priorizar": corpo.get("priorizar") is True, "cortes_por_video": por_video,
+                               "layout": layout, "legenda": legenda, "paralelos": paralelos, "rapido": corpo.get("rapido") is True}}
+        elif acao == "retomar":
+            if not fila.get("itens"):
+                raise ValueError("não há fila de links para retomar")
+            if corpo.get("repetir_erros") is True:
+                for item in fila["itens"]:
+                    if item["estado"] == "erro":
+                        item.update(estado="pendente", detalhe="", cortes=[], cortes_prontos=0)
+            if not FL.resumir(fila)["pendentes"]:
+                raise ValueError("não há vídeos pendentes nesta fila")
+        else:
+            raise ValueError("ação de fila inválida")
+        fila["pausada"] = False
+        LC.gravar_fila(arquivo, fila)
+        arquivo.with_suffix(".parar").unlink(missing_ok=True)
+
+        def concluir(codigo, saida):
+            estado = FL.resumir(ler(arquivo) or {})
+            TRABALHO.update(resultado=estado, rotulo=f"FILA DE LINKS · {estado['prontos']}/{estado['total']} vídeos · "
+                                                      f"{estado['cortes_prontos']} cortes")
+            if estado["pausada"] and estado["pendentes"]:
+                TRABALHO["cancelando"] = True
+            return codigo
+
+        iniciar("cortes_links", lambda: [["fila_links.py", str(arquivo)]], CT.CORTES / "_fila_links_log.txt", depois=concluir)
 
 
 # ---------------------------------------------------------------- revisão rápida
@@ -468,7 +863,7 @@ def em_onedrive():
 
 
 def config_estado():
-    import skill_gerar, variacao
+    import skill_gerar, variacao, nuvem
     c = ler(FERR / "primeira_config.json", {})
     z = _zernio().config()
     lib = ler(LIB, {"videos": []})
@@ -480,10 +875,17 @@ def config_estado():
             "biblioteca": {"videos": len(lib["videos"]), "cenas": sum(len(v["cenas"]) for v in lib["videos"]),
                            "status": status_de(BIB)},
             "variacao": variacao.config(), "vozes": VOZES,
+            "transcricao": {"configurada": nuvem.configurada(), "provedor": nuvem.provedor() if nuvem.configurada() else None},
             "versao": {"programa": VERSAO, "ferramentas": _versao_txt(), "inicio": VERSAO_INICIO}}
 
 
 def config_salvar(corpo):
+    if isinstance(corpo.get("transcricao_chave"), str):      # chave da Groq/OpenAI para transcrever na nuvem
+        import nuvem
+        chave = corpo["transcricao_chave"].strip()
+        if chave and not re.fullmatch(r"(gsk_|sk-)[A-Za-z0-9_\-]{16,200}", chave):
+            raise ValueError("chave inválida: a da Groq começa com gsk_ e a da OpenAI com sk-")
+        nuvem.salvar_chave(chave)
     c = ler(FERR / "primeira_config.json", {})
     for k in ("concluida", "skill_enviada"):
         if k in corpo:
@@ -540,15 +942,46 @@ def _zernio():
     return zernio
 
 
+def agendamentos_locais():
+    for d in VIDEOS.iterdir() if VIDEOS.exists() else []:
+        if d.is_dir() and not d.name.startswith((".", "_")) and (d / "roteiro.json").exists():
+            reg = ler(d / "out" / "zernio.json")
+            if reg:
+                yield reg
+
+
+def plano_diario(quantidade, inicio=None):
+    z = _zernio()
+    agora = z.agora_no_fuso(z.config()["fuso"])
+    minimo = agora + datetime.timedelta(minutes=10)
+    pedido = datetime.datetime.fromisoformat(inicio) if inicio else minimo
+    if pedido.tzinfo is not None:
+        raise ValueError("use o horário local do calendário")
+    if inicio and pedido < minimo:
+        raise ValueError("o primeiro horário precisa ser pelo menos 10 minutos no futuro")
+    existentes = []
+    for reg in agendamentos_locais():
+        try:
+            existentes.append(datetime.datetime.fromisoformat(reg["horario"][:16]))
+        except (KeyError, TypeError, ValueError):
+            continue
+    horarios = z.planejar_diario(quantidade, pedido, existentes)
+    return [h.isoformat(timespec="minutes") for h in horarios]
+
+
+def etapa_envio(projetos, inicio, intervalo=None, horarios=None):
+    etapa = ["zernio.py", "agendar", "--projetos", ",".join(projetos), "--inicio", inicio]
+    if horarios:
+        etapa += ["--horarios", ",".join(horarios)]
+    else:
+        etapa += ["--intervalo", str(intervalo)]
+    return etapa
+
+
 def sugestao_inicio_zernio(intervalo, agendados=None):
     """Sugere horário sem executar a checagem dos vídeos prontos."""
     if agendados is None:
-        agendados = []
-        for d in VIDEOS.iterdir() if VIDEOS.exists() else []:
-            if d.is_dir() and not d.name.startswith((".", "_")) and (d / "roteiro.json").exists():
-                reg = ler(d / "out" / "zernio.json")
-                if reg:
-                    agendados.append(reg)
+        agendados = agendamentos_locais()
     agora = datetime.datetime.now()
     sug = (agora + datetime.timedelta(minutes=30)).replace(minute=0, second=0, microsecond=0) + datetime.timedelta(hours=1)
     horarios = [datetime.datetime.strptime(a["horario"][:16], "%Y-%m-%dT%H:%M")
@@ -575,7 +1008,8 @@ def zernio_estado():
     return {"configurado": bool(c["api_key"]),
             "contas": c["contas"], "intervalo_h": c["intervalo_h"], "fuso": c["fuso"],
             "prontos": prontos, "agendados": sorted(agendados, key=lambda a: a.get("horario", "")),
-            "sugestao_inicio": sugestao_inicio_zernio(c["intervalo_h"], agendados)}
+            "sugestao_inicio": sugestao_inicio_zernio(c["intervalo_h"], agendados),
+            "inicio_diario": plano_diario(1)[0]}
 
 
 def zernio_config(corpo):
@@ -591,23 +1025,32 @@ def zernio_config(corpo):
 
 
 def zernio_agendar(corpo):
-    projetos = [p for p in corpo.get("projetos", []) if (VIDEOS / p).is_dir()]
+    projetos = list(dict.fromkeys(corpo.get("projetos", [])))
     if not projetos:
         raise ValueError("escolha pelo menos um vídeo pronto")
     barrados = []
     for nome in projetos:
-        ch = checagem_projeto(projeto_dir(nome, False))
-        if ch and not ch["ok"]:
-            motivo = "; ".join(f"{i['nome']} ({i['detalhe']})" if i["detalhe"] else i["nome"] for i in ch["itens"] if i["nivel"] == "erro")
-            barrados.append(f"{nome}: {motivo}")
+        p = projeto_dir(nome)
+        if not video_final(p) or (p / "postado.txt").exists() or (p / "out" / "zernio.json").exists():
+            raise ValueError(f"o projeto {nome} não está disponível para agendar")
+        ch = checagem_projeto(p)
+        if not ch or not ch["ok"]:
+            motivos = [i["nome"] for i in (ch or {}).get("itens", []) if i["nivel"] == "erro"]
+            barrados.append(f"{nome}: {'; '.join(motivos) or 'checagem indisponível'}")
     if barrados:
         raise ValueError("não passou na checagem antes de postar → " + " | ".join(barrados))
-    ini = datetime.datetime.strptime(corpo["inicio"][:16], "%Y-%m-%dT%H:%M")
-    if ini < datetime.datetime.now() + datetime.timedelta(minutes=10):
-        raise ValueError("o primeiro horário precisa ser pelo menos 10 minutos no futuro")
-    intervalo = float(corpo.get("intervalo_h") or _zernio().config()["intervalo_h"])
-    etapa = ["zernio.py", "agendar", "--projetos", ",".join(projetos), "--inicio", ini.strftime("%Y-%m-%dT%H:%M"),
-             "--intervalo", str(intervalo)]
+    if corpo.get("modo") == "diario":
+        horarios = plano_diario(len(projetos), corpo["inicio"])
+        if horarios != corpo.get("horarios"):
+            raise ValueError("o plano de horários mudou. Atualize a previsão antes de enviar")
+        etapa = etapa_envio(projetos, horarios[0], horarios=horarios)
+    else:
+        ini = datetime.datetime.strptime(corpo["inicio"][:16], "%Y-%m-%dT%H:%M")
+        z = _zernio()
+        if ini < z.agora_no_fuso(z.config()["fuso"]) + datetime.timedelta(minutes=10):
+            raise ValueError("o primeiro horário precisa ser pelo menos 10 minutos no futuro")
+        intervalo = float(corpo.get("intervalo_h") or z.config()["intervalo_h"])
+        etapa = etapa_envio(projetos, ini.isoformat(timespec="minutes"), intervalo)
     iniciar("zernio", lambda: [etapa], VIDEOS / "_zernio_log.txt", None, None)
 
 
@@ -811,25 +1254,47 @@ def clipe_do_corte(nome, idx):
     return alvo
 
 
-def salvar_enquadramento(nome, idx, valor):
+def salvar_enquadramento(nome, idx, valor, cena_esperada=None):
+    if valor != "inteiro" and valor not in (None, "auto"):
+        coords = valor if isinstance(valor, list) else [valor]
+        if (isinstance(valor, list) and len(valor) != 2) or not all(
+                type(x) in (int, float) and 0 <= x <= 1 for x in coords):
+            raise ValueError("enquadramento inválido")
     p = projeto_dir(nome)
-    rot = ler(p / "roteiro.json")
-    enq = rot.setdefault("enquadramento", {})
-    if valor in (None, "auto"):
-        enq.pop(str(idx), None)
-    else:
-        enq[str(idx)] = valor
-    gravar(p / "roteiro.json", rot)
-    tl = ler(p / "out" / "timeline.json")
-    if tl and 0 <= idx < len(tl["cortes"]) and valor not in (None, "auto"):
-        c = tl["cortes"][idx]
-        if isinstance(valor, str):
-            c["layout"] = valor
+    with TRAVA_ENQUADRAMENTO:
+        rot = ler(p / "roteiro.json")
+        caminho_tl = p / "out" / "timeline.json"
+        tl = ler(caminho_tl) or {}
+        cortes = tl.get("cortes", [])
+        if not 0 <= idx < len(cortes):
+            raise ValueError("gere a prévia antes de ajustar o enquadramento")
+        c = cortes[idx]
+        cena = c["cena"]
+        if cena_esperada is not None and cena != cena_esperada:
+            raise ValueError("a cena mudou. Reabra o projeto para ajustar")
+        biblioteca = c.get("cena_biblioteca")
+        if biblioteca is None:  # prévias geradas antes do novo formato
+            biblioteca = any(x["id"] == cena for v in (ler(LIB) or {}).get("videos", []) for x in v["cenas"])
+        enq = rot.setdefault("enquadramento", {})
+        auto = valor in (None, "auto")
+        if auto:
+            enq.pop(str(idx), None)
+            c.update(layout="auto", foco=0.5, motivo="automático na próxima prévia")
         else:
-            c["layout"], c["foco"] = "cheio", valor
-        c["motivo"] = "manual"
-        gravar(p / "out" / "timeline.json", tl)
-    return enq
+            enq[str(idx)] = valor
+            c.update(layout="inteiro" if valor == "inteiro" else "cheio",
+                     foco=c["foco"] if valor == "inteiro" else valor, motivo="manual")
+        if biblioteca:
+            arq = LIB.with_name("_enquadramentos.json")
+            salvos = ler(arq) or {}
+            if auto:
+                salvos.pop(cena, None)
+            else:
+                salvos[cena] = valor
+            gravar(arq, salvos)
+        gravar(p / "roteiro.json", rot)
+        gravar(caminho_tl, tl)
+    return enq, bool(biblioteca)
 
 
 def trocar_cena(nome, idx, cena):
@@ -1206,9 +1671,18 @@ class H(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         partes = [unquote(x) for x in u.path.strip("/").split("/") if x]
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
+        publica = (not partes or partes[0] in ("fonte", "asset")
+                   or partes in (["api", "estado"], ["api", "licenca"]))
+        if not publica and not _licenca_permite():
+            return self._json({"erro": "Ative uma licença válida para continuar."}, 402)
         try:
             if not partes:
                 return self._arquivo(AQUI / "estudio.html", "text/html; charset=utf-8")
+            if partes == ["api", "licenca"]:
+                if not _licenciamento_ativo():
+                    return self._json({"ativo": True, "licencaObrigatoria": False})
+                dados, codigo = _chamar_licenca("validar")
+                return self._json(dados, codigo)
             if partes[0] == "fonte" and len(partes) == 2:      # fontes da interface (woff2 locais, sem internet)
                 f = self._dentro(FERR / "assets" / "fonts", partes[1])
                 return self._arquivo(f, "font/woff2" if f.suffix == ".woff2" else "font/ttf")
@@ -1293,6 +1767,10 @@ class H(BaseHTTPRequestHandler):
             if partes == ["api", "atualizacao"]:
                 c = ATU.config(); c.pop("token", None)
                 return self._json({"config": c, "local": ATU.versao_local(), "ultimo": ATU.ultimo()})
+            if partes == ["api", "cortes", "fila"]:
+                return self._json(estado_fila_cortes())
+            if partes == ["api", "cortes", "links"]:
+                return self._json(estado_fila_links())
             if partes == ["api", "cortes"]:
                 return self._json({"trabalhos": CT.lista(), "ranking": CT.ranking(), "lives": CT.lives(), "live": CT.live_estado(), "trabalho": TRABALHO})
             if partes[:2] == ["api", "corte"] and len(partes) == 3:
@@ -1321,6 +1799,14 @@ class H(BaseHTTPRequestHandler):
             return self._json({"erro": "json inválido"}, 400)
         u = urlparse(self.path).path
         try:
+            if u == "/api/licenca":
+                if not _licenciamento_ativo():
+                    return self._json({"ativo": True, "licencaObrigatoria": False})
+                acao = "validar" if corpo.get("acao") == "validar" else "ativar"
+                dados, codigo = _chamar_licenca(acao, corpo.get("chave"))
+                return self._json(dados, codigo)
+            if not _licenca_permite():
+                return self._json({"erro": "Ative uma licença válida para continuar."}, 402)
             if u == "/api/consertar":
                 from checar_roteiro import consertar
                 rot, mud = consertar(corpo["roteiro"])
@@ -1372,6 +1858,11 @@ class H(BaseHTTPRequestHandler):
             if u == "/api/zernio/conferir":
                 iniciar("zernio", lambda: [["zernio.py", "conferir"]], VIDEOS / "_zernio_log.txt", None, None)
                 return self._json({"ok": True, "trabalho": TRABALHO})
+            if u == "/api/zernio/plano":
+                quantidade = int(corpo["quantidade"])
+                if not 1 <= quantidade <= 500:
+                    raise ValueError("selecione entre 1 e 500 vídeos por lote")
+                return self._json({"horarios": plano_diario(quantidade, corpo.get("inicio"))})
             if u == "/api/zernio/agendar":
                 zernio_agendar(corpo)
                 return self._json({"ok": True, "trabalho": TRABALHO})
@@ -1386,8 +1877,17 @@ class H(BaseHTTPRequestHandler):
                 if corpo.get("acao") == "parar":
                     LOTE["parar"] = True
                     return self._json({"ok": True, "lote": LOTE})
-                iniciar_lote(bool(corpo.get("agendar")))
+                iniciar_lote(bool(corpo.get("agendar")), corpo.get("projetos"))
                 return self._json({"ok": True, "lote": LOTE, "trabalho": TRABALHO})
+            if u == "/api/cortes/fila":
+                iniciar_fila_cortes(corpo)
+                return self._json({"ok": True, "trabalho": TRABALHO})
+            if u == "/api/cortes/links":
+                iniciar_fila_links(corpo)
+                return self._json({"ok": True, "trabalho": TRABALHO})
+            if u == "/api/cortes/lote":
+                iniciar_lote_cortes(corpo)
+                return self._json({"ok": True, "trabalho": TRABALHO})
             if u == "/api/cortes/momentos":
                 nome, etapas = CT.etapas_momentos(corpo)
                 iniciar("momentos", lambda: etapas, CT.CORTES / nome / "log.txt", corte=nome)
@@ -1469,8 +1969,9 @@ class H(BaseHTTPRequestHandler):
             if u == "/api/checar":
                 return self._json(checar_roteiro(corpo["roteiro"]))
             if u == "/api/enquadramento":
-                return self._json({"ok": True, "enquadramento": salvar_enquadramento(
-                    corpo["projeto"], int(corpo["idx"]), corpo.get("valor"))})
+                enq, biblioteca = salvar_enquadramento(corpo["projeto"], int(corpo["idx"]),
+                                                      corpo.get("valor"), corpo.get("cena"))
+                return self._json({"ok": True, "enquadramento": enq, "biblioteca": biblioteca})
             if u == "/api/trocar-cena":
                 return self._json({"ok": True, "clipes": trocar_cena(corpo["projeto"], int(corpo["idx"]), corpo["cena"])})
             if u == "/api/post":

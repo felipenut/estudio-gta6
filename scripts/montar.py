@@ -140,7 +140,7 @@ def planejar_cortes(rot, alinhado, total, sel, est):
             uso[c["id"]] = off + dc
             cortes.append({"seg": i, "ref_idx": k % len(refs), "t0": round(t0 + k * dc, 3), "dur": round(dc, 3),
                            "arquivo": str(c["arquivo"]), "src_in": round(src, 3), "cena": c["id"],
-                           "foco": c["foco"], "foco_fixo": c["foco_fixo"], "tags": c["tags"], "descricao": c.get("descricao", ""),
+                           "cena_biblioteca": "cena" in ref, "foco": c["foco"], "foco_fixo": c["foco_fixo"], "tags": c["tags"], "descricao": c.get("descricao", ""),
                            "layout": ref.get("layout") or s.get("layout") or c["layout_cena"] or est["layout"],
                            "imagem": s.get("imagem"), "tipo": s.get("tipo", ""),
                            "zoom": ref.get("zoom", s.get("zoom", est["zoom"]))})
@@ -260,6 +260,23 @@ TAGS_INTEIRO = {"logo", "texto", "capa", "cover art", "data", "mapa", "anuncio"}
 def hash_txt(t):
     import hashlib
     return hashlib.md5(t.encode("utf-8")).hexdigest()[:8]
+
+
+def aplicar_enquadramentos(cortes, ajustes_projeto, salvos):
+    """Um ajuste local tem prioridade sobre o enquadramento salvo da cena."""
+    for i, corte in enumerate(cortes):
+        ajuste = ajustes_projeto.get(str(i))
+        motivo = "manual"
+        if ajuste is None and corte.get("cena_biblioteca"):
+            ajuste = salvos.get(corte["cena"])
+            motivo = "salvo na biblioteca"
+        if ajuste is None:
+            continue
+        corte["motivo"] = motivo
+        if isinstance(ajuste, str):
+            corte["layout"] = ajuste
+        else:
+            corte["layout"], corte["foco"] = "cheio", ajuste
 
 
 def resolver_enquadramento(cortes, rot=None):
@@ -488,6 +505,7 @@ def main():
     ap.add_argument("--musica")
     ap.add_argument("--so-plano", action="store_true", help="só gera timeline.json/legendas, sem renderizar")
     ap.add_argument("--so-capa", action="store_true", help="só refaz a capa.jpg (precisa de um vídeo já gerado)")
+    ap.add_argument("--lote", action="store_true", help="pula folhas de contato auxiliares")
     a = ap.parse_args()
     if a.so_capa:
         out = Path(a.saida).resolve()
@@ -513,17 +531,11 @@ def main():
     sel = Seletor(a.lib if Path(a.lib).exists() else None)
     cortes = planejar_cortes(rot, alinhado, total, sel, est)
     carregar_cache(out)
+    salvos = (ler_json(Path(a.lib).with_name("_enquadramentos.json"))
+              if Path(a.lib).with_name("_enquadramentos.json").exists() else {})
+    aplicar_enquadramentos(cortes, rot.get("enquadramento") or {}, salvos)
     resolver_enquadramento(cortes, rot)
     salvar_cache()
-    for k, ajuste in (rot.get("enquadramento") or {}).items():   # ajustes por corte vindos da revisão da prévia
-        k = int(k)
-        if 0 <= k < len(cortes):
-            if isinstance(ajuste, str):
-                cortes[k]["layout"] = ajuste
-            else:
-                cortes[k]["layout"] = "cheio"
-                cortes[k]["foco"] = ajuste
-            cortes[k]["motivo"] = "manual"
     musica = a.musica or rot.get("musica")
     if musica in ("nenhuma", "sem"):
         musica = None
@@ -558,10 +570,10 @@ def main():
         shutil.copy(f, fontes / f.name)
     escrever_ass(alinhado, rot, est, out / "legenda.ass", total, tseg)
     escrever_srt(alinhado, out / "legenda.srt")
-    if a.so_plano or not (out / "previa_enquadramento.jpg").exists():
+    if a.so_plano or (not a.lote and not (out / "previa_enquadramento.jpg").exists()):
         previa_enquadramento(cortes, out / "previa_enquadramento.jpg")
         salvar_cache()
-    print(f"plano: {len(cortes)} cortes, {len(alinhado)} palavras, {total:.1f}s  (veja previa_enquadramento.jpg)")
+    print(f"plano: {len(cortes)} cortes, {len(alinhado)} palavras, {total:.1f}s")
     if a.so_plano:
         return
 
@@ -577,6 +589,7 @@ def main():
     for velho in cache.glob("*.mp4"):                    # limpa cortes que não são mais usados
         if velho not in lista:
             velho.unlink(missing_ok=True)
+    salvar_cache()
     if reaproveitados:
         print(f"{reaproveitados} de {len(cortes)} cortes reaproveitados do cache")
     (tmp / "lista.txt").write_text("".join(f"file '../cache_cortes/{p.name}'\n" for p in lista), encoding="utf-8")
@@ -611,12 +624,14 @@ def main():
               f"drawbox=x=0:y=0:w='iw*t/{total}':h=14:color=0x{cor_rgb_hex(est['cor_destaque'])}@0.95:t=fill")
     fc = f"{v}[v];" + ";".join(partes)
     cmd += ["-filter_complex", fc, "-map", "[v]", "-map", "[a]", "-t", f"{total:.3f}",
-            "-c:v", "libx264", "-preset", "fast", "-crf", "18", "-pix_fmt", "yuv420p",
-            "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "final.mp4"]
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "final.parcial.mp4"]
     rodar(cmd, cwd=out)
-    corrigir_loudness(out, alvo)
-    folha_final(out / "final.mp4", out / "folha_final.jpg", total)
+    corrigir_loudness(out, alvo, "final.parcial.mp4")
+    if not a.lote:
+        folha_final(out / "final.parcial.mp4", out / "folha_final.jpg", total)
     capa(out, rot, est, cortes)
+    (out / "final.parcial.mp4").replace(out / "final.mp4")
     shutil.rmtree(tmp, ignore_errors=True)
     print(f"ok: {out / 'final.mp4'}  (+ capa.jpg, legenda.srt)")
 
@@ -663,10 +678,10 @@ def trilha_sfx(out, tmp, rot, cortes, alinhado, total, est):
     return destino
 
 
-def corrigir_loudness(out, alvo):
+def corrigir_loudness(out, alvo, arquivo="final.mp4"):
     """2ª passada: mede o loudness integrado do final.mp4 e corrige o ganho (o loudnorm de 1 passada erra ~2 LU)."""
     import json as _json, re as _re
-    r = rodar([ffmpeg_bin(), "-hide_banner", "-i", "final.mp4", "-vn", "-af",
+    r = rodar([ffmpeg_bin(), "-hide_banner", "-i", arquivo, "-vn", "-af",
                f"loudnorm=I={alvo}:TP=-1.5:print_format=json", "-f", "null", "-"], cwd=out)
     m = _re.search(r"\{[^{}]*\"input_i\"[^{}]*\}", r.stderr)
     if not m:
@@ -675,10 +690,10 @@ def corrigir_loudness(out, alvo):
     ganho = alvo - medido
     if abs(ganho) < 0.7:
         return
-    rodar([ffmpeg_bin(), "-y", "-v", "error", "-i", "final.mp4", "-c:v", "copy", "-af",
+    rodar([ffmpeg_bin(), "-y", "-v", "error", "-i", arquivo, "-c:v", "copy", "-af",
            f"volume={ganho:.2f}dB,alimiter=limit=0.84:level=false", "-c:a", "aac", "-b:a", "192k",
            "-movflags", "+faststart", "final_tmp.mp4"], cwd=out)
-    (out / "final_tmp.mp4").replace(out / "final.mp4")
+    (out / "final_tmp.mp4").replace(out / arquivo)
     print(f"loudness: {medido:.1f} -> {alvo} LUFS")
 
 

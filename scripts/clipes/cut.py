@@ -13,7 +13,7 @@ usage: python cut.py jobs/<id> --pick 1 [--layout fill|blur|facecam|react] [--ho
 import argparse, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
-from common import load_json, renderizar_com_progresso, save_json, tool
+from common import executar_render, load_json, renderizar_com_progresso, save_json, tool
 
 W, H = 1080, 1920
 
@@ -134,10 +134,12 @@ def even(n):
 def video_filter(layout, cam, ass, band=None, cam_side='right', src=None, game_x=None, face_expr=None):
     """Layout + burned-caption filter graph ending in [vo]. Reused by translate.py."""
     if layout == "fill":
-        v = f"[0:v]scale=-2:{H},crop={W}:{H}[v]"
+        v = (f"[0:v]scale={W}:{H}:force_original_aspect_ratio=increase:force_divisible_by=2,"
+             f"crop={W}:{H}[v]")
     elif layout == "blur":
         # O fundo é desfocado: calculá-lo em 1/4 da resolução mantém o efeito e reduz o custo.
-        v = (f"[0:v]split[a][b];[a]scale=-2:{H // 4},crop={W // 4}:{H // 4},boxblur=6:2,"
+        v = (f"[0:v]split[a][b];[a]scale={W // 4}:{H // 4}:force_original_aspect_ratio=increase:"
+             f"force_divisible_by=2,crop={W // 4}:{H // 4},boxblur=6:2,"
              f"eq=brightness=-0.08,scale={W}:{H}[bg];"
              f"[b]scale={W}:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2-80[v]")
     elif layout == 'react':
@@ -165,7 +167,7 @@ def video_filter(layout, cam, ass, band=None, cam_side='right', src=None, game_x
         en = f":enable='lte(t,{secs})'" if secs > 0 else ''
         v = v[:-3] + f"[v0];[v0]drawbox=x=0:y={y0}:w=iw:h={bh}:color={cor}@0.92:t=fill{en}[v]"
     sub = str(ass).replace("\\", "/").replace(":", "\\:")
-    return v + f";[v]scale={W}:{H},setsar=1,fps=30,subtitles='{sub}'[vo]"
+    return v + f";[v]setsar=1,subtitles='{sub}'[vo]"
 
 
 def game_offset(video, s0, e0, src, cam_box):
@@ -321,18 +323,23 @@ def expr_zoom(dur, pico=None, passo=4.0, leve=0.06, forte=0.12):
 
 def filtro_edicao(v, manter, zoom=None, dur=None, loop=False):
     """Encaixa no grafo do layout: corte de pausas no começo, zoom antes da legenda e emenda de loop no fim."""
+    # Descarte os quadros excedentes antes de aplicar escala, desfoque e zoom.
+    entrada = "[0:v]fps=30"
     if manter and len(manter) > 1:
         sel = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in manter)
-        usos = v.count("[0:v]")
-        rot = [f"[vin{i}]" for i in range(usos)]
-        pre = f"[0:v]fps=30,select='{sel}',setpts=N/30/TB" + (f",split={usos}" if usos > 1 else "") + "".join(rot) + ";"
-        for r in rot:
-            v = v.replace("[0:v]", r, 1)
-        v = pre + v
+        entrada += f",select='{sel}',setpts=N/30/TB"
+    usos = v.count("[0:v]")
+    rotulos = [f"[vin{i}]" for i in range(usos)]
+    if usos > 1:
+        entrada += f",split={usos}"
+    for rotulo in rotulos:
+        v = v.replace("[0:v]", rotulo, 1)
+    v = entrada + "".join(rotulos) + ";" + v
     if zoom:
-        corpo, fim = v.rsplit(";[v]", 1)                     # fim = "fps=30,subtitles=...[vo]" (ou scale,...)
-        v = (corpo + f";[v]scale=w='trunc({W}*({zoom})/2)*2':h='trunc({H}*({zoom})/2)*2':eval=frame,"
-             f"crop={W}:{H}[vz];[vz]" + fim)
+        corpo, fim = v.rsplit(";[v]", 1)
+        expr = _re.sub(r"\bt\b", "it", zoom)
+        v = (corpo + f";[v]zoompan=z='{expr}':x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2'"
+             f":d=1:s={W}x{H}:fps=30[vz];[vz]" + fim)
     if loop and dur and dur > 3:
         v = v[:-4] + f"[vsub];[vsub]split[lx][ly];[ly]trim=0:{LOOP_SECS},setpts=PTS-STARTPTS[lh];" \
                      f"[lx][lh]xfade=transition=fade:duration=0.3:offset={dur - 0.3:.3f}[vo]"
@@ -367,6 +374,9 @@ def comando_render(src, s0, e0, rp, ass, band, saida, voz_mp3=None, hook_secs=2.
                      face_expr=tuple(rp["face_expr"]) if rp.get("face_expr") else None)
     v = filtro_edicao(v, manter, rp.get("zoom"), dur, rp.get("loop"))
     cmd = [tool("ffmpeg"), "-y", "-v", "error", "-ss", f"{s0:.2f}", "-to", f"{e0:.2f}", "-i", str(src)]
+    threads = str(rp["threads"]) if rp.get("threads") else None
+    if threads:
+        cmd[1:1] = ["-filter_complex_threads", threads, "-threads:v", threads]
     mapa = ["-map", "[vo]"]
     if tem_audio(src):
         if voz_mp3:
@@ -382,8 +392,12 @@ def comando_render(src, s0, e0, rp, ass, band, saida, voz_mp3=None, hook_secs=2.
             a = filtro_audio(manter, rp.get("voz", True), rp.get("loop"), dur)
         v = v + ";" + a
         mapa += ["-map", "[ao]"]
-    cmd += ["-filter_complex", v, *mapa, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
-            "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart", str(saida)]
+    from common import codificador_video
+    codificador = codificador_video()
+    cmd += ["-filter_complex", v, *mapa, *codificador]
+    if threads and codificador[1] == "libx264":
+        cmd += ["-threads:v", threads]
+    cmd += ["-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart", str(saida)]
     return cmd
 
 
@@ -420,6 +434,7 @@ def main():
     ap.add_argument("--start", type=float); ap.add_argument("--end", type=float)
     ap.add_argument("--edicao", default=EDICAO_PADRAO, help="pausas,zoom,voz,loop (ou 'nenhuma')")
     ap.add_argument("--pergunta", default=None, help="pergunta aberta para o post (padrão: a sugerida pela IA)")
+    ap.add_argument("--threads", type=int, choices=range(1, 9), help="limite de processamento para cortes em paralelo")
     a = ap.parse_args()
     d = Path(a.job); c = load_json(d / "candidates.json")
     print("(1/2) preparando legenda e enquadramento…", flush=True)
@@ -499,12 +514,13 @@ def main():
             largura_jogo = max(W, even(src[0] * GAME_H / src[1]))
             gx = max(0, min(largura_jogo - W, even(a.game_x)))
     rp = {"layout": layout, "cam": cam, "side": side, "src": src, "gx": gx, "face_expr": face_expr,
-          "manter": manter if len(manter) > 1 else None, "zoom": zoom, "voz": "voz" in ed, "loop": "loop" in ed}
+          "manter": manter if len(manter) > 1 else None, "zoom": zoom, "voz": "voz" in ed, "loop": "loop" in ed,
+          "threads": a.threads}
     mp4 = out / f"clip_{a.pick}.mp4"
     parcial = out / f"clip_{a.pick}.parcial.mp4"
     meta_anterior = load_json(out / f"clip_{a.pick}.json") if (out / f"clip_{a.pick}.json").exists() else {}
     print(f"(2/2) renderizando {dur:.0f}s em 1080x1920 ({layout}{', ' + ', '.join(sorted(ed)) if ed else ''})…", flush=True)
-    renderizar_com_progresso(comando_render(c["source"], s0, e0, rp, ass, band, parcial), dur)
+    executar_render(comando_render(c["source"], s0, e0, rp, ass, band, parcial), dur)
     if mp4.exists():
         import shutil, time
         pasta_backup = out / "backup"; pasta_backup.mkdir(exist_ok=True)

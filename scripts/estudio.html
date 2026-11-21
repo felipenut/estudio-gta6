@@ -249,6 +249,17 @@ details > summary { cursor:pointer; color:var(--fraco); font-weight:600; } detai
 .toast.erro { border-left-color:var(--erro); }
 
 /* ---- cortes ---- */
+#form-momentos { margin-top:10px; }
+#form-momentos fieldset { border:0; padding:0; margin:14px 0; min-width:0; }
+#form-momentos legend { padding:0; margin:0 0 6px; font-size:13px; font-weight:600; color:var(--fraco); }
+.modos-busca { display:grid; grid-template-columns:repeat(auto-fit,minmax(114px,1fr)); gap:8px; }
+#form-momentos .lay span { line-height:1.25; }
+#form-momentos summary { color:var(--fraco); cursor:pointer; }
+#form-momentos .ajustes-busca { grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:0 12px; }
+#form-momentos .linha { justify-content:space-between; }
+#form-momentos .linha .sub { flex:1 1 160px; margin:0; }
+#form-momentos [role=status] { color:var(--fraco); font-size:13px; margin:6px 0 0; }
+#form-momentos [role=status]:empty { display:none; }
 .mgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-bottom:12px; }
 .mcard { background:var(--p1); border:1px solid var(--linha); border-radius:var(--r-item); overflow:hidden; display:flex; flex-direction:column; transition:border-color var(--t-rapida); }
 .mcard:hover { border-color:var(--linha-forte); }
@@ -363,7 +374,7 @@ async function ir(view, extra = {}) { Object.assign(S, { view }, extra); marcarN
 async function abrirProjeto(nome, aba) { S.projeto = nome; S.view = "projeto"; if (aba) S.aba = aba; marcarNav(); try { await carregarProjeto(); if (S.view === "projeto" && S.projeto === nome) render(); } catch (e) { erroTela(e); } }
 async function carregarProjeto() { const nome = S.projeto, dados = await api("/api/projeto/" + encodeURIComponent(nome)); if (S.projeto !== nome) return; S.dados = dados; S.rot = dados.roteiro ? JSON.parse(JSON.stringify(dados.roteiro)) : null; }
 async function lista() { const j = await api("/api/projetos"); S.trabalho = j.trabalho; return j; }
-const VERSAO_PAGINA = 21;
+const VERSAO_PAGINA = 27;
 function erroTela(e) {
   $("#main").innerHTML = `<div class="aviso-box"><b>Não consegui abrir esta tela.</b><br>${esc(e.message || e)}<br><br>
     Se você acabou de atualizar o Estúdio, feche a janela preta do Estúdio e abra o <b>estudio.bat</b> de novo.</div>`;
@@ -395,12 +406,34 @@ async function conferirVersao() {
   return false;
 }
 
+function mostrarAtivacaoLicenca(erro) {
+  document.body.insertAdjacentHTML("beforeend", `<div class="bloqueio-licenca" role="dialog" aria-modal="true" aria-labelledby="licencaTitulo" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:var(--bg);padding:24px">
+    <section class="cartao" style="width:min(520px,92vw);padding:28px;border:1px solid var(--linha-forte);border-radius:18px;background:var(--p1);box-shadow:0 24px 80px #000b">
+      <div class="marca">Estúdio GTA 6 Shorts</div><h1 id="licencaTitulo" style="margin:18px 0 8px">Ative seu acesso</h1>
+      <p class="sub">Cole o código recebido após a confirmação do pagamento. A licença pode ser ativada em um computador.</p>
+      <label for="licencaCodigo">Código da licença</label><input id="licencaCodigo" autocomplete="off" maxlength="45" placeholder="GTA6-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX">
+      <div id="licencaErro" class="aviso-box" role="status" aria-live="polite" style="margin-top:12px">${esc(erro || "")}</div>
+      <div class="linha" style="margin-top:14px"><button class="prim" id="licencaAtivar">Ativar licença</button><a href="https://estudio-gta6-checkout.vercel.app" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;padding:9px 14px;border:1px solid var(--linha);border-radius:var(--r-campo);color:var(--texto)">Assinar acesso</a></div>
+      <p class="sub" style="font-size:12px;margin:14px 0 0">A conexão será validada com segurança. Depois da ativação, o Estúdio pode ficar até 3 dias sem internet.</p>
+    </section></div>`);
+  const campo = $("#licencaCodigo"), botao = $("#licencaAtivar"), aviso = $("#licencaErro");
+  campo.focus();
+  botao.onclick = async () => {
+    botao.disabled = true; aviso.textContent = "Validando a licença…";
+    try {
+      const licenca = await api("/api/licenca", { acao: "ativar", chave: campo.value.trim() });
+      if (!licenca.ativo) throw new Error("A licença não está ativa.");
+      aviso.textContent = "Acesso ativado. Abrindo o Estúdio…"; location.reload();
+    } catch (e) { aviso.textContent = e.message || "Não consegui ativar. Confira o código e tente novamente."; botao.disabled = false; }
+  };
+}
+
 /* ---------- trabalho em andamento ---------- */
 let pollLog = null;
 let tickEmAndamento = false;
 function gaveta(abrir = true) { $("#gaveta").classList.toggle("aberta", abrir); if (abrir) atualizarLog(); }
 async function atualizarLog() {
-  const t = S.trabalho || {}; const q = t.projeto ? `?projeto=${encodeURIComponent(t.projeto)}` : t.corte ? `?corte=${encodeURIComponent(t.corte)}` : (["zernio", "lote", "tendencias", "lives", "perguntas"].includes(t.acao) ? "?atual=1" : (t.acao ? "?biblioteca=1" : ""));
+  const t = S.trabalho || {}; const q = t.projeto ? `?projeto=${encodeURIComponent(t.projeto)}` : t.corte ? `?corte=${encodeURIComponent(t.corte)}` : (["zernio", "lote", "cortes_escala", "cortes_links", "tendencias", "lives", "perguntas"].includes(t.acao) ? "?atual=1" : (t.acao ? "?biblioteca=1" : ""));
   if (!q) { $("#glog").textContent = "Nenhum trabalho rodando."; return; }
   const j = await api("/api/log" + q); const pre = $("#glog"); const fim = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 40;
   pre.textContent = j.log; if (fim) pre.scrollTop = pre.scrollHeight; $("#gtit").textContent = `Log — ${t.rotulo || ""} ${t.projeto || t.corte || ""}`;
@@ -408,6 +441,14 @@ async function atualizarLog() {
 }
 async function interromperTrabalho() {
   const t = S.trabalho || {}; if (!rodando(t)) return;
+  if (t.acao === "cortes_escala" || t.acao === "cortes_links") {
+    try {
+      await api("/api/trabalho/cancelar", {});
+      toast(t.acao === "cortes_links" ? "Pausando: termina o que já está rodando e para (dá para retomar)" : "Pausando a fila após os cortes em andamento");
+      tick();
+    } catch (e) { toast(e.message); }
+    return;
+  }
   const lote = t.acao === "lote", pergunta = lote ? "O lote vai parar depois do vídeo que está sendo processado. Quer continuar?" : "Interromper o trabalho atual? O arquivo parcial não será usado como vídeo pronto.";
   if (!confirm(pergunta)) return;
   try { const j = await api("/api/trabalho/cancelar", {}); toast(j.depois ? "O lote vai parar após o vídeo atual" : "Interrupção solicitada"); tick(); }
@@ -424,16 +465,35 @@ async function botaoLote() {
     const j = await api("/api/lote");
     if (!j.fila.length) return toast("Nenhum projeto com roteiro e sem vídeo pronto");
     const md = document.createElement("div"); md.className = "modal";
-    const fmtH = (iso) => new Date(iso).toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-    md.innerHTML = `<div class="caixa" style="width:min(560px,94vw)"><div class="cab"><b style="flex:1">▶ Gerar lote: ${j.fila.length} vídeo(s)</b><button id="lfechar">Fechar</button></div>
-      <div style="padding:16px"><div style="max-height:220px;overflow:auto;font-size:13px">${j.fila.map((n, i) => `${i + 1}. ${esc(n)}`).join("<br>")}</div>
-      <p class="sub" style="margin:10px 0">Um depois do outro. O enquadramento que você não ajustou fica no automático. Pode levar bastante tempo: deixe o PC ligado.</p>
-      <label style="display:flex;gap:8px;align-items:center;margin:0"><input type="checkbox" id="lagendar" ${j.zernio ? "" : "disabled"}> Agendar no Zernio ao terminar (a cada ${j.intervalo_h}h a partir de ${esc(fmtH(j.sugestao_inicio))} ou do próximo horário livre)</label>
-      ${j.zernio ? "" : `<div class="sub" style="margin:4px 0 0;font-size:12px">Configure o Zernio na tela Agendar para usar esta opção.</div>`}
-      <div class="linha" style="margin-top:14px"><span style="flex:1"></span><button class="prim" id="lok">Começar</button></div></div></div>`;
-    document.body.appendChild(md); const fechar = () => md.remove(); $("#lfechar").onclick = fechar;
-    $("#lok").onclick = async () => { try { const ag = $("#lagendar").checked; await api("/api/lote", { acao: "iniciar", agendar: ag }); fechar();
-      toast(`Lote iniciado: ${j.fila.length} vídeo(s)` + (ag ? " · agenda no fim" : "")); tick(); } catch (e) { toast(e.message); } };
+    md.innerHTML = `<div class="caixa" style="width:min(560px,94vw)"><div class="cab"><b style="flex:1">Produzir vídeos narrados em lote</b><button id="lfechar">Fechar</button></div>
+      <div class="corpo"><label style="display:flex;gap:8px;align-items:center;margin:0 0 8px"><input type="checkbox" id="ltodos" checked> Selecionar todos</label>
+      <div style="max-height:240px;overflow:auto">${j.fila.map(n => `<label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" data-lote="${esc(n)}" checked> ${esc(n)}</label>`).join("")}</div>
+      <p class="sub" style="margin:10px 0">O Estúdio usa os enquadramentos salvos e produz um vídeo por vez. Os arquivos do After Effects ficam disponíveis para gerar no projeto.</p>
+      <label style="display:flex;gap:8px;align-items:center;margin:0"><input type="checkbox" id="lagendar" ${j.zernio ? "" : "disabled"}> Agendar ao terminar os vídeos que passarem na checagem</label>
+      <p class="sub" style="margin:5px 0 0;font-size:12px">${j.zernio ? "Até 10 por dia, nas vagas livres entre 08:00 e 21:30, nas contas selecionadas no Zernio." : "Configure as contas na tela Agendar para usar esta opção."}</p>
+      <div class="linha" style="margin-top:14px"><span style="flex:1"></span><button class="prim" id="lok">Começar lote</button></div></div></div>`;
+    document.body.appendChild(md);
+    $("#lfechar", md).onclick = () => md.remove();
+    const itens = [...md.querySelectorAll("[data-lote]")], todos = $("#ltodos", md), iniciar = $("#lok", md);
+    const contar = () => {
+      const quantidade = itens.filter(i => i.checked).length;
+      todos.checked = quantidade === itens.length;
+      todos.indeterminate = quantidade > 0 && !todos.checked;
+      iniciar.disabled = quantidade === 0;
+      iniciar.textContent = `Produzir ${quantidade} vídeo(s)`;
+    };
+    todos.onchange = () => { itens.forEach(i => { i.checked = todos.checked; }); contar(); };
+    itens.forEach(i => { i.onchange = contar; });
+    contar();
+    iniciar.onclick = async () => {
+      const projetos = itens.filter(i => i.checked).map(i => i.dataset.lote), agendar = $("#lagendar", md).checked;
+      iniciar.disabled = true;
+      try {
+        const r = await api("/api/lote", { acao: "iniciar", projetos, agendar });
+        S.trabalho = r.trabalho;
+        md.remove(); pintarLote(r.lote); toast("Produção em lote iniciada"); tick();
+      } catch (e) { toast(e.message); contar(); }
+    };
   } catch (e) { toast(e.message); }
 }
 function pintarLote(l) {
@@ -448,16 +508,21 @@ async function tick() {
     const j = await api("/api/estado"); const t = j.trabalho; const antes = S.trabalho; S.trabalho = t; pintarLote(j.lote); bannerAtualizacao(j.atualizacao); if (!S.avisouAtu) { S.avisouAtu = true; avisoAtualizado(j.atualizado); }
     if (antes && antes.acao === "lote" && t.acao === "lote" && antes.projeto !== t.projeto && !t.fim) { lista(); if (antes.projeto === S.projeto && S.view === "projeto") { carregarProjeto().then(render); } }
     atualizarAgendamentoProjeto(t);
+    $("#zagendar")?.atualizarFila?.();
+    if ($("#clote")) $("#clote").disabled = !!rodando(t);
+    if ($("#fila-cortes")) $("#fila-cortes").textContent = rodando(t) && t.acao === "cortes_escala" ? "Ver fila de cortes" : "Produzir em escala";
+    atualizarBuscaMomentos(t);
     $("#job").classList.toggle("rodando", rodando(t));
     const pct = Math.round((t.progresso || 0) * 100), on = rodando(t);
     $("#barra").classList.toggle("on", on); $("#barra i").style.width = on ? Math.max(2, pct) + "%" : "0";
     $("#jobpct").textContent = on ? pct + "%" : "";
-    if (on && t.inicio && pct >= 3) { const gasto = Date.now() / 1000 - t.inicio, resta = gasto * (100 - pct) / pct; S.eta = resta > 60 ? ` · ~${Math.round(resta / 60)} min` : " · <1 min"; } else S.eta = "";
+    if (on && t.acao !== "momentos" && t.inicio && pct >= 3) { const gasto = Date.now() / 1000 - t.inicio, resta = gasto * (100 - pct) / pct; S.eta = resta > 60 ? ` · ~${Math.round(resta / 60)} min` : " · <1 min"; } else S.eta = "";
     $("#jobtxt").textContent = on ? `${t.rotulo}${t.etapa ? " · " + t.etapa : ""}${t.projeto ? " · " + t.projeto : ""}${S.eta}` : (t.acao ? `Último: ${t.rotulo} ${t.codigo === 0 ? "✓" : "✗"}` : "Livre");
     const gc = $("#gcancel"), gr = $("#grepeat"), envioLote = t.acao === "lote" && t.rotulo === "LOTE → ZERNIO";
     gc.hidden = !on || t.acao === "zernio" || envioLote;
-    gc.textContent = t.acao === "lote" ? (S.lote?.parar ? "Parando…" : "Parar após este vídeo") : "Interromper";
-    gc.disabled = !!t.cancelando || !!(t.acao === "lote" && S.lote?.parar); gc.onclick = interromperTrabalho;
+    gc.textContent = t.acao === "lote" ? (S.lote?.parar ? "Parando…" : "Parar após este vídeo") :
+      ["cortes_escala", "cortes_links"].includes(t.acao) ? (t.pausando ? "Pausando…" : "Pausar fila") : "Interromper";
+    gc.disabled = !!t.cancelando || !!t.pausando || !!(t.acao === "lote" && S.lote?.parar); gc.onclick = interromperTrabalho;
     gr.hidden = on || !t.acao || t.codigo === 0 || !t.repetivel; gr.onclick = repetirTrabalho;
     $("#gjobdetail").textContent = on ? `${pct}%${S.eta || ""}${t.etapa ? " · " + t.etapa : ""}` : (t.cancelado ? "Interrompido" : t.acao && t.codigo !== 0 ? "O trabalho não terminou" : "");
     if (rodando(t) && ($("#gaveta").classList.contains("aberta") || (S.view === "projeto" && S.aba === "log"))) atualizarLog();
@@ -472,12 +537,12 @@ async function aoTerminar(t) {
   if (S.view === "projeto" && t.projeto === S.projeto) { await carregarProjeto(); if (t.codigo === 0) S.aba = { gerar: "revisao", previa: "enquadramento", capa: "video", narrar: "roteiro" }[t.acao] || S.aba; render(); }
   if (["inicio", "projetos", "biblioteca"].includes(S.view)) render();
   if (["tendencias", "perguntas"].includes(t.acao) && S.view === "temas") render();
-  if (["momentos", "cortar", "traduzir_clipe", "lives"].includes(t.acao) && ["cortes", "corte"].includes(S.view)) {
+  if (["momentos", "cortar", "cortes_lote", "cortes_escala", "cortes_links", "traduzir_clipe", "lives"].includes(t.acao) && ["cortes", "corte"].includes(S.view)) {
     if (t.acao === "momentos" && t.codigo === 0 && t.corte) { S.corte = t.corte; S.view = "corte"; }
     render(); }
   if (t.acao === "traduzir_video" && t.codigo === 0 && t.projeto) abrirProjeto(t.projeto, "video");
   if (S.view === "resultados" && t.acao === "zernio") render();
-  if (["zernio", "lote"].includes(t.acao)) { if (S.view === "projeto" && S.projeto) { await carregarProjeto(); render(); } else if (S.view === "agendar") render(); }
+  if (["zernio", "lote", "cortes_lote"].includes(t.acao)) { if (S.view === "projeto" && S.projeto) { await carregarProjeto(); render(); } else if (S.view === "agendar") render(); }
 }
 setInterval(tick, 2000);
 
@@ -824,12 +889,14 @@ function abaEnq(c) {
   if (!cortes.length) { c.innerHTML = `<div class="vazio">Ainda não há plano de cortes. Clique em <b>Prévia</b>.</div>`; return; }
   const manual = (S.rot && S.rot.enquadramento) || {};
   c.innerHTML = `<p class="sub">Arraste a janela sobre o assunto. <b style="color:var(--verde)">Verde</b> = tela cheia, <b style="color:var(--azul)">azul</b> = panorâmica (início → fim), <b style="color:var(--laranja)">laranja</b> = quadro inteiro.
-    Salva sozinho. Se trocar cenas, clique em <b>Prévia</b> para recalcular.</p><div class="grade" id="grade"></div>`;
+    Salva sozinho. Se trocar cenas, clique em <b>Prévia</b> para recalcular.</p><p class="sub">O Estúdio reutiliza o enquadramento manual quando a mesma cena da biblioteca aparece em outro vídeo. Use Auto para esquecer esse ajuste.</p><div class="grade" id="grade"></div>`;
   cortes.forEach(corte => {
     const el = document.createElement("div"); el.className = "card" + (manual[corte.i] !== undefined ? " manual" : "");
     el.innerHTML = `<canvas></canvas><div class="info"><span class="id">#${corte.i}</span><span>seg ${corte.seg + 1}</span><span class="cena">${esc(corte.cena.replace("GTA6_", ""))}</span><span class="val"></span></div>
-      <div class="modos">${["auto", "fixo", "pan", "inteiro"].map(m => `<button class="mini" data-m="${m}">${{ auto: "Auto", fixo: "Fixo", pan: "Panorâmica", inteiro: "Inteiro" }[m]}</button>`).join("")}<span style="flex:1"></span><button class="mini" data-play title="Tocar o trecho com a janela do enquadramento">▶ Play</button><button class="mini" data-troca>Trocar cena</button></div>`;
-    $("#grade").appendChild(el); montarCard(el, corte, manual[corte.i]);
+      <div class="modos">${["auto", "fixo", "pan", "inteiro"].map(m => `<button class="mini" data-m="${m}" ${m === "auto" ? 'title="Volta ao enquadramento automático e esquece o ajuste salvo da cena"' : ""}>${{ auto: "Auto", fixo: "Fixo", pan: "Panorâmica", inteiro: "Inteiro" }[m]}</button>`).join("")}<span style="flex:1"></span><button class="mini" data-play title="Tocar o trecho com a janela do enquadramento">▶ Play</button><button class="mini" data-troca>Trocar cena</button></div>`;
+    const salvo = corte.motivo === "salvo na biblioteca";
+    if (salvo) el.classList.add("manual");
+    $("#grade").appendChild(el); montarCard(el, corte, salvo ? corte.foco : manual[corte.i]);
   });
 }
 function montarCard(el, corte, manualVal) {
@@ -853,7 +920,7 @@ function montarCard(el, corte, manualVal) {
   img.onload = () => { cv.width = img.naturalWidth * 2; cv.height = img.naturalHeight * 2; desenhar(); };
   img.src = `/api/quadro/${encodeURIComponent(S.projeto)}/${corte.i}.jpg`;
   const salvar = async () => { const valor = modo === "auto" ? "auto" : modo === "inteiro" ? "inteiro" : modo === "pan" ? foco.map(f => +f.toFixed(3)) : +foco[0].toFixed(3);
-    try { const j = await api("/api/enquadramento", { projeto: S.projeto, idx: corte.i, valor }); if (S.rot) S.rot.enquadramento = j.enquadramento; el.classList.toggle("manual", modo !== "auto"); toast(`#${corte.i} salvo`); } catch (e) { toast(e.message); } };
+    try { const j = await api("/api/enquadramento", { projeto: S.projeto, idx: corte.i, cena: corte.cena, valor }); if (S.rot) S.rot.enquadramento = j.enquadramento; el.classList.toggle("manual", modo !== "auto"); toast(modo === "auto" ? "Modo automático na próxima prévia" : j.biblioteca ? "Salvo nesta cena para os próximos vídeos" : "Enquadramento salvo neste projeto"); } catch (e) { toast(e.message); } };
   const posX = (ev) => { const r = cv.getBoundingClientRect(); return (ev.clientX - r.left) / r.width * cv.width; };
   cv.onpointerdown = (ev) => { if (modo === "inteiro") return; if (modo === "auto") modo = Array.isArray(corte.foco) ? "pan" : "fixo";
     const w = jan(), x = posX(ev), cs = (modo === "pan" ? foco : [foco[0]]).map(f => f * (cv.width - w) + w / 2);
@@ -977,19 +1044,119 @@ const LAYOUTS = [["blur", "Desfocado", "vídeo inteiro no meio, fundo desfocado 
   ["fill", "Tela cheia", "corta as laterais e preenche a tela (bom para gameplay centralizado)"],
   ["react", "Reação", "rosto do streamer em cima, jogo embaixo, título grande na emenda (o formato viral)"],
   ["facecam", "Jogo + câmera", "câmera do streamer em cima (38%), jogo embaixo"]];
+const MODOS_MOMENTOS = {
+  rapida: { titulo: "Rápida", minutos: 15, top: 5 },
+  padrao: { titulo: "Padrão", minutos: 45, top: 8 },
+  completa: { titulo: "Completa", minutos: 90, top: 12 }
+};
+function atualizarBuscaMomentos(t) {
+  const form = $("#form-momentos");
+  if (!form) return;
+  const ocupado = !!rodando(t);
+  const ativa = ocupado && t.acao === "momentos";
+  const botao = $("#machar", form), estado = $("#mestado", form);
+  botao.disabled = ocupado || form.dataset.enviando === "sim";
+  botao.textContent = ativa ? "Analisando…" : "Buscar momentos";
+  if (form.dataset.enviando === "sim") return;
+  const texto = ativa ? (t.etapa || "Preparando análise…") : ocupado ? "Aguarde o trabalho atual terminar." :
+    t && t.id === S.buscaMomentos?.id && t.codigo !== 0 ? (t.cancelado ? "Análise interrompida." : "Análise não concluída. Abra o log para ver o motivo.") : "";
+  if (estado.textContent !== texto) estado.textContent = texto;
+}
+
+function configurarBuscaMomentos(form) {
+  const opcoes = { url: "murl", top: "mtop", min: "mmin", max: "mmax", minutos: "mlim" };
+  const estado = S.buscaMomentos ||= { modo: "rapida", url: "", top: 5, min: 15, max: 40, minutos: 15 };
+  const campos = Object.fromEntries(Object.entries(opcoes).map(([k, id]) => [k, document.getElementById(id)]));
+  const radios = [...form.querySelectorAll("[name=modo-momentos]")];
+  const priorizar = $("#mpriorizar", form);
+  priorizar.checked = estado.priorizar ?? true;
+  priorizar.onchange = () => { estado.priorizar = priorizar.checked; };
+  const mostrar = () => {
+    radios.forEach(r => { r.checked = r.value === estado.modo; r.closest("label").classList.toggle("on", r.checked); });
+    const completos = ["top", "min", "max", "minutos"].every(k => Number.isFinite(estado[k]));
+    $("#mresumo", form).textContent = completos ?
+      `Até ${estado.top} sugestões de ${estado.min}–${estado.max} s nos primeiros ${estado.minutos} min.` : "Preencha os campos da análise.";
+    campos.max.setCustomValidity(+campos.max.value < +campos.min.value + 5 ? "A duração máxima precisa ser pelo menos 5 s maior que a mínima." : "");
+  };
+  for (const [k, campo] of Object.entries(campos)) {
+    campo.value = estado[k];
+    campo.oninput = () => {
+      estado[k] = k === "url" ? campo.value : campo.valueAsNumber;
+      if (k !== "url") estado.modo = "personalizada";
+      mostrar();
+    };
+  }
+  radios.forEach(r => r.onchange = () => {
+    const modo = MODOS_MOMENTOS[r.value];
+    estado.modo = r.value;
+    campos.top.value = estado.top = modo.top;
+    campos.minutos.value = estado.minutos = modo.minutos;
+    campos.min.value = estado.min = 15;
+    campos.max.value = estado.max = 40;
+    priorizar.checked = estado.priorizar = r.value !== "completa";
+    mostrar();
+  });
+  form.addEventListener("invalid", (evento) => {
+    const detalhes = evento.target.closest("details");
+    if (detalhes) detalhes.open = true;
+  }, true);
+  form.onsubmit = async (evento) => {
+    evento.preventDefault();
+    if (form.dataset.enviando === "sim" || rodando(S.trabalho)) return;
+    const valores = Object.fromEntries(Object.entries(campos).map(([k, el]) => [k, k === "url" ? el.value.trim() : el.valueAsNumber]));
+    if (!/^https?:\/\//i.test(valores.url)) { toast("Cole um link completo, começando com https://"); campos.url.focus(); return; }
+    form.dataset.enviando = "sim";
+    $("#mestado", form).textContent = "Iniciando análise…";
+    atualizarBuscaMomentos(S.trabalho);
+    try {
+      const r = await api("/api/cortes/momentos", { ...valores, priorizar: priorizar.checked });
+      S.trabalho = r.trabalho;
+      estado.id = r.trabalho.id;
+      toast("Análise iniciada. Os momentos abrem quando estiverem prontos.");
+    } catch (e) { toast(e.message); }
+    finally {
+      form.dataset.enviando = "";
+      atualizarBuscaMomentos(S.trabalho);
+      tick();
+    }
+  };
+  mostrar();
+  atualizarBuscaMomentos(S.trabalho);
+}
+
 async function viewCortes(m) {
   const j = await api("/api/cortes"), oc = rodando(S.trabalho), lv = j.live || {}, L = j.lives || {};
   if (S.view !== "cortes") return;
   const hora = (ts) => new Date(ts * 1000).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   const noAr = (ts) => { if (!ts) return ""; const h = (Date.now() / 1000 - ts) / 3600; return h < 1 ? Math.round(h * 60) + " min" : h.toFixed(1).replace(".0", "") + " h"; };
-  m.innerHTML = `<h2>Cortes e lives</h2><p class="sub">Clipes verticais de lives e vídeos de outros criadores: o Estúdio acha os melhores momentos (volume, empolgação, chat e o "mais repetido" do YouTube), corta em 9:16 com legenda e gancho e manda para o Agendar. Credite sempre o criador e prefira quem permite cortes (campanhas de clipagem). Nada de vazamento, "jogue antes" ou pirataria.</p>
+  m.innerHTML = `<div class="linha" style="justify-content:space-between;margin-bottom:6px"><h2>Cortes e lives</h2>
+    <button id="fila-cortes">${ic("pilha")}${oc && S.trabalho.acao === "cortes_escala" ? "Ver fila de cortes" : "Produzir em escala"}</button></div><p class="sub">Clipes verticais de lives e vídeos de outros criadores: o Estúdio acha os melhores momentos (volume, empolgação, chat e o "mais repetido" do YouTube), corta em 9:16 com legenda e gancho e manda para o Agendar. Credite sempre o criador e prefira quem permite cortes (campanhas de clipagem). Nada de vazamento, "jogue antes" ou pirataria.</p>
     <div class="grid2">
-      <div class="cartao"><b>${ic("busca")} Achar momentos num vídeo</b>
-        <label>Link (vídeo ou live encerrada do YouTube, VOD/clipe da Twitch, Kick…)</label><input id="murl" placeholder="https://www.youtube.com/watch?v=…">
-        <div class="linha" style="margin-top:8px;font-size:12px"><span>momentos</span><input id="mtop" type="number" value="8" min="3" max="15" style="width:62px">
-          <span>de</span><input id="mmin" type="number" value="15" min="5" max="60" style="width:58px"><span>a</span><input id="mmax" type="number" value="40" min="10" max="90" style="width:58px"><span>s · analisar até</span>
-          <input id="mlim" type="number" value="90" min="5" max="240" style="width:62px"><span>min</span></div>
-        <div class="linha" style="margin-top:10px"><span class="sub" style="margin:0;font-size:11px;flex:1">Baixa o vídeo, transcreve a fala e pontua cada segundo. Na 1ª vez baixa o modelo de transcrição (~500 MB).</span><button class="prim" id="machar" ${oc ? "disabled" : ""}>Achar momentos</button></div></div>
+      <div class="cartao"><b>${ic("busca")} Buscar melhores momentos</b>
+        <form id="form-momentos">
+          <label for="murl">Link do vídeo ou da live encerrada</label>
+          <input id="murl" type="url" inputmode="url" placeholder="https://www.youtube.com/watch?v=…" aria-describedby="mfonte" required>
+          <p class="sub" id="mfonte" style="margin:4px 0 0">YouTube, Twitch e Kick.</p>
+          <fieldset><legend>Quanto do vídeo analisar</legend><div class="modos-busca">
+            ${Object.entries(MODOS_MOMENTOS).map(([k, op]) => `<label class="lay"><input type="radio" name="modo-momentos" value="${k}"><b>${op.titulo}</b><span>Até ${op.minutos} min</span></label>`).join("")}
+          </div></fieldset>
+          <label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="mpriorizar" aria-describedby="mpriorizar-ajuda"> Priorizar regiões promissoras</label>
+          <p id="mpriorizar-ajuda" class="sub" style="margin:0 0 10px;font-size:12px">Verifica o áudio do intervalo inteiro e transcreve só as regiões candidatas. Desmarque para ler toda a fala.</p>
+          <details ${S.buscaMomentos?.modo === "personalizada" ? "open" : ""}><summary>Ajustar quantidade e duração</summary>
+            <div class="grid2 ajustes-busca">
+              <div><label for="mtop">Sugestões</label><input id="mtop" type="number" min="3" max="15" required></div>
+              <div><label for="mlim">Analisar até (min)</label><input id="mlim" type="number" min="5" max="240" required></div>
+              <div><label for="mmin">Duração mínima (s)</label><input id="mmin" type="number" min="5" max="60" required></div>
+              <div><label for="mmax">Duração máxima (s)</label><input id="mmax" type="number" min="10" max="90" required></div>
+            </div>
+          </details>
+          <div class="linha" style="margin-top:14px"><p class="sub" id="mresumo"></p><button type="button" id="mvarios" title="Cole vários links: o Estúdio baixa, analisa e corta todos em linha de produção">${ic("pilha")}Vários links</button><button type="submit" class="prim" id="machar">Buscar momentos</button></div>
+          <p id="mestado" role="status"></p>
+          <details style="margin-top:10px"><summary>O que o Estúdio analisa?</summary>
+            <p class="sub" style="margin:4px 0 0">O Estúdio combina fala, reações e sinais do vídeo, como os trechos mais repetidos quando disponíveis. Na primeira análise, pode baixar cerca de 500 MB para transcrever a fala.</p>
+          </details>
+        </form>
+      </div>
       <div class="cartao"><b>${ic("gravar")} Modo ao vivo</b> ${lv.rodando ? `<span class="pill erro">● gravando</span>` : ""}
         ${lv.rodando ? `<div style="margin-top:8px;font-size:13px;word-break:break-all">${esc(lv.url)}</div>
           <div style="margin-top:4px;font-size:13px">gravando há ${Math.round((Date.now() / 1000 - lv.inicio) / 60)} de ${lv.minutos} min · <b>${lv.trechos}</b> trecho(s) cortado(s) nos picos do chat</div>
@@ -1011,9 +1178,9 @@ async function viewCortes(m) {
       <td>${t.live ? ic("gravar") + " " : ""}${esc(t.titulo)}<div class="sub" style="margin:0;font-size:11px">${esc(t.canal)}</div></td><td>${t.momentos || "—"}</td><td>${t.clipes || "—"}</td><td>${t.live ? t.trechos : "—"}</td>
       <td><button class="mini" data-apagar="${esc(t.nome)}" title="Apaga a pasta do trabalho (vídeos baixados e clipes)">Apagar</button></td></tr>`).join("")}</table>`
       : `<div class="vazio">Nenhum ainda. Cole um link acima ou grave uma live.</div>`}`;
-  $("#machar").onclick = async () => { const url = $("#murl").value.trim(); if (!url) return toast("Cole o link do vídeo");
-    try { const r = await api("/api/cortes/momentos", { url, top: +$("#mtop").value, min: +$("#mmin").value, max: +$("#mmax").value, minutos: +$("#mlim").value });
-      S.trabalho = r.trabalho; toast("Achando momentos… (abre sozinho quando terminar)"); gaveta(true); render(); } catch (e) { toast(e.message); } };
+  configurarBuscaMomentos($("#form-momentos", m));
+  $("#fila-cortes", m).onclick = () => modalFilaCortes();
+  $("#mvarios", m).onclick = () => modalFilaLinks();
   const gravar = async (url, min) => { try { const r = await api("/api/cortes/live", { acao: "iniciar", url, minutos: min }); toast("Gravando a live… os trechos aparecem conforme o chat explode"); S.corte = r.nome; render(); } catch (e) { toast(e.message); } };
   if ($("#liniciar")) $("#liniciar").onclick = () => { const u = $("#lurl").value.trim(); if (!u) return toast("Cole o link da live"); gravar(u, +$("#lmin").value || 60); };
   if ($("#lparar")) $("#lparar").onclick = async () => { if (!confirm("Parar a gravação? Os picos pendentes ainda são cortados.")) return; await api("/api/cortes/live", { acao: "parar" }); toast("Parando…"); setTimeout(render, 2500); };
@@ -1053,7 +1220,8 @@ async function viewCorte(m) {
           ${Object.keys(c.projetos).length ? `<div style="font-size:13px">${ic("agenda")} no Agendar: ${Object.entries(c.projetos).map(([l, p]) => `<a href="#" data-proj="${esc(p)}">${l === "orig" ? "original" : l.toUpperCase()}</a>`).join(" · ")}</div>` : ""}
           <div class="linha" style="gap:6px"><button class="mini" data-avaliar="${c.n}">Avaliar</button><button class="mini prim" data-agendar="${c.n}">${ic("agenda")}Mandar para Agendar</button><button class="mini" data-traduzir="${c.n}" ${oc ? "disabled" : ""}>${ic("idioma")}Traduzir</button>
             <button class="mini" data-refazer="${c.n}" ${oc ? "disabled" : ""}>Refazer</button><a class="mini" href="/corte/${n}/edits/${c.arquivo}" download aria-label="Baixar clipe ${c.n}" title="Baixar">${ic("baixar")}</a></div></div></div>`).join("")}</div>` : ""}
-    <h3>Momentos (${d.momentos.length})</h3><p class="sub">Do melhor para o pior. Sinais: ${esc(sinais)}${d.sinais.ia ? " + notas da IA (gancho, emoção, se dá para entender sem contexto, risco)" : " (sem a IA: confira a chave em Ajustes)"}. Cada trecho começa um pouco antes da ação e termina quando a reação acaba.</p>
+    <div class="linha"><h3>Momentos (${d.momentos.length})</h3>
+      ${d.tem_fonte && d.momentos.length ? `<button id="clote" class="prim" ${oc ? "disabled" : ""}>${ic("pilha")}Produzir cortes em lote</button>` : ""}</div><p class="sub">Do melhor para o pior. Sinais: ${esc(sinais)}${d.sinais.ia ? " + notas da IA (gancho, emoção, se dá para entender sem contexto, risco)" : " (sem a IA: confira a chave em Ajustes)"}. Cada trecho começa um pouco antes da ação e termina quando a reação acaba.</p>
     ${d.momentos.length ? `<div class="mgrid">${d.momentos.map(c => `<div class="mcard">
         ${d.tem_fonte ? `<img src="/api/corte-quadro/${n}/${((c.start + c.end) / 2).toFixed(1)}.jpg" loading="lazy" data-previa="${c.n}">` : ""}
         <div class="c"><div class="linha" style="gap:6px"><b>#${c.n}</b><span>${fmtT(c.start)}–${fmtT(c.end)}</span><span class="sub" style="margin:0">${Math.round(c.end - c.start)} s</span>
@@ -1064,6 +1232,7 @@ async function viewCorte(m) {
           <div style="font-size:12px;color:var(--fraco);max-height:62px;overflow:hidden">${esc(c.text || "")}</div>
           <div class="linha" style="gap:6px"><button class="mini" data-previa="${c.n}" ${d.tem_fonte ? "" : "disabled"}>▶ Prévia</button><button class="mini prim" data-cortar="${c.n}" ${oc ? "disabled" : ""}>${ic("tesoura")}Cortar</button></div></div></div>`).join("")}</div>`
       : `<div class="vazio">${d.live ? "Os momentos aparecem depois que você manda achar o momento de um trecho." : "Nenhum momento ainda."}</div>`}`;
+  if ($("#clote", m)) $("#clote", m).onclick = () => modalLoteCortes(d);
   const mom = (k) => d.momentos.find(x => x.n === +k);
   m.querySelectorAll("[data-previa]").forEach(b => b.onclick = () => previaMomento(d, mom(b.dataset.previa)));
   m.querySelectorAll("[data-cortar]").forEach(b => b.onclick = () => modalCortar(d, mom(b.dataset.cortar)));
@@ -1090,6 +1259,155 @@ function previaMomento(d, c) {
   const v = $("#pv", md); v.ontimeupdate = () => { if (v.currentTime > c.end + 0.3) v.pause(); };
   $("#pfechar", md).onclick = () => md.remove(); $("#pcortar", md).onclick = () => { md.remove(); modalCortar(d, c); };
 }
+const ESTADO_LINK = { pendente: "na fila", baixando: "baixando", baixado: "baixado", analisando: "analisando",
+  analisado: "analisado", cortando: "cortando", pronto: "pronto", erro: "erro" };
+async function modalFilaLinks() {
+  let dados;
+  try { dados = await api("/api/cortes/links"); } catch (e) { toast(e.message); return; }
+  if (S.view !== "cortes") return;
+  const { fila, itens, paralelos_sugeridos } = dados, ocupado = rodando(S.trabalho), minha = ocupado && S.trabalho.acao === "cortes_links";
+  const form = $("#form-momentos"), val = (id, padrao) => +((form && $("#" + id, form)?.value) || padrao);
+  const busca = { top: val("mtop", 8), minutos: val("mlim", 45), min: val("mmin", 15), max: val("mmax", 40), priorizar: !!(form && $("#mpriorizar", form)?.checked) };
+  const md = abrirModal(`<div class="cab"><b style="flex:1">Vários links: baixar, achar momentos e cortar</b><button id="flfechar">Fechar</button></div>
+    <div class="corpo">
+      ${fila.total ? `<div class="linha" style="justify-content:space-between;margin-bottom:10px">
+        <b>${fila.prontos} de ${fila.total} vídeos prontos · ${fila.cortes_prontos} cortes · ${fila.erros} com erro${fila.pausada ? " · pausada" : ""}</b>
+        ${minha ? '<button id="fllog">Acompanhar</button>' : `${fila.pendentes ? `<button id="flretomar" class="prim" ${ocupado ? "disabled" : ""}>Retomar</button>` : ""}
+          ${fila.erros ? `<button id="flerros" ${ocupado ? "disabled" : ""}>Tentar os com erro</button>` : ""}`}</div>
+        <details ${minha ? "open" : ""} style="margin-bottom:12px"><summary>Ver vídeos da fila</summary><div style="max-height:200px;overflow:auto">
+          ${itens.map(i => `<div class="linha" style="justify-content:flex-start;margin:3px 0;font-size:13px"><span class="pill ${i.estado === "pronto" ? "ok" : i.estado === "erro" ? "erro" : ""}">${ESTADO_LINK[i.estado] || esc(i.estado)}</span>
+            <span style="flex:1;word-break:break-all">${esc(i.titulo || i.url)}<span class="sub" style="margin:0 0 0 6px;font-size:11px">${esc(i.detalhe || "")}</span></span></div>`).join("")}</div></details>` : ""}
+      <label for="fllinks">Links (um por linha: YouTube, Twitch ou Kick)</label>
+      <textarea id="fllinks" rows="7" placeholder="https://www.youtube.com/watch?v=…&#10;https://www.youtube.com/watch?v=…"></textarea>
+      <div class="grid2">
+        <div><label for="flpor">Cortes por vídeo (os de nota mais alta)</label><input id="flpor" type="number" min="1" max="15" value="3"></div>
+        <div><label for="flparalelos">Cortes renderizando ao mesmo tempo</label><select id="flparalelos">${[1, 2, 3, 4].map(n => `<option value="${n}" ${paralelos_sugeridos === n ? "selected" : ""}>${n}${n === paralelos_sugeridos ? " (sugerido)" : ""}</option>`).join("")}</select></div>
+        <div><label for="fllayout">Formato dos cortes</label><select id="fllayout">${LAYOUTS.map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</select></div>
+        <div><label for="fllegenda">Legenda</label><select id="fllegenda"><option value="word">Palavra por palavra</option><option value="bubble">Frase em balão</option><option value="none">Sem legenda</option></select></div>
+      </div>
+      <label class="linha" style="justify-content:flex-start"><input type="checkbox" id="flrapido"> Edição rápida (sem zoom animado)</label>
+      <p class="sub" style="margin:6px 0">Análise igual à do cartão "Buscar melhores momentos": até ${busca.minutos} min de cada vídeo, trechos de ${busca.min}–${busca.max} s${busca.priorizar ? ", só as regiões promissoras" : ""}. Enquanto um vídeo é analisado, os próximos baixam e os cortes do anterior já renderizam. Use só vídeos de quem permite cortes e mantenha o crédito.</p>
+      <p class="sub" id="flcontagem" role="status" style="margin:6px 0"></p>
+      ${fila.pendentes ? '<label class="linha" style="justify-content:flex-start"><input type="checkbox" id="flsubstituir"> Substituir a fila incompleta (cortes já prontos continuam salvos)</label>' : ""}
+      <div class="linha" style="justify-content:flex-end"><button class="prim" id="flnova" disabled>Iniciar fila</button></div>
+    </div>`, 720);
+  $("#flfechar", md).onclick = () => md.remove();
+  if ($("#fllog", md)) $("#fllog", md).onclick = () => { md.remove(); gaveta(true); };
+  let enviando = false;
+  const enviar = async (corpo) => {
+    if (enviando || rodando(S.trabalho)) return;
+    enviando = true;
+    try { const r = await api("/api/cortes/links", corpo); S.trabalho = r.trabalho; md.remove(); gaveta(true); tick(); }
+    catch (e) { toast(e.message); } finally { enviando = false; }
+  };
+  if ($("#flretomar", md)) $("#flretomar", md).onclick = () => enviar({ acao: "retomar" });
+  if ($("#flerros", md)) $("#flerros", md).onclick = () => enviar({ acao: "retomar", repetir_erros: true });
+  const area = $("#fllinks", md), botao = $("#flnova", md), substituir = $("#flsubstituir", md);
+  const links = () => [...new Set(area.value.split(/\s+/).map(x => x.trim()).filter(x => /^https?:\/\//.test(x)))];
+  const contar = () => { const n = links().length, por = Math.max(1, Math.min(15, +$("#flpor", md).value || 3));
+    $("#flcontagem", md).textContent = n > 200 ? "Cole até 200 links por fila." : n ? `${n} vídeo(s) · até ${n * por} cortes.` : "";
+    botao.disabled = !!ocupado || !n || n > 200 || (!!fila.pendentes && !substituir?.checked); };
+  area.oninput = contar; $("#flpor", md).oninput = contar; if (substituir) substituir.onchange = contar;
+  botao.onclick = () => enviar({ acao: "iniciar", urls: links(), cortes_por_video: Math.max(1, Math.min(15, +$("#flpor", md).value || 3)),
+    paralelos: +$("#flparalelos", md).value, layout: $("#fllayout", md).value, legenda: $("#fllegenda", md).value,
+    rapido: $("#flrapido", md).checked, substituir: !!substituir?.checked, ...busca });
+  contar();
+}
+
+async function modalFilaCortes() {
+  let dados;
+  try { dados = await api("/api/cortes/fila"); }
+  catch (e) { toast(e.message); return; }
+  if (S.view !== "cortes") return;
+  const { fila, fontes, falhas, paralelos_sugeridos } = dados;
+  const ocupado = rodando(S.trabalho);
+  const incompleta = fila.pendentes || fila.erros;
+  const md = abrirModal(`<div class="cab"><b style="flex:1">Produzir cortes de vários vídeos</b><button id="fcfechar">Fechar</button></div>
+    <div class="corpo">
+      ${fila.total ? `<div class="linha" style="justify-content:space-between;margin-bottom:14px">
+        <b>${fila.prontos} de ${fila.total} prontos · ${fila.pendentes} pendentes · ${fila.erros} com erro</b>
+        ${ocupado && S.trabalho.acao === "cortes_escala" ? '<button id="fclog">Acompanhar produção</button>' : `
+          ${fila.pendentes ? `<button id="fcretomar" class="prim" ${ocupado ? "disabled" : ""}>Retomar fila</button>` : ""}
+          ${fila.erros ? `<button id="fcerros" ${ocupado ? "disabled" : ""}>Tentar cortes com erro</button>` : ""}`}</div>` : ""}
+      ${falhas.length ? `<details style="margin-bottom:10px"><summary>Ver falhas${fila.erros > falhas.length ? ` (${falhas.length} de ${fila.erros})` : ""}</summary>
+        <ul>${falhas.map(f => `<li>${esc(f.nome)} · momento ${f.pick}: ${esc(f.detalhe)}</li>`).join("")}</ul></details>` : ""}
+      ${fontes.length ? `<div class="grid2"><div><label for="fclayout">Formato dos cortes</label><select id="fclayout">${LAYOUTS.map(([k,t]) => `<option value="${k}">${t}</option>`).join("")}</select></div>
+        <div><label for="fclegenda">Legenda</label><select id="fclegenda"><option value="word">Palavra por palavra</option><option value="bubble">Frase em balão</option><option value="none">Sem legenda</option></select></div>
+        <div><label for="fcparalelos">Cortes em paralelo</label><select id="fcparalelos">${[1, 2, 3, 4].map(n => `<option value="${n}" ${paralelos_sugeridos === n ? "selected" : ""}>${n} corte${n > 1 ? "s" : ""}${n === paralelos_sugeridos ? " (sugerido)" : ""}</option>`).join("")}</select></div>
+        <label class="linha" style="justify-content:flex-start"><input type="checkbox" id="fcrapido"> Edição rápida (sem zoom animado)</label></div>
+        <label class="linha" style="justify-content:flex-start"><input type="checkbox" id="fctodos"> Selecionar todos os vídeos de origem</label>
+        <div style="max-height:240px;overflow:auto">${fontes.map((f, i) => `<label class="linha" style="justify-content:flex-start;margin:4px 0"><input type="checkbox" data-fonte="${i}"><span>${esc(f.titulo)} · ${f.quantidade} corte(s)</span></label>`).join("")}</div>
+        <p class="sub" id="fccontagem" role="status" style="margin:8px 0"></p>
+        ${incompleta ? '<label class="linha" style="justify-content:flex-start"><input type="checkbox" id="fcsubstituir"> Substituir a fila incompleta e manter os cortes já prontos</label>' : ""}
+        <div class="linha" style="justify-content:flex-end"><button class="prim" id="fcnova" disabled>Iniciar fila</button></div>` :
+        '<p class="sub">Busque momentos em outros vídeos para adicionar cortes à fila.</p>'}
+    </div>`, 680);
+  $("#fcfechar", md).onclick = () => md.remove();
+  if ($("#fclog", md)) $("#fclog", md).onclick = () => { md.remove(); gaveta(true); };
+  let enviando = false;
+  const enviar = async (corpo) => {
+    if (enviando || rodando(S.trabalho)) return;
+    enviando = true;
+    try {
+      const r = await api("/api/cortes/fila", corpo);
+      S.trabalho = r.trabalho; md.remove(); gaveta(true); tick();
+    } catch (e) { toast(e.message); }
+    finally { enviando = false; }
+  };
+  if ($("#fcretomar", md)) $("#fcretomar", md).onclick = () => enviar({ acao: "retomar" });
+  if ($("#fcerros", md)) $("#fcerros", md).onclick = () => enviar({ acao: "retomar", repetir_erros: true });
+  if (!fontes.length) return;
+  const botao = $("#fcnova", md), todos = $("#fctodos", md), substituir = $("#fcsubstituir", md);
+  const itens = [...md.querySelectorAll("[data-fonte]")];
+  const selecionadas = () => itens.filter(i => i.checked).map(i => fontes[+i.dataset.fonte]);
+  const contar = () => {
+    const origens = selecionadas(), quantidade = origens.reduce((n, f) => n + f.quantidade, 0);
+    todos.checked = origens.length === itens.length;
+    todos.indeterminate = origens.length > 0 && !todos.checked;
+    $("#fccontagem", md).textContent = quantidade > 1000 ? "Selecione até 1.000 cortes por fila." :
+      `${quantidade} corte(s) em ${origens.length} vídeo(s) de origem.`;
+    botao.disabled = !!ocupado || !quantidade || quantidade > 1000 || !!incompleta && !substituir?.checked;
+  };
+  todos.onchange = () => { itens.forEach(i => { i.checked = todos.checked; }); contar(); };
+  itens.forEach(i => { i.onchange = contar; });
+  if (substituir) substituir.onchange = contar;
+  botao.onclick = () => enviar({ acao: "iniciar", fontes: selecionadas().map(f => f.nome),
+    layout: $("#fclayout", md).value, legenda: $("#fclegenda", md).value, paralelos: +$("#fcparalelos", md).value,
+    rapido: $("#fcrapido", md).checked, substituir: !!substituir?.checked });
+  contar();
+}
+
+function modalLoteCortes(d) {
+  const md = abrirModal(`<div class="cab"><b style="flex:1">Produzir cortes em lote</b><button id="clfechar">Fechar</button></div>
+    <div class="corpo"><div class="grid2"><div><label for="cllayout">Formato dos cortes novos</label><select id="cllayout">${LAYOUTS.map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</select></div>
+      <div><label for="cllegenda">Legenda</label><select id="cllegenda"><option value="word">Palavra por palavra</option><option value="bubble">Frase em balão</option><option value="none">Sem legenda</option></select></div></div>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="cltodos"> Selecionar todos os momentos</label>
+      <div style="max-height:260px;overflow:auto">${d.momentos.map(c => `<label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" data-clpick="${c.n}"> #${c.n} · ${fmtT(c.start)}–${fmtT(c.end)} ${esc(c.gancho_sugerido || "")}</label>`).join("")}</div>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="clprojetos"> Preparar projetos para agendar depois</label>
+      <p class="sub">Os cortes já prontos são reaproveitados. Para publicar, use apenas trechos de criadores que permitem cortes e mantenha o crédito.</p>
+      <div class="linha"><span style="flex:1"></span><button id="clok" class="prim" disabled>Produzir lote</button></div></div>`, 640);
+  const todos = $("#cltodos", md), botao = $("#clok", md), itens = [...md.querySelectorAll("[data-clpick]")];
+  const contar = () => {
+    const n = itens.filter(i => i.checked).length;
+    botao.disabled = n === 0;
+    botao.textContent = `Produzir ${n} corte(s)`;
+    todos.checked = n === itens.length;
+    todos.indeterminate = n > 0 && !todos.checked;
+  };
+  $("#clfechar", md).onclick = () => md.remove();
+  $("#cllayout", md).value = "blur";
+  todos.onchange = () => { itens.forEach(i => { i.checked = todos.checked; }); contar(); };
+  itens.forEach(i => { i.onchange = contar; });
+  botao.onclick = async () => {
+    botao.disabled = true;
+    try {
+      const j = await api("/api/cortes/lote", { nome: d.nome, picks: itens.filter(i => i.checked).map(i => +i.dataset.clpick),
+        layout: $("#cllayout", md).value, legenda: $("#cllegenda", md).value, preparar_projetos: $("#clprojetos", md).checked });
+      S.trabalho = j.trabalho; md.remove(); gaveta(true); tick();
+    } catch (e) { toast(e.message); contar(); }
+  };
+}
+
 function modalCortar(d, c, antigo, projetoAtualizar = null) {
   const ant = antigo || {}, lay0 = ant.layout || "blur";
   const rp = ant.render || {};
@@ -1260,18 +1578,19 @@ async function viewAgendar(m) {
   const z = await api("/api/zernio"), oc = rodando(S.trabalho);
   if (S.view !== "agendar") return;
   const fmt = (iso) => { const d = new Date(iso); return d.toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); };
-  if (!(S.calMes instanceof Date) || Number.isNaN(+S.calMes)) S.calMes = new Date(z.sugestao_inicio);
+  if (!(S.calMes instanceof Date) || Number.isNaN(+S.calMes)) S.calMes = new Date(z.inicio_diario);
   if (Number.isNaN(+S.calMes)) S.calMes = new Date();
-  S.calMes = new Date(S.calMes.getFullYear(), S.calMes.getMonth(), 1); S.calDia = S.calDia || z.sugestao_inicio.slice(0, 10);
-  m.innerHTML = `<h2>Agendar no Zernio</h2><p class="sub">Envia os vídeos prontos para o Zernio, que publica sozinho nas contas escolhidas, um a cada ${z.intervalo_h}h. O horário é o de Brasília/Bahia (${esc(z.fuso)}).</p>
+  S.calMes = new Date(S.calMes.getFullYear(), S.calMes.getMonth(), 1); S.calDia = S.calDia || z.inicio_diario.slice(0, 10);
+  m.innerHTML = `<h2>Agendar no Zernio</h2><p class="sub">Escolha os vídeos e confira a previsão antes de enviar ao Zernio. O Estúdio reserva até 10 horários por dia entre 08:00 e 21:30 (${esc(z.fuso)}).</p>
     <div class="cartao"><b>1. Chave da API</b> <span class="sub" style="margin:0">(zernio.com → Dashboard → API Keys). Fica salva só no seu PC.</span>
       <div class="linha" style="margin-top:8px"><input id="zkey" type="password" placeholder="${z.configurado ? "chave salva (cole outra para trocar)" : "cole a chave aqui"}" style="flex:1">
       <button id="zsalvar">Salvar e carregar contas</button></div>
       <div id="zcontas" style="margin-top:10px"></div></div>
     <div class="cartao"><b>2. Vídeos prontos para agendar</b> <span class="sub" style="margin:0">(com vídeo gerado, sem marca de postado e ainda não agendados)</span>
-      <div class="linha" style="margin-top:8px"><label style="margin:0">Primeiro horário</label><input type="datetime-local" id="zini" value="${z.sugestao_inicio}">
-        <label style="margin:0">a cada</label><input type="number" id="zint" min="0.5" step="0.5" value="${z.intervalo_h}" style="width:80px"><span>horas</span></div>
+      <div class="linha" style="margin-top:8px"><div><label for="zini">Agendar a partir de</label><input type="datetime-local" id="zini" value="${esc(z.inicio_diario)}" required></div>
+        <button class="mini" id="zmarcar">Selecionar disponíveis</button></div>
       <div id="zlista" style="margin-top:10px"></div>
+      <p id="zplano" class="sub" role="status" style="margin:8px 0"></p>
       <div class="cal-cab"><b>Calendário de publicação</b><button class="mini" id="calAnterior" aria-label="Mês anterior">←</button><button class="mini" id="calHoje">Hoje</button><button class="mini" id="calProximo" aria-label="Próximo mês">→</button></div>
       <div id="calendario"></div><div class="cal-legenda"><span><i></i>já agendado</span><span class="f"><i></i>selecionado para envio</span></div>
       <p class="sub" style="font-size:12px;margin:5px 0 0">Clique em um dia para usá-lo como primeiro horário. Os vídeos marcados aparecem como previsão até você confirmar o agendamento.</p>
@@ -1290,19 +1609,20 @@ async function viewAgendar(m) {
     $("#zcontas").querySelectorAll("[data-c]").forEach(cb => cb.onchange = salvarContas);
   };
   const salvarContas = async () => { const contas = [...$("#zcontas").querySelectorAll("[data-c]:checked")].map(cb => JSON.parse(cb.dataset.c));
-    try { await api("/api/zernio/config", { contas }); toast("Contas salvas"); } catch (e) { toast(e.message); } };
+    try { const r = await api("/api/zernio/config", { contas }); z.contas = r.contas; toast("Contas salvas"); } catch (e) { toast(e.message); } };
   if (z.contas.length) pintarContas(z.contas, z.contas);
   $("#zsalvar").onclick = async () => { const k = $("#zkey").value.trim();
     try { const j = await api("/api/zernio/contas", { api_key: k }); if (k) await api("/api/zernio/config", { api_key: k });
       $("#zkey").value = ""; pintarContas(j.contas, z.contas); toast(`${j.contas.length} conta(s) encontrada(s)`); } catch (e) { toast(e.message); } };
-  const renderCal = (marc = []) => {
+  let lotePrevisto = [];
+  const renderCal = () => {
     const ano = S.calMes.getFullYear(), mes = S.calMes.getMonth(), primeiro = new Date(ano, mes, 1), dias = new Date(ano, mes + 1, 0).getDate();
     const antes = (primeiro.getDay() + 6) % 7, total = Math.ceil((antes + dias) / 7) * 7, eventos = new Map();
     const colocar = (dia, item) => { if (!eventos.has(dia)) eventos.set(dia, []); eventos.get(dia).push(item); };
     z.agendados.forEach(a => { if (a.horario) colocar(a.horario.slice(0,10), { titulo: a.titulo, hora: new Date(a.horario).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), fila: false }); });
-    const inicio = new Date($("#zini").value), intervalo = parseFloat($("#zint").value) || 4;
-    marc.forEach((nome, i) => { const d = new Date(inicio.getTime() + i * intervalo * 36e5), p = z.prontos.find(x => x.nome === nome);
-      colocar(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`, { titulo: p?.titulo || nome, hora: d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), fila: true }); });
+    for (const item of lotePrevisto) {
+      colocar(item.horario.slice(0,10), { titulo: item.titulo, hora: item.horario.slice(11,16), fila: true });
+    }
     const data = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
     const agora = new Date(), hoje = data(agora), mesNome = S.calMes.toLocaleDateString("pt-BR", { month: "long", year: "numeric" }), horaBase = $("#zini").value.slice(11,16) || "12:00";
     const nomes = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map(n => `<div class="cal-dia-nome">${n}</div>`).join("");
@@ -1313,29 +1633,79 @@ async function viewAgendar(m) {
     $("#calendario").innerHTML = `<div class="cal-cab" style="margin-top:0"><b style="text-transform:capitalize">${esc(mesNome)}</b></div><div class="cal-grid">${nomes}${celulas}</div>`;
     $("#calendario").querySelectorAll("[data-dia]").forEach(b => b.onclick = () => { if (b.disabled) return; S.calDia = b.dataset.dia; $("#zini").value = `${S.calDia}T${horaBase}`; planejar(); });
   };
-  const planejar = () => { const marc = [...$("#zlista").querySelectorAll("[data-p]:checked")].map(cb => cb.dataset.p);
-    let t = new Date($("#zini").value), h = parseFloat($("#zint").value) || 4;
-    $("#zlista").querySelectorAll("[data-h]").forEach(el => { const k = marc.indexOf(el.dataset.h); el.textContent = k < 0 ? "—" : fmt(new Date(t.getTime() + k * h * 36e5)); });
-    $("#zagendar").textContent = `Agendar ${marc.length} vídeo(s)`; renderCal(marc); return marc; };
+  const itens = new Map(z.prontos.map(p => [p.nome, p]));
+  const agenda = $("#zagendar"), campoData = $("#zini"), msg = $("#zplano");
+  const selecionados = () => [...m.querySelectorAll("#zlista [data-p]:checked")].map(cb => cb.dataset.p);
+  let pedidoPlano = 0, esperaPlano, enviando = false;
+  agenda.atualizarFila = () => {
+    const n = selecionados().length;
+    agenda.disabled = enviando || !!rodando(S.trabalho) || !n || lotePrevisto.length !== n;
+  };
+  const atualizarPrevisao = () => {
+    const horarios = new Map(lotePrevisto.map(p => [p.nome, p.horario]));
+    m.querySelectorAll("#zlista [data-h]").forEach(el => {
+      const horario = horarios.get(el.dataset.h);
+      el.textContent = horario ? fmt(horario) : "—";
+    });
+    const n = selecionados().length;
+    agenda.textContent = n ? `Agendar ${n} vídeo(s)` : "Agendar vídeos";
+    agenda.atualizarFila();
+    renderCal();
+  };
+  const planejar = () => {
+    const id = ++pedidoPlano, nomes = selecionados(), inicio = campoData.value;
+    clearTimeout(esperaPlano);
+    lotePrevisto = [];
+    atualizarPrevisao();
+    msg.textContent = !nomes.length ? "Selecione os vídeos para ver os horários." :
+      inicio ? "Calculando os horários…" : "Escolha a data e o horário de início.";
+    if (!nomes.length || !inicio) return;
+    esperaPlano = setTimeout(async () => {
+      try {
+        const r = await api("/api/zernio/plano", { quantidade: nomes.length, inicio });
+        if (id !== pedidoPlano || !campoData.isConnected) return;
+        lotePrevisto = nomes.map((nome, i) => ({ nome, titulo: itens.get(nome).titulo, horario: r.horarios[i] }));
+        msg.textContent = `${nomes.length} vídeo(s) · de ${fmt(r.horarios[0])} a ${fmt(r.horarios.at(-1))}`;
+        atualizarPrevisao();
+      } catch (e) {
+        if (id === pedidoPlano && campoData.isConnected) msg.textContent = e.message;
+      }
+    }, 130);
+  };
   const chk = (p) => { const c = p.checagem; if (!c) return ""; const ruins = c.itens.filter(i => !i.ok);
     const dica = ruins.map(i => `${i.nivel.toUpperCase()}: ${i.nome}${i.detalhe ? " (" + i.detalhe + ")" : ""}`).join("\n") || "tudo certo";
     return `<span class="pill ${c.ok ? (ruins.length ? "rodando" : "ok") : "erro"}" title="${esc(dica)}" style="cursor:help">${c.ok ? (ruins.length ? "checagem: avisos" : "checagem ✓") : "✗ checagem: " + esc(ruins.filter(i => i.nivel === "erro").map(i => i.nome).join(", "))}</span>`; };
-  $("#zlista").innerHTML = z.prontos.length ? `<table>${z.prontos.map(p => `<tr><td style="width:30px"><input type="checkbox" data-p="${esc(p.nome)}" ${p.checagem && !p.checagem.ok ? "disabled" : "checked"}></td>
+  $("#zlista").innerHTML = z.prontos.length ? `<table>${z.prontos.map(p => `<tr><td style="width:30px"><input type="checkbox" data-p="${esc(p.nome)}" aria-label="Selecionar ${esc(p.titulo)}" ${!p.checagem?.ok ? "disabled" : ""}></td>
       <td>${p.tipo === "clipe" ? ic("tesoura") + " " : ""}<a href="#" data-ver="${esc(p.nome)}">${esc(p.titulo)}</a> ${p.aprovado ? `<span class="pill ok">revisado</span>` : (p.tipo === "clipe" ? "" : `<span class="pill" title="Abra o projeto > Revisão">não revisado</span>`)} ${chk(p)}<div class="sub" style="margin:0;font-size:11px">${esc(p.nome)}</div></td><td style="width:170px" data-h="${esc(p.nome)}"></td></tr>`).join("")}</table>`
     : `<p class="sub">Nenhum vídeo pronto para agendar. Gere os vídeos (ou o lote) primeiro.</p>`;
   $("#zlista").querySelectorAll("[data-p]").forEach(cb => cb.onchange = planejar);
   $("#zlista").querySelectorAll("[data-ver]").forEach(a => a.onclick = (e) => { e.preventDefault(); abrirProjeto(a.dataset.ver, "video"); });
   $("#zini").oninput = () => { const d = new Date($("#zini").value); if (!Number.isNaN(+d)) { S.calDia = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; S.calMes = new Date(d.getFullYear(), d.getMonth(), 1); } planejar(); };
-  $("#zint").oninput = planejar; planejar();
-  $("#calAnterior").onclick = () => { S.calMes = new Date(S.calMes.getFullYear(), S.calMes.getMonth()-1, 1); planejar(); };
-  $("#calProximo").onclick = () => { S.calMes = new Date(S.calMes.getFullYear(), S.calMes.getMonth()+1, 1); planejar(); };
-  $("#calHoje").onclick = () => { const h = new Date(); S.calMes = new Date(h.getFullYear(), h.getMonth(), 1); planejar(); };
-  $("#zagendar").onclick = async () => { const projetos = planejar(); if (!projetos.length) return toast("Marque pelo menos um vídeo");
-    const contas = [...$("#zcontas").querySelectorAll("[data-c]:checked")].length; if (!contas && !z.contas.length) return toast("Escolha pelo menos uma conta");
-    if (!confirm(`Enviar ${projetos.length} vídeo(s) para o Zernio, a partir de ${fmt($("#zini").value)}, um a cada ${$("#zint").value}h?\n\nO envio leva alguns minutos por vídeo (upload).`)) return;
-    try { await api("/api/zernio/config", { intervalo_h: parseFloat($("#zint").value) });
-      const j = await api("/api/zernio/agendar", { projetos, inicio: $("#zini").value, intervalo_h: parseFloat($("#zint").value) });
-      S.trabalho = j.trabalho; toast("Enviando para o Zernio… (acompanhe no log)"); if (!$("#gaveta").classList.contains("aberta")) gaveta(); } catch (e) { toast(e.message); } };
+  $("#zmarcar").onclick = () => {
+    const disponiveis = [...m.querySelectorAll("#zlista [data-p]:enabled")];
+    const selecionar = disponiveis.some(cb => !cb.checked);
+    disponiveis.forEach(cb => { cb.checked = selecionar; });
+    $("#zmarcar").textContent = selecionar ? "Limpar seleção" : "Selecionar disponíveis";
+    planejar();
+  };
+  $("#zmarcar").disabled = !m.querySelector("#zlista [data-p]:enabled");
+  planejar();
+  $("#calAnterior").onclick = () => { S.calMes = new Date(S.calMes.getFullYear(), S.calMes.getMonth()-1, 1); renderCal(); };
+  $("#calProximo").onclick = () => { S.calMes = new Date(S.calMes.getFullYear(), S.calMes.getMonth()+1, 1); renderCal(); };
+  $("#calHoje").onclick = () => { const h = new Date(); S.calMes = new Date(h.getFullYear(), h.getMonth(), 1); renderCal(); };
+  agenda.onclick = async () => {
+    if (enviando || !lotePrevisto.length || rodando(S.trabalho)) return;
+    if (!z.contas.length) return toast("Escolha pelo menos uma conta");
+    const atual = lotePrevisto, contas = z.contas.map(c => `${c.plataforma} · ${c.usuario}`).join(", ");
+    if (!confirm(`Enviar ${atual.length} vídeo(s) para ${contas}?\n\nPrimeiro: ${fmt(atual[0].horario)}\nÚltimo: ${fmt(atual.at(-1).horario)}\nLimite de 10 vídeos por dia.`)) return;
+    enviando = true; agenda.disabled = true;
+    try {
+      const j = await api("/api/zernio/agendar", { modo: "diario", projetos: atual.map(p => p.nome),
+        inicio: campoData.value, horarios: atual.map(p => p.horario) });
+      S.trabalho = j.trabalho; toast("Enviando o lote ao Zernio…"); gaveta(true); tick();
+    } catch (e) { toast(e.message); if (campoData.isConnected) planejar(); }
+    finally { enviando = false; if (campoData.isConnected) atualizarPrevisao(); }
+  };
 }
 async function viewTemas(m) {
   const j = await api("/api/temas"), oc = rodando(S.trabalho), td = j.tendencias || {};
@@ -1520,6 +1890,11 @@ async function viewAjustes(m, primeira) {
       <button id="czernio">${c.zernio.configurado ? "Abrir Agendar" : "Configurar agora"}</button>`, c.zernio.configurado && c.zernio.contas > 0)}
     ${passo(5, "Biblioteca de cenas", `<p class="sub" style="margin:0 0 8px">${c.biblioteca.videos} vídeo(s), ${c.biblioteca.cenas} cenas${c.biblioteca.status ? " · " + esc(c.biblioteca.status) : ""}.${c.biblioteca.cenas ? "" : " Comece baixando os vídeos oficiais da Rockstar (leva alguns minutos); depois peça ao Claude: «etiquete as cenas novas da biblioteca»."}</p>
       <div class="linha"><button id="cbib" ${oc ? "disabled" : ""}>${c.biblioteca.cenas ? "Abrir biblioteca" : "Baixar vídeos oficiais"}</button></div>`, c.biblioteca.cenas > 0)}
+    ${primeira ? "" : passo("", "Transcrição rápida (nuvem)", `<p class="sub" style="margin:0 0 8px">${c.transcricao.configurada
+        ? `Chave salva (${c.transcricao.provedor === "openai" ? "OpenAI" : "Groq"}). A fala dos vídeos é transcrita na nuvem em menos de 1 minuto; se a nuvem falhar, o Estúdio usa o Whisper do PC.`
+        : "Opcional: sem placa de vídeo NVIDIA, transcrever no PC leva quase o tempo do vídeo. Com uma chave grátis da <b>Groq</b> (console.groq.com › API Keys, começa com gsk_) leva menos de 1 minuto. Também aceita chave da OpenAI (sk-, paga). O áudio dos vídeos é enviado para a empresa escolhida."}</p>
+      <div class="linha"><input id="ctrchave" type="password" placeholder="${c.transcricao.configurada ? "colar outra chave para trocar" : "gsk_..."}" style="flex:1" autocomplete="off">
+        <button class="prim" id="ctrsalvar">Salvar</button>${c.transcricao.configurada ? `<button id="ctrremover">Remover</button>` : ""}</div>`, c.transcricao.configurada)}
     ${primeira ? "" : passo("", "Versão", `<p class="sub" style="margin:0">Programa ${c.versao.programa} · ferramentas ${esc(c.versao.ferramentas || "—")}${c.versao.inicio && c.versao.ferramentas !== c.versao.inicio ? " · <b>há atualização: reinicie</b>" : ""}</p>
       <div class="linha" style="margin-top:8px"><button id="crefazer">Rever a configuração inicial</button></div>`)}
     ${primeira ? "" : `<div id="catualiza"></div>`}
@@ -1538,6 +1913,11 @@ async function viewAjustes(m, primeira) {
   $("#cbib").onclick = async () => { if (primeira) await api("/api/config", { concluida: true }); document.body.classList.remove("primeira");
     if (c.biblioteca.cenas) return ir("biblioteca"); S.view = "biblioteca"; bibAcao("oficiais"); };
   if ($("#catualiza")) cartaoAtualizacao($("#catualiza"));
+  if ($("#ctrsalvar")) $("#ctrsalvar").onclick = async () => { const k = $("#ctrchave").value.trim();
+    if (!k) return toast("Cole a chave primeiro");
+    try { await api("/api/config", { transcricao_chave: k }); toast("Chave salva: a próxima análise já transcreve na nuvem"); render(); } catch (e) { toast(e.message); } };
+  if ($("#ctrremover")) $("#ctrremover").onclick = async () => {
+    try { await api("/api/config", { transcricao_chave: "" }); toast("Chave removida: volta a transcrever no PC"); render(); } catch (e) { toast(e.message); } };
   if ($("#crefazer")) $("#crefazer").onclick = async () => { await api("/api/config", { concluida: false }); document.body.classList.add("primeira"); ir("config"); };
   if ($("#cconcluir")) $("#cconcluir").onclick = async () => { await api("/api/config", { concluida: true }); document.body.classList.remove("primeira"); tick(); ir("novo"); };
 }
@@ -1549,7 +1929,10 @@ async function porHash() {
   return ir("inicio");
 }
 window.addEventListener("hashchange", porHash);
-(async () => { await conferirVersao();
+(async () => { if (!await conferirVersao()) return;
+  let licenca;
+  try { licenca = await api("/api/licenca"); } catch (e) { licenca = { ativo: false, erro: e.message }; }
+  if (!licenca.ativo) { mostrarAtivacaoLicenca(licenca.erro); return; }
   try { const c = await api("/api/config"); if (!c.concluida) { document.body.classList.add("primeira"); return ir("config"); } } catch (e) {}
   await porHash(); tick(); })();
 </script>
