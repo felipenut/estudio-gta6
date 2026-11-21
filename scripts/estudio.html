@@ -1818,6 +1818,60 @@ function avisoAtualizado(u) {
   $("#atualizacaoEntendi", md).onclick = fechar;
   $("#atualizacaoEntendi", md).focus();
 }
+let consultaAutomaticaAtualizacao = false;
+async function verificarAtualizacaoAutomatica() {
+  if (consultaAutomaticaAtualizacao || document.hidden || $("#atualizacaoDisponivel")) return;
+  consultaAutomaticaAtualizacao = true;
+  try {
+    const estado = await api("/api/atualizacao");
+    if (!estado.config?.configurado || !estado.config?.automatico) return;
+    const versoes = await api("/api/atualizacao", { acao: "verificar" });
+    if (!versoes.nova || !versoes.remota) return;
+    let adiada = ""; try { adiada = localStorage.getItem("estudio_atualizacao_adiada") || ""; } catch (e) {}
+    if (adiada === versoes.remota) return;
+    mostrarModalAtualizacaoDisponivel(versoes);
+  } catch (e) {
+    // A próxima verificação automática tenta novamente se o GitHub estiver indisponível.
+  } finally {
+    consultaAutomaticaAtualizacao = false;
+  }
+}
+function mostrarModalAtualizacaoDisponivel(versoes) {
+  const md = abrirModal(`<section role="dialog" aria-modal="true" aria-labelledby="atualizacaoDisponivelTitulo">
+    <div class="cab"><b id="atualizacaoDisponivelTitulo" style="flex:1">Atualização disponível</b></div>
+    <div class="corpo"><p style="margin-top:0">A versão ${esc(versoes.remota)} está pronta. Quer baixar e aplicar agora?</p>
+      <p class="sub" id="atualizacaoDisponivelStatus" role="status" aria-live="polite">O Estúdio vai reiniciar para concluir a atualização.</p>
+      <div class="linha" style="justify-content:flex-end"><button id="atualizacaoAdiar">Depois</button><button class="prim" id="atualizacaoBaixar">Baixar e aplicar</button></div>
+    </div></section>`, 520);
+  md.id = "atualizacaoDisponivel";
+  md.style.zIndex = "60";
+  const adiar = () => {
+    try { localStorage.setItem("estudio_atualizacao_adiada", versoes.remota); } catch (e) {}
+    md.remove();
+  };
+  md.onclick = (e) => { if (e.target === md) adiar(); };
+  $("#atualizacaoAdiar", md).onclick = adiar;
+  $("#atualizacaoBaixar", md).onclick = async () => {
+    const botao = $("#atualizacaoBaixar", md), status = $("#atualizacaoDisponivelStatus", md);
+    botao.disabled = true; status.textContent = "Baixando e conferindo a atualização…";
+    try {
+      const resultado = await api("/api/atualizacao", { acao: "aplicar" });
+      if (!resultado.aplicado) throw new Error(resultado.motivo || "A atualização não foi aplicada.");
+      try { localStorage.setItem("estudio_atualizacao_modal", resultado.para || versoes.remota); } catch (e) {}
+      md.querySelector(".corpo").innerHTML = `<p style="margin-top:0">Atualização aplicada. Reinicie o Estúdio para usar a versão nova.</p>
+        <div class="linha" style="justify-content:flex-end"><button class="prim" id="atualizacaoReiniciar">Reiniciar agora</button></div>`;
+      $("#atualizacaoReiniciar", md).onclick = async () => {
+        try { await api("/api/reiniciar", {}); document.body.innerHTML = `<div style="padding:40px;font-size:18px">Reiniciando o Estúdio…</div>`; }
+        catch (e) { toast(e.message); }
+      };
+      $("#atualizacaoReiniciar", md).focus();
+    } catch (e) {
+      status.textContent = e.message || "Não consegui aplicar a atualização agora.";
+      botao.disabled = false;
+    }
+  };
+  $("#atualizacaoBaixar", md).focus();
+}
 
 /* ---------- REVISÃO RÁPIDA ---------- */
 async function abaRevisao(c) {
@@ -1949,7 +2003,10 @@ window.addEventListener("hashchange", porHash);
   try { licenca = await api("/api/licenca"); } catch (e) { licenca = { ativo: false, erro: e.message }; }
   if (!licenca.ativo) { mostrarAtivacaoLicenca(licenca.erro); return; }
   try { const c = await api("/api/config"); if (!c.concluida) { document.body.classList.add("primeira"); return ir("config"); } } catch (e) {}
-  await porHash(); tick(); })();
+  await porHash(); tick(); verificarAtualizacaoAutomatica();
+  setInterval(verificarAtualizacaoAutomatica, 5 * 60 * 1000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) verificarAtualizacaoAutomatica(); });
+})();
 </script>
 </body>
 </html>
