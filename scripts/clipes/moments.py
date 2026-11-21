@@ -22,15 +22,35 @@ def fetch(src, d, max_min, info_de=None):
     info = {}
     if is_url(src):
         info = ytdlp_json(src)
+        if info.get("is_live"):
+            sys.exit("este vídeo está ao vivo. Use o Modo ao vivo para gravar.")
         save_json(d / "info.json", {k: info.get(k) for k in ("id", "title", "uploader", "channel", "uploader_id", "webpage_url",
                                                              "duration", "view_count", "upload_date", "heatmap", "is_live", "was_live")})
         vid = d / "source.mp4"
-        if not vid.exists():
-            args = ytdlp_base() + ["-f", "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080]/b", "--merge-output-format", "mp4",
-                                   "-o", str(vid)]
-            if (info.get("duration") or 0) > max_min * 60:
-                args += ["--download-sections", f"*0-{max_min * 60}"]
+        limite = max_min * 60
+        duracao_fonte = info.get("duration") or 0
+        atual = float(ffprobe(vid)["format"]["duration"]) if vid.exists() and duracao_fonte else 0
+        expandir = atual and atual + 3 < min(duracao_fonte, limite)
+        if not vid.exists() or expandir:
+            # Baixar "só um trecho" (--download-sections) passa pelo ffmpeg, que o YouTube limita à velocidade de
+            # reprodução (~0,3 MB/s). O downloader normal é bem mais rápido, então só cortamos na fonte quando a
+            # sobra é grande (lives de horas); senão baixamos inteiro e a análise usa só os primeiros minutos.
+            cortar = duracao_fonte > limite and (duracao_fonte > limite * 2 or duracao_fonte - limite > 40 * 60)
+            temporario = d / (f"source-{max_min}min.parcial.mp4" if cortar else "source-inteiro.parcial.mp4")
+            for velho in d.glob("source-*.parcial.mp4*"):       # restos de tentativas no outro modo
+                if not velho.name.startswith(temporario.name):
+                    velho.unlink(missing_ok=True)
+            args = ytdlp_base() + ["--newline", "-f", "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080]/b",
+                                   "--merge-output-format", "mp4", "-N", "4", "-o", str(temporario)]
+            if cortar:
+                args += ["--download-sections", f"*0-{limite}"]
+            else:
+                print(f"   baixando o vídeo inteiro ({duracao_fonte / 60:.0f} min), é mais rápido que baixar só um trecho",
+                      flush=True)
             run(args + [src])
+            temporario.replace(vid)
+        else:
+            print("   vídeo já baixado; reaproveitando a fonte", flush=True)
         if info.get("was_live") and not list(d.glob("chat*.live_chat.json")):  # YouTube chat replay
             run(ytdlp_base() + ["--skip-download", "--write-subs", "--sub-langs", "live_chat", "-o", str(d / "chat"), src], check=False)
     else:
@@ -44,21 +64,40 @@ def fetch(src, d, max_min, info_de=None):
     return vid, info
 
 
-def audio_rms(vid, d):
+def segundos_wav(wav):
+    with wave.open(str(wav)) as audio:
+        return audio.getnframes() / audio.getframerate()
+
+
+def audio_rms(vid, d, segundos):
     wav = d / "audio.wav"
-    if not wav.exists():
-        run([tool("ffmpeg"), "-y", "-v", "error", "-i", str(vid), "-ac", "1", "-ar", "16000", str(wav)])
+    anterior = segundos_wav(wav) if wav.exists() else 0
+    alcance = d / "transcript_alcance.json"
+    if anterior and not alcance.exists() and (d / "transcript.json").exists():
+        save_json(alcance, {"segundos": anterior})
+    if not wav.exists() or anterior + 0.25 < segundos:
+        parcial = d / "audio.parcial.wav"
+        run([tool("ffmpeg"), "-y", "-v", "error", "-i", str(vid), "-t", str(segundos),
+             "-ac", "1", "-ar", "16000", str(parcial)])
+        parcial.replace(wav)
     with wave.open(str(wav)) as w:
-        x = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float32) / 32768
+        x = np.frombuffer(w.readframes(round(segundos * 16000)), dtype=np.int16).astype(np.float32) / 32768
     n = len(x) // 16000
     rms = np.sqrt((x[: n * 16000].reshape(n, 16000) ** 2).mean(1) + 1e-9)
     return wav, 20 * np.log10(rms)
 
 
-def transcribe(wav, d):
+def transcribe(wav, d, segundos):
     out = d / "transcript.json"
+    alcance = d / "transcript_alcance.json"
+    limite = min(segundos, segundos_wav(wav))
     if out.exists():
-        return load_json(out)
+        coberto = load_json(alcance)["segundos"] if alcance.exists() else limite
+        if coberto + 0.25 >= limite:
+            if not alcance.exists():
+                save_json(alcance, {"segundos": coberto})
+            print("   transcrição reaproveitada", flush=True)
+            return [p for p in load_json(out) if p["s"] < limite]
     from faster_whisper import WhisperModel
     try:
         import ctranslate2
@@ -66,7 +105,7 @@ def transcribe(wav, d):
     except Exception:
         cuda = False
     with wave.open(str(wav)) as w:  # pass samples directly (16 kHz mono), no extra decoder needed
-        pcm = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float32) / 32768
+        pcm = np.frombuffer(w.readframes(round(limite * 16000)), dtype=np.int16).astype(np.float32) / 32768
 
     def run_on(device):
         model = WhisperModel("small", device=device, compute_type="float16" if device == "cuda" else "int8")
@@ -78,6 +117,7 @@ def transcribe(wav, d):
         print(f"GPU transcription unavailable ({str(e)[:80]}), using CPU")
         words = run_on("cpu")
     save_json(out, words)
+    save_json(alcance, {"segundos": limite})
     return words
 
 
@@ -276,6 +316,24 @@ def smooth(a, k):
     return np.convolve(a, np.ones(k) / k, mode="same")
 
 
+def numerar_momentos(picks, pasta):
+    """Preserva as referências dos cortes quando uma nova análise muda a ordem ou o trecho."""
+    arquivo = pasta / "candidates.json"
+    anteriores = load_json(arquivo).get("candidates", []) if arquivo.exists() else []
+    trecho = lambda p: (round(p["start"], 2), round(p["end"], 2))
+    numeros = {trecho(p): p["n"] for p in anteriores}
+    feitos = [int(m[1]) for f in (pasta / "edits").glob("clip_*.json")
+              if (m := re.fullmatch(r"clip_(\d+)\.json", f.name))]
+    proximo = max([0, *numeros.values(), *feitos]) + 1
+    for p in picks:
+        anterior = numeros.pop(trecho(p), None)
+        if anterior is not None:
+            p["n"] = anterior
+        else:
+            p["n"] = proximo
+            proximo += 1
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("src"); ap.add_argument("--top", type=int, default=8)
@@ -288,12 +346,12 @@ def main():
     print(f"trabalho: {d.name}", flush=True)
     print("(1/4) baixando o vídeo e os dados (views, mais repetidos, chat)…", flush=True)
     vid, info = fetch(a.src, d, a.max_minutes, a.info_de)
-    dur = float(ffprobe(vid)["format"]["duration"])
+    dur = min(float(ffprobe(vid)["format"]["duration"]), a.max_minutes * 60)
     print(f"(2/4) analisando o volume ({dur / 60:.0f} min de vídeo)…", flush=True)
-    wav, db = audio_rms(vid, d)
+    wav, db = audio_rms(vid, d, dur)
     n = len(db)
     print("(3/4) transcrevendo a fala (na 1ª vez pode demorar uns minutos)…", flush=True)
-    words = transcribe(wav, d)
+    words = transcribe(wav, d, dur)
     print("(4/4) pontuando os momentos…", flush=True)
     heat = np.zeros(n)
     for h in (info.get("heatmap") or []):
@@ -334,8 +392,7 @@ def main():
         for x in picks:
             x["nota"] = round(10 * max(0, x["score"]) / maxs, 1)
     picks.sort(key=lambda x: (-x.get("nota", 0), x["start"]))      # o melhor primeiro
-    for i, x in enumerate(picks, 1):
-        x["n"] = i
+    numerar_momentos(picks, d)
     meta = load_json(d / "info.json")
     save_json(d / "candidates.json", {"source": str(vid), "info": meta, "duration": dur, "candidates": picks,
                                       "signals": {"heatmap": bool(w_heat), "chat": bool(w_chat), "words": len(words),
