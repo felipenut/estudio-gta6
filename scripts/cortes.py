@@ -294,10 +294,10 @@ def etapas_momentos(corpo):
 def etapas_cortar(corpo):
     d = trabalho_dir(corpo["nome"])
     pick = int(corpo["pick"])
-    layout = corpo.get("layout") if corpo.get("layout") in LAYOUTS else "blur"
+    layout = corpo.get("layout") if corpo.get("layout") in LAYOUTS else "facecam"
     e = ["clipes/cut.py", str(d), "--pick", str(pick), "--layout", layout,
          "--captions", corpo.get("legenda") if corpo.get("legenda") in ("word", "bubble", "none") else "word"]
-    for campo, argumento, padrao, minimo, maximo in (("texto_y", "--texto-y", 1050 if layout in ("react", "facecam") else 480, 250, 1450),
+    for campo, argumento, padrao, minimo, maximo in (("texto_y", "--texto-y", 750 if layout == "facecam" else 1050 if layout == "react" else 480, 250, 1450),
                                                        ("texto_tamanho", "--texto-tamanho", 66, 40, 100)):
         valor = max(minimo, min(maximo, int(corpo.get(campo) or padrao)))
         e += [argumento, str(valor)]

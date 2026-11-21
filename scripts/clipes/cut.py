@@ -407,7 +407,7 @@ def titulo_e_faixa(text, style, secs, layout, posicao=None, tamanho=66, cor='ros
         return None, None
     secs = max(3.0, min(5.0, float(secs or 4)))
     tamanho = max(40, min(100, int(tamanho)))
-    ty = max(250, min(1450, int(posicao if posicao is not None else (1050 if layout in ('react', 'facecam') else 480))))
+    ty = max(250, min(1450, int(posicao if posicao is not None else (750 if layout == 'facecam' else 1050 if layout == 'react' else 480))))
     n = len(wrap(text, max(12, int(26 * 66 / tamanho))))
     if style == 'box':
         bh = n * int(tamanho * 1.22) + 36
@@ -419,7 +419,7 @@ def titulo_e_faixa(text, style, secs, layout, posicao=None, tamanho=66, cor='ros
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("job"); ap.add_argument("--pick", type=int, default=1)
-    ap.add_argument("--layout", choices=["fill", "blur", "facecam", "react"], default="blur")
+    ap.add_argument("--layout", choices=["fill", "blur", "facecam", "react"], default="facecam")
     ap.add_argument("--title", default="", help="reaction title, e.g. 'Speed REALIZED why GTA 6 took 13 YEARS'")
     ap.add_argument("--title-style", choices=["box", "outline"], default="box")
     ap.add_argument("--title-secs", type=float, default=4, help="duração do gancho em segundos (3 a 5; padrão: 4)")
@@ -475,12 +475,12 @@ def main():
             side = 'left' if r['box'][0] + r['box'][2] / 2 < 0.5 else 'right'
             print(f"facecam: {r.get('mode')} box {cam} ({r.get('summary', '')})")
         else:
-            print(f"facecam: no stable face found ({r.get('reason', '')}), using the blur layout")
-            layout = 'blur'
+            sys.exit("Câmera não identificada neste trecho. Selecione outro momento ou formato.")
+
     elif layout in ('react', 'facecam') and cam != 'auto':
         side = 'left' if float(cam.split(':')[0]) + float(cam.split(':')[2]) / 2 < 0.5 else 'right'
     cap_y = CAP_Y[layout]
-    texto = a.title or a.hook
+    texto = a.title or a.hook or (pick.get("gancho_sugerido") or " ".join((pick.get("text") or "").split()[:9]) or c.get("info", {}).get("title", ""))[:90]
     title, band = titulo_e_faixa(texto, a.title_style, a.title_secs, layout,
                                  a.texto_y, a.texto_tamanho, a.texto_cor)
     ed = {x.strip() for x in (a.edicao or "").split(",")} - {"", "nenhuma"}

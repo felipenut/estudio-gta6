@@ -1282,7 +1282,7 @@ async function modalFilaLinks() {
       <div class="grid2">
         <div><label for="flpor">Cortes por vídeo (os de nota mais alta)</label><input id="flpor" type="number" min="1" max="15" value="3"></div>
         <div><label for="flparalelos">Cortes renderizando ao mesmo tempo</label><select id="flparalelos">${[1, 2, 3, 4].map(n => `<option value="${n}" ${paralelos_sugeridos === n ? "selected" : ""}>${n}${n === paralelos_sugeridos ? " (sugerido)" : ""}</option>`).join("")}</select></div>
-        <div><label for="fllayout">Formato dos cortes</label><select id="fllayout">${LAYOUTS.map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</select></div>
+        <div><label for="fllayout">Formato dos cortes</label><select id="fllayout">${LAYOUTS.map(([k, t]) => `<option value="${k}" ${k === "facecam" ? "selected" : ""}>${t}</option>`).join("")}</select></div>
         <div><label for="fllegenda">Legenda</label><select id="fllegenda"><option value="word">Palavra por palavra</option><option value="bubble">Frase em balão</option><option value="none">Sem legenda</option></select></div>
       </div>
       <label class="linha" style="justify-content:flex-start"><input type="checkbox" id="flrapido"> Edição rápida (sem zoom animado)</label>
@@ -1331,7 +1331,7 @@ async function modalFilaCortes() {
           ${fila.erros ? `<button id="fcerros" ${ocupado ? "disabled" : ""}>Tentar cortes com erro</button>` : ""}`}</div>` : ""}
       ${falhas.length ? `<details style="margin-bottom:10px"><summary>Ver falhas${fila.erros > falhas.length ? ` (${falhas.length} de ${fila.erros})` : ""}</summary>
         <ul>${falhas.map(f => `<li>${esc(f.nome)} · momento ${f.pick}: ${esc(f.detalhe)}</li>`).join("")}</ul></details>` : ""}
-      ${fontes.length ? `<div class="grid2"><div><label for="fclayout">Formato dos cortes</label><select id="fclayout">${LAYOUTS.map(([k,t]) => `<option value="${k}">${t}</option>`).join("")}</select></div>
+      ${fontes.length ? `<div class="grid2"><div><label for="fclayout">Formato dos cortes</label><select id="fclayout">${LAYOUTS.map(([k,t]) => `<option value="${k}" ${k === "facecam" ? "selected" : ""}>${t}</option>`).join("")}</select></div>
         <div><label for="fclegenda">Legenda</label><select id="fclegenda"><option value="word">Palavra por palavra</option><option value="bubble">Frase em balão</option><option value="none">Sem legenda</option></select></div>
         <div><label for="fcparalelos">Cortes em paralelo</label><select id="fcparalelos">${[1, 2, 3, 4].map(n => `<option value="${n}" ${paralelos_sugeridos === n ? "selected" : ""}>${n} corte${n > 1 ? "s" : ""}${n === paralelos_sugeridos ? " (sugerido)" : ""}</option>`).join("")}</select></div>
         <label class="linha" style="justify-content:flex-start"><input type="checkbox" id="fcrapido"> Edição rápida (sem zoom animado)</label></div>
@@ -1379,7 +1379,7 @@ async function modalFilaCortes() {
 
 function modalLoteCortes(d) {
   const md = abrirModal(`<div class="cab"><b style="flex:1">Produzir cortes em lote</b><button id="clfechar">Fechar</button></div>
-    <div class="corpo"><div class="grid2"><div><label for="cllayout">Formato dos cortes novos</label><select id="cllayout">${LAYOUTS.map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</select></div>
+    <div class="corpo"><div class="grid2"><div><label for="cllayout">Formato dos cortes novos</label><select id="cllayout">${LAYOUTS.map(([k, t]) => `<option value="${k}" ${k === "facecam" ? "selected" : ""}>${t}</option>`).join("")}</select></div>
       <div><label for="cllegenda">Legenda</label><select id="cllegenda"><option value="word">Palavra por palavra</option><option value="bubble">Frase em balão</option><option value="none">Sem legenda</option></select></div></div>
       <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="cltodos"> Selecionar todos os momentos</label>
       <div style="max-height:260px;overflow:auto">${d.momentos.map(c => `<label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" data-clpick="${c.n}"> #${c.n} · ${fmtT(c.start)}–${fmtT(c.end)} ${esc(c.gancho_sugerido || "")}</label>`).join("")}</div>
@@ -1395,7 +1395,7 @@ function modalLoteCortes(d) {
     todos.indeterminate = n > 0 && !todos.checked;
   };
   $("#clfechar", md).onclick = () => md.remove();
-  $("#cllayout", md).value = "blur";
+  $("#cllayout", md).value = "facecam";
   todos.onchange = () => { itens.forEach(i => { i.checked = todos.checked; }); contar(); };
   itens.forEach(i => { i.onchange = contar; });
   botao.onclick = async () => {
@@ -1409,7 +1409,7 @@ function modalLoteCortes(d) {
 }
 
 function modalCortar(d, c, antigo, projetoAtualizar = null) {
-  const ant = antigo || {}, lay0 = ant.layout || "blur";
+  const ant = antigo || {}, lay0 = ant.layout || "facecam";
   const rp = ant.render || {};
   const ed0 = rp.edicao || ["pausas", "zoom", "voz"];
   const sugerido = antigo ? "" : (c.gancho_sugerido || "");
@@ -1422,7 +1422,7 @@ function modalCortar(d, c, antigo, projetoAtualizar = null) {
       <label>Estilo da faixa</label><select id="kestilo" style="width:180px"><option value="box">faixa colorida</option><option value="outline">sem faixa</option></select>
       <div class="grid2" style="margin-top:12px;align-items:start"><div><div style="position:relative;width:216px;aspect-ratio:9/16;overflow:hidden;background:#000;border-radius:10px"><canvas id="kcanvas" width="270" height="480" style="display:block;width:100%;height:100%"></canvas><div id="ktexto" style="position:absolute;left:0;width:100%;transform:translateY(-50%);text-align:center;color:white;font-family:'Arial Black',sans-serif;font-weight:900;line-height:1.18;padding:5px 7px;white-space:normal;overflow-wrap:anywhere;text-shadow:1px 1px 3px #000"></div></div>
         <video id="kfonte" src="/corte/${encodeURIComponent(d.nome)}/fonte" preload="metadata" style="display:none"></video><button class="mini" id="ktocar" style="margin-top:6px">Reproduzir prévia</button><p class="sub" style="font-size:11px;margin:4px 0">Prévia aproximada do enquadramento. O arquivo será atualizado ao salvar.</p></div>
-        <div><label>Posição vertical: <b id="kyv"></b></label><input id="ky" type="range" min="250" max="1450" step="10" value="${rp.texto_y ?? (lay0 === "react" || lay0 === "facecam" ? 1050 : 480)}">
+        <div><label>Posição vertical: <b id="kyv"></b></label><input id="ky" type="range" min="250" max="1450" step="10" value="${rp.texto_y ?? (lay0 === "facecam" ? 750 : lay0 === "react" ? 1050 : 480)}">
         <label>Tamanho: <b id="ktamv"></b></label><input id="ktam" type="range" min="40" max="100" step="2" value="${rp.texto_tamanho ?? 66}">
         <label>Cor da faixa</label><select id="kcor"><option value="rosa">Rosa Vice</option><option value="laranja">Pôr do sol</option><option value="roxo">Roxo neon</option><option value="escuro">Escuro</option></select></div></div>
       <div class="grid2" style="margin-top:4px"><div><label>Legenda</label><select id="kl"><option value="word">palavra por palavra (destaca a falada)</option><option value="bubble">frase em balão</option><option value="none">sem legenda</option></select></div>
