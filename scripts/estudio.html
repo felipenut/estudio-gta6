@@ -1798,10 +1798,25 @@ async function cartaoAtualizacao(el) {
 }
 function avisoAtualizado(u) {
   if (!u || !u.ok || !u.para) return;
-  let visto = ""; try { visto = localStorage.getItem("estudio_atualizado") || ""; } catch (e) {}
+  let visto = ""; try { visto = localStorage.getItem("estudio_atualizacao_modal") || ""; } catch (e) {}
   if (visto === u.para) return;
-  try { localStorage.setItem("estudio_atualizado", u.para); } catch (e) {}
-  toast(`Estúdio atualizado para a versão ${u.para} (${u.arquivos} arquivos).`);
+  const descricao = u.aplicado
+    ? `O Estúdio foi atualizado para a versão ${esc(u.para)}. As novidades já estão prontas para usar.`
+    : `A versão ${esc(u.para)} está disponível. Reinicie o Estúdio para concluir a atualização.`;
+  const quantidade = Number(u.arquivos) || 0;
+  const md = abrirModal(`<section role="dialog" aria-modal="true" aria-labelledby="atualizacaoTitulo">
+    <div class="cab"><b id="atualizacaoTitulo" style="flex:1">${u.aplicado ? "Atualização instalada" : "Atualização disponível"}</b></div>
+    <div class="corpo"><p style="margin-top:0">${descricao}</p>
+      ${u.aplicado && quantidade ? `<p class="sub">${quantidade} arquivos atualizados.</p>` : ""}
+      <div class="linha" style="justify-content:flex-end"><button class="prim" id="atualizacaoEntendi">Entendi</button></div>
+    </div></section>`, 520);
+  md.style.zIndex = "60";
+  const fechar = () => {
+    try { localStorage.setItem("estudio_atualizacao_modal", u.para); } catch (e) {}
+    md.remove();
+  };
+  $("#atualizacaoEntendi", md).onclick = fechar;
+  $("#atualizacaoEntendi", md).focus();
 }
 
 /* ---------- REVISÃO RÁPIDA ---------- */
