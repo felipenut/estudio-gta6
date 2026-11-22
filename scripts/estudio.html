@@ -374,7 +374,7 @@ async function ir(view, extra = {}) { Object.assign(S, { view }, extra); marcarN
 async function abrirProjeto(nome, aba) { S.projeto = nome; S.view = "projeto"; if (aba) S.aba = aba; marcarNav(); try { await carregarProjeto(); if (S.view === "projeto" && S.projeto === nome) render(); } catch (e) { erroTela(e); } }
 async function carregarProjeto() { const nome = S.projeto, dados = await api("/api/projeto/" + encodeURIComponent(nome)); if (S.projeto !== nome) return; S.dados = dados; S.rot = dados.roteiro ? JSON.parse(JSON.stringify(dados.roteiro)) : null; }
 async function lista() { const j = await api("/api/projetos"); S.trabalho = j.trabalho; return j; }
-const VERSAO_PAGINA = 31;
+const VERSAO_PAGINA = 32;
 function erroTela(e) {
   $("#main").innerHTML = `<div class="aviso-box"><b>Não consegui abrir esta tela.</b><br>${esc(e.message || e)}<br><br>
     Se você acabou de atualizar o Estúdio, feche a janela preta do Estúdio e abra o <b>estudio.bat</b> de novo.</div>`;
@@ -1196,6 +1196,15 @@ async function viewCortes(m) {
     try { await api("/api/cortes/apagar", { nome: b.dataset.apagar }); toast("Apagado"); render(); } catch (e) { toast(e.message); } });
 }
 
+function tempoMedido(s) {
+  if (s < 1) return "<1 s";
+  const n = Math.round(s);
+  return n < 60 ? n + " s" : Math.floor(n / 60) + " min " + (n % 60) + " s";
+}
+function ritmoFila(m) {
+  if (!m || !m.segundos) return "";
+  return `<p class="sub">Nesta execução: ${esc(tempoMedido(m.segundos))}${m.novos ? ` · ${m.novos} corte(s) novo(s) · ${esc(tempoMedido(m.segundos/m.novos))} por corte novo` : ""}</p>`;
+}
 async function viewCorte(m) {
   if (!S.corte) return ir("cortes");
   const corte = S.corte;
@@ -1206,6 +1215,8 @@ async function viewCorte(m) {
   m.innerHTML = `<div class="topo-proj"><button onclick="ir('cortes')">← Cortes</button><h2 style="margin-left:6px">${esc(d.info.title || d.nome)}</h2>
       ${d.info.webpage_url && /^https?:/.test(d.info.webpage_url) ? `<a href="${esc(d.info.webpage_url)}" target="_blank" rel="noopener">abrir original</a>` : ""}<span style="flex:1"></span>
       ${d.canal ? `<span class="pill">canal: ${esc(d.canal)}</span>` : ""}</div>
+    ${d.tempos ? `<details class="cartao"><summary>Tempo da análise · ${esc(tempoMedido(Object.values(d.tempos).reduce((a,b)=>a+b,0)))}</summary>
+      ${[["fonte","Download ou abertura da fonte"],["audio","Análise do áudio"],["fala","Transcrição"],["selecao","Seleção dos momentos"],["espera","Espera final pelo vídeo"]].map(([k,t])=>`<div>${t} · ${esc(tempoMedido(d.tempos[k]))}</div>`).join("")}</details>` : ""}
     ${d.live ? `<div class="cartao"><div class="linha"><b>${ic("gravar")} Trechos da live</b>${d.live_rodando ? `<span class="pill erro">● gravando</span><button class="mini" id="cparar">■ Parar</button>` : `<span class="pill">encerrada</span>`}
         <span class="sub" style="margin:0">cada trecho = 35 s em volta de um pico do chat</span></div>
       ${d.trechos.length ? `<div class="bgrid" style="margin-top:10px">${d.trechos.slice().reverse().map(s => `<div class="bcard">${s.existe ? `<video src="/corte/${n}/live/${encodeURIComponent(s.arquivo)}" controls preload="metadata" style="width:100%;aspect-ratio:16/9;border-radius:0"></video>` : `<div class="vazio" style="border:0">corte falhou</div>`}
@@ -1215,6 +1226,7 @@ async function viewCorte(m) {
     ${d.clipes.length ? `<h3>Clipes prontos (${d.clipes.length}) · ranking</h3><p class="sub">Ordenados pela nota estimada. Acima de 7,5, clipes novos com checagem aprovada são enviados automaticamente para agendar. A nota não garante viralização.</p><div class="mgrid">${d.clipes.map(c => `<div class="mcard clipe">
         ${c.arquivo ? `<video src="/corte/${n}/edits/${c.arquivo}?v=${c.mtime}" controls preload="metadata"></video>` : ""}
         <div class="c"><div class="linha" style="gap:6px"><b>Clipe ${c.n}</b><span class="pill">${esc((LAYOUTS.find(l => l[0] === c.layout) || [0, c.layout])[1])}</span>${ckPill(c.checagem)}</div>
+          ${c.tempos ? `<p class="sub">Preparo · ${esc(tempoMedido(c.tempos.preparo))} · Renderização · ${esc(tempoMedido(c.tempos.render))}</p>` : ""}
           ${c.avaliacao ? `<div><b style="color:var(--amarelo)">${c.avaliacao.nota.toFixed(1)} / 10</b><div class="sub" style="margin:2px 0;font-size:12px">${esc(c.avaliacao.detalhes)}${!c.avaliacao.ia_ok ? " · Análise de conteúdo indisponível; não agenda automaticamente." : ""}</div>${c.avaliacao.erros.length ? `<div class="msg e">${esc(c.avaliacao.erros.join(" · "))}</div>` : ""}<details><summary>Ver critérios</summary>${Object.entries(c.avaliacao.pontos).map(([k,v])=>`<div>${esc(k)}: ${v}</div>`).join("")}<p class="sub">${esc(c.avaliacao.nao_medidos)}</p></details></div>` : `<div class="sub" style="margin:0">Ainda não avaliado.</div>`}
           <div style="font-size:13px">${esc(c.titulo || c.gancho || "(sem gancho)")}</div><div class="sub" style="margin:0;font-size:11px">${fmtT(c.inicio)}–${fmtT(c.fim)} · ${Math.round(c.fim - c.inicio)} s</div>
           ${Object.keys(c.traducoes).length ? `<div style="font-size:13px">${ic("idioma")} ${Object.entries(c.traducoes).map(([l, t]) => `<a href="/corte/${n}/edits/${t.arquivo}?v=${t.mtime}" target="_blank">${l.toUpperCase()}</a>`).join(" · ")}</div>` : ""}
@@ -1275,9 +1287,9 @@ async function modalFilaLinks() {
         <b>${fila.prontos} de ${fila.total} vídeos prontos · ${fila.cortes_prontos} cortes · ${fila.erros} com erro${fila.pausada ? " · pausada" : ""}</b>
         ${minha ? '<button id="fllog">Acompanhar</button>' : `${fila.pendentes ? `<button id="flretomar" class="prim" ${ocupado ? "disabled" : ""}>Retomar</button>` : ""}
           ${fila.erros ? `<button id="flerros" ${ocupado ? "disabled" : ""}>Tentar os com erro</button>` : ""}`}</div>
-        <details ${minha ? "open" : ""} style="margin-bottom:12px"><summary>Ver vídeos da fila</summary><div style="max-height:200px;overflow:auto">
+        ${ritmoFila(fila.medicao)}<details ${minha ? "open" : ""} style="margin-bottom:12px"><summary>Ver vídeos da fila</summary><div style="max-height:200px;overflow:auto">
           ${itens.map(i => `<div class="linha" style="justify-content:flex-start;margin:3px 0;font-size:13px"><span class="pill ${i.estado === "pronto" ? "ok" : i.estado === "erro" ? "erro" : ""}">${ESTADO_LINK[i.estado] || esc(i.estado)}</span>
-            <span style="flex:1;word-break:break-all">${esc(i.titulo || i.url)}<span class="sub" style="margin:0 0 0 6px;font-size:11px">${esc(i.detalhe || "")}</span></span></div>`).join("")}</div></details>` : ""}
+            <span style="flex:1;word-break:break-all">${esc(i.titulo || i.url)}<span class="sub" style="margin:0 0 0 6px;font-size:11px">${esc(i.detalhe || "")}${i.tempo_fonte != null ? " · Download ou reabertura: "+esc(tempoMedido(i.tempo_fonte)) : ""}</span></span></div>`).join("")}</div></details>` : ""}
       <label for="fllinks">Links (um por linha: YouTube, Twitch ou Kick)</label>
       <textarea id="fllinks" rows="7" placeholder="https://www.youtube.com/watch?v=…&#10;https://www.youtube.com/watch?v=…"></textarea>
       <div class="grid2">
@@ -1330,6 +1342,7 @@ async function modalFilaCortes() {
         ${ocupado && S.trabalho.acao === "cortes_escala" ? '<button id="fclog">Acompanhar produção</button>' : `
           ${fila.pendentes ? `<button id="fcretomar" class="prim" ${ocupado ? "disabled" : ""}>Retomar fila</button>` : ""}
           ${fila.erros ? `<button id="fcerros" ${ocupado ? "disabled" : ""}>Tentar cortes com erro</button>` : ""}`}</div>` : ""}
+      ${ritmoFila(fila.medicao)}
       ${falhas.length ? `<details style="margin-bottom:10px"><summary>Ver falhas${fila.erros > falhas.length ? ` (${falhas.length} de ${fila.erros})` : ""}</summary>
         <ul>${falhas.map(f => `<li>${esc(f.nome)} · momento ${f.pick}: ${esc(f.detalhe)}</li>`).join("")}</ul></details>` : ""}
       ${fontes.length ? `<div class="grid2"><div><label for="fclayout">Formato dos cortes</label><select id="fclayout">${LAYOUTS.map(([k,t]) => `<option value="${k}" ${k === "facecam" ? "selected" : ""}>${t}</option>`).join("")}</select></div>

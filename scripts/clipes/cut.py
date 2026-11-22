@@ -10,6 +10,7 @@ usage: python cut.py jobs/<id> --pick 1 [--layout fill|blur|facecam|react] [--ho
                      [--cam auto|x:y:w:h] [--title "TEXT" --title-style box|outline --title-secs 4] [--captions word|bubble|none]
                      [--edicao pausas,zoom,voz,loop | --edicao nenhuma]
 """
+from time import perf_counter
 import argparse, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -438,6 +439,7 @@ def main():
     ap.add_argument("--threads", type=int, choices=range(1, 9), help="limite de processamento para cortes em paralelo")
     ap.add_argument("--amostra", action="store_true")
     a = ap.parse_args()
+    inicio_corte = perf_counter()
     d = Path(a.job); c = load_json(d / "candidates.json")
     print("(1/2) preparando legenda e enquadramento…", flush=True)
     pick = next(x for x in c["candidates"] if x["n"] == a.pick)
@@ -525,6 +527,7 @@ def main():
     parcial = out / f"clip_{a.pick}.parcial.mp4"
     meta_anterior = load_json(out / f"clip_{a.pick}.json") if (out / f"clip_{a.pick}.json").exists() else {}
     print(f"(2/2) renderizando {dur:.0f}s em 1080x1920 ({layout}{', ' + ', '.join(sorted(ed)) if ed else ''})…", flush=True)
+    inicio_render = perf_counter()
     comando = comando_render(c["source"], s0, e0, rp, ass, band, parcial)
     if a.amostra:
         comando[-1:-1] = ["-t", str(min(dur, 5))]
@@ -533,13 +536,15 @@ def main():
         print(f"ok: {mp4}")
         return
     executar_render(comando, dur)
+    fim_render = perf_counter()
     if mp4.exists():
         import shutil, time
         pasta_backup = out / "backup"; pasta_backup.mkdir(exist_ok=True)
         shutil.copy2(mp4, pasta_backup / f"clip_{a.pick}_{time.time_ns()}.mp4")
     parcial.replace(mp4)
     info = c.get("info", {})
-    save_json(out / f"clip_{a.pick}.json", {"file": str(mp4), "start": s0, "end": e0, "layout": layout, "hook": a.hook or a.title, "title": a.title, "cam": cam,
+    save_json(out / f"clip_{a.pick}.json", {"tempos": {"preparo": round(inicio_render-inicio_corte, 3), "render": round(fim_render-inicio_render, 3)},
+                                            "file": str(mp4), "start": s0, "end": e0, "layout": layout, "hook": a.hook or a.title, "title": a.title, "cam": cam,
                                             "duracao": round(dur, 2), "pico": round(pico_ed, 2) if pico_ed is not None else None,
                                             "pergunta": (a.pergunta if a.pergunta is not None else (pick.get("pergunta") or meta_anterior.get("pergunta") or "")).strip()[:160],
                                             "nota_momento": pick.get("nota"), "tipo": (pick.get("ia") or {}).get("tipo"),

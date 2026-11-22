@@ -9,6 +9,7 @@ Writes jobs/<id>/candidates.md + candidates.json.
 usage: python moments.py <url-or-file> [--top 8] [--min 15] [--max 40] [--chat chat.json] [--max-minutes 90] [--sem-ia]
 """
 import argparse, json, math, os, re, sys, wave
+from time import perf_counter
 from pathlib import Path
 import numpy as np
 sys.path.insert(0, str(Path(__file__).parent))
@@ -130,6 +131,17 @@ def iniciar_video(cmd, temporario, destino, d):
 def fonte_de_audio(vid):
     """O que analisar: o áudio já baixado (se o vídeo ainda está vindo) ou o próprio vídeo."""
     return FUNDO.get("audio") if FUNDO.get("proc") else vid
+
+
+class TemposAnalise:
+    def __init__(self):
+        self.ultimo = perf_counter()
+        self.etapas = {}
+
+    def registrar(self, etapa):
+        agora = perf_counter()
+        self.etapas[etapa] = round(agora - self.ultimo, 3)
+        self.ultimo = agora
 
 
 def esperar_video():
@@ -502,6 +514,7 @@ def main():
     a = ap.parse_args()
     d = job_dir(a.src)
     print(f"trabalho: {d.name}", flush=True)
+    tempos = TemposAnalise()
     print("(1/4) baixando o vídeo e os dados (views, mais repetidos, chat)…", flush=True)
     vid, info = fetch(a.src, d, a.max_minutes, a.info_de, video_junto=a.so_baixar)
     if a.so_baixar:
@@ -509,11 +522,14 @@ def main():
         return
     fonte = fonte_de_audio(vid)
     dur = min(float(ffprobe(fonte)["format"]["duration"]), a.max_minutes * 60)
+    tempos.registrar("fonte")
     print(f"(2/4) analisando o volume ({dur / 60:.0f} min de vídeo)…", flush=True)
     wav, db = audio_rms(fonte, d, dur)
     n = len(db)
+    tempos.registrar("audio")
     print("(3/4) transcrevendo a fala (na 1ª vez pode demorar uns minutos)…", flush=True)
     words = transcribe(wav, d, dur)
+    tempos.registrar("fala")
     print("(4/4) pontuando os momentos…", flush=True)
     heat = np.zeros(n)
     for h in (info.get("heatmap") or []):
@@ -554,10 +570,12 @@ def main():
         for x in picks:
             x["nota"] = round(10 * max(0, x["score"]) / maxs, 1)
     picks.sort(key=lambda x: (-x.get("nota", 0), x["start"]))      # o melhor primeiro
+    tempos.registrar("selecao")
     esperar_video()
+    tempos.registrar("espera")
     numerar_momentos(picks, d)
     meta = load_json(d / "info.json")
-    save_json(d / "candidates.json", {"source": str(vid), "info": meta, "duration": dur, "candidates": picks,
+    save_json(d / "candidates.json", {"source": str(vid), "info": meta, "duration": dur, "tempos": tempos.etapas, "candidates": picks,
                                       "signals": {"heatmap": bool(w_heat), "chat": bool(w_chat), "words": len(words),
                                                   "ia": com_ia, "pesos": pesos}})
     fmt = lambda t: f"{int(t // 60)}:{int(t % 60):02d}"

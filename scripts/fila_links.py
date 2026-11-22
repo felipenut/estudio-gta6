@@ -27,7 +27,7 @@ TRAVA = threading.Lock()
 def resumir(fila):
     itens = fila.get("itens", [])
     contar = lambda *estados: sum(i["estado"] in estados for i in itens)
-    return {"total": len(itens), "prontos": contar("pronto"), "erros": contar("erro"),
+    return {"medicao": fila.get("medicao"), "total": len(itens), "prontos": contar("pronto"), "erros": contar("erro"),
             "pendentes": len(itens) - contar("pronto", "erro"),
             "cortes_prontos": sum(i.get("cortes_prontos", 0) for i in itens), "pausada": bool(fila.get("pausada"))}
 
@@ -54,8 +54,11 @@ def corpo_analise(item, op):
 def baixar(item, op):
     nome, etapas = CT.etapas_momentos(corpo_analise(item, op))
     pasta = CT.CORTES / nome
-    return _rodar(["clipes/moments.py", item["url"], "--max-minutes", str(op["minutos"]), "--so-baixar"],
+    inicio = time.perf_counter()
+    resultado = _rodar(["clipes/moments.py", item["url"], "--max-minutes", str(op["minutos"]), "--so-baixar"],
                   "_fila_download.log", pasta)
+    item["tempo_fonte"] = round(time.perf_counter() - inicio, 3)
+    return resultado
 
 
 def analisar(item, op):
@@ -83,9 +86,11 @@ def produzir(arquivo):
     max_downloads, max_cortes = 2, op["paralelos"]
     estilo = {"layout": op["layout"], "legenda": op["legenda"], "paralelos": op["paralelos"], "rapido": op.get("rapido", False)}
     inicio = time.perf_counter()
+    medicao = fila["medicao"] = {"segundos": 0, "novos": 0}
     ativos = {}                               # futuro -> (tipo, item, corte)
 
     def gravar():
+        medicao["segundos"] = round(time.perf_counter() - inicio, 3)
         with TRAVA:
             LC.gravar_fila(arquivo, fila)
         estado = resumir(fila)
@@ -181,6 +186,7 @@ def produzir(arquivo):
                         item.update(estado="erro", detalhe=f"análise: {detalhe}")
                     print(f"{'analisado' if ok else 'falhou'}: {item.get('titulo') or item['url']} · {item['detalhe']}", flush=True)
                 else:
+                    medicao["novos"] += int(ok and detalhe == "renderizado")
                     corte.update(estado="pronto" if ok else "erro", detalhe=detalhe)
                     item["cortes_prontos"] = sum(c["estado"] == "pronto" for c in item["cortes"])
                     concluir_item_se_pronto(item)

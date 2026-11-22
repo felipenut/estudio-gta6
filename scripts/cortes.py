@@ -208,7 +208,7 @@ def detalhe(nome):
                        "inicio": meta.get("start"), "fim": meta.get("end"), "layout": meta.get("layout"),
                        "gancho": meta.get("hook"), "titulo": meta.get("title"), "traducoes": trad,
                        "render": meta.get("render") or {}, "pergunta": meta.get("pergunta") or "",
-                       "duracao": meta.get("duracao"), "tipo": meta.get("tipo"),
+                       "tempos": meta.get("tempos"), "duracao": meta.get("duracao"), "tipo": meta.get("tipo"),
                        "legendas": _ler(j.parent / f"clip_{n}_legendas.json", {}), "legenda": leg,
                        "checagem": checar_clipe(mp4, leg, canal) if mp4.exists() else None,
                        "projetos": meta.get("projetos") or {},
@@ -226,7 +226,7 @@ def detalhe(nome):
         trechos.append(s)
     rodando = bool(LIVE["proc"] and LIVE["trabalho"] == d.name and LIVE["proc"].poll() is None)
     return {"nome": d.name, "info": info, "canal": canal, "enquadramento": _ler(arquivo_enquadramento(d)), "momentos": cand.get("candidates") or [],
-            "sinais": cand.get("signals") or {}, "duracao": cand.get("duration"), "clipes": clipes,
+            "tempos": cand.get("tempos"), "sinais": cand.get("signals") or {}, "duracao": cand.get("duration"), "clipes": clipes,
             "tem_fonte": bool(cand.get("source") and Path(cand["source"]).exists()),
             "live": est, "trechos": trechos, "live_rodando": rodando}
 

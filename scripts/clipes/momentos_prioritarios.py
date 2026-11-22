@@ -170,10 +170,12 @@ def main():
     ap.add_argument("--sem-ia", action="store_true")
     a = ap.parse_args()
     pasta = base.job_dir(a.src)
+    tempos = base.TemposAnalise()
     print("(1/4) baixando ou reabrindo o vídeo…", flush=True)
     video, info = abrir_fonte(a.src, pasta, a.max_minutes, a.info_de)
     fonte = base.fonte_de_audio(video)      # o áudio já baixado, enquanto o vídeo em 1080p vem em segundo plano
     dur = min(float(base.ffprobe(fonte)["format"]["duration"]), a.max_minutes * 60)
+    tempos.registrar("fonte")
     print("(2/4) analisando o volume…", flush=True)
     wav, db = base.audio_rms(fonte, pasta, dur)
     n = len(db)
@@ -186,8 +188,10 @@ def main():
     sinais, _, _ = base.sinais(db, [], heat, chat, n)
     janelas = selecionar_janelas(sinais, a.max, a.top)
     segundos = sum(b - a for a, b in janelas)
+    tempos.registrar("audio")
     print(f"(3/4) transcrevendo {len(janelas)} regiões prioritárias ({segundos // 60} min {segundos % 60:02d} s)…", flush=True)
     words = transcrever_janelas(wav, pasta, janelas)
+    tempos.registrar("fala")
     print("(4/4) pontuando os momentos…", flush=True)
     score, partes, pesos = base.sinais(db, words, heat, chat, n)
     picks = localizar(score, partes, words, heat, janelas, dur, a.min, a.max)
@@ -200,9 +204,11 @@ def main():
     picks = sorted(picks, key=lambda p: (-p.get("nota", 0), p["start"]))[:a.top]
     if not picks:
         raise SystemExit("nenhum momento forte encontrado nas regiões analisadas")
+    tempos.registrar("selecao")
     base.esperar_video()
+    tempos.registrar("espera")
     base.numerar_momentos(picks, pasta)
-    salvar(pasta / "candidates.json", {"source": str(video), "info": meta, "duration": dur, "candidates": picks,
+    salvar(pasta / "candidates.json", {"source": str(video), "info": meta, "duration": dur, "tempos": tempos.etapas, "candidates": picks,
            "signals": {"heatmap": bool(pesos["mais_repetido"]), "chat": bool(pesos["chat"]), "words": len(words),
                        "ia": com_ia, "pesos": pesos, "prioritaria": True, "segundos_transcritos": segundos}})
     relatorio = [f"# Momentos: {meta.get('title', '')}", f"Fonte: {meta.get('webpage_url', '')}", ""]

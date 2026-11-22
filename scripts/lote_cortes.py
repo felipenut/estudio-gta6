@@ -32,7 +32,7 @@ def gravar_fila(arquivo, dados):
 
 def resumir_fila(fila):
     itens = fila.get("itens", [])
-    return {"total": len(itens), "prontos": sum(i["estado"] == "pronto" for i in itens),
+    return {"medicao": fila.get("medicao"), "total": len(itens), "prontos": sum(i["estado"] == "pronto" for i in itens),
             "erros": sum(i["estado"] == "erro" for i in itens),
             "pendentes": sum(i["estado"] in ("pendente", "renderizando") for i in itens),
             "paralelos": fila.get("paralelos", 1), "pausada": bool(fila.get("pausada"))}
@@ -105,6 +105,7 @@ def produzir(arquivo):
     ativos = {}
     inicio = ultimo_checkpoint = time.perf_counter()
     concluidos_desde_checkpoint = 0
+    medicao = fila["medicao"] = {"segundos": 0, "novos": 0}
     fila["pausada"] = False
 
     def iniciar_item(pool):
@@ -130,6 +131,8 @@ def produzir(arquivo):
                 except Exception as e:
                     ok, detalhe = False, str(e)
                 item.update(estado="pronto" if ok else "erro", detalhe=detalhe)
+                medicao["novos"] += int(ok and detalhe == "renderizado")
+                medicao["segundos"] = round(time.perf_counter() - inicio, 3)
                 concluidos_desde_checkpoint += 1
                 agora = time.perf_counter()
                 if concluidos_desde_checkpoint >= 4 or agora - ultimo_checkpoint >= 2:
@@ -140,6 +143,7 @@ def produzir(arquivo):
                 concluidos = estado["prontos"] + estado["erros"]
                 print(f"({concluidos}/{estado['total']}) {item['nome']} · momento {item['pick']}: {detalhe}", flush=True)
                 iniciar_item(pool)
+    medicao["segundos"] = round(time.perf_counter() - inicio, 3)
     fila["pausada"] = parar.exists()
     gravar_fila(arquivo, fila)
     estado = resumir_fila(fila)

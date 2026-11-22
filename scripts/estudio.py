@@ -32,7 +32,7 @@ import lote_cortes as LC  # fila de produção entre fontes
 import cortes as CT  # noqa: E402  (tela Cortes e lives)
 import atualizar as ATU  # noqa: E402  (atualização automática pelo GitHub)
 
-VERSAO = 31
+VERSAO = 32
 URL_CHECKOUT_LICENCAS = "https://estudio-gta6-checkout.vercel.app/api/licenca"
 URL_CHECKOUT_CONFIG = "https://estudio-gta6-checkout.vercel.app/api/config"
 ARQ_LICENCA = Path(os.getenv("LOCALAPPDATA") or Path.home()) / "Estudio GTA 6" / "licenca.json"
@@ -400,6 +400,8 @@ def _executar(etapas, log, status, rotulo, base=0.0, span=1.0):
                             anterior = TRABALHO["progresso"]
                             _progresso(base, span, etapas, n, 0.41 + 0.46 * pct / 100)
                             TRABALHO["progresso"] = max(anterior, TRABALHO["progresso"])
+                        elif "esperando o vídeo terminar de baixar" in linha:
+                            TRABALHO["etapa"] = "Aguardando o download do vídeo"
                         elif baixar and TRABALHO["etapa"] == "Baixando ou reabrindo o vídeo":
                             anterior = TRABALHO["progresso"]
                             _progresso(base, span, etapas, n, 0.02 + 0.25 * float(baixar[1]) / 100)
@@ -721,7 +723,7 @@ def arquivo_fila_links():
 def estado_fila_links():
     import fila_links as FL
     fila = ler(arquivo_fila_links()) or {}
-    itens = [{k: i.get(k) for k in ("url", "titulo", "estado", "detalhe", "cortes_prontos")} for i in fila.get("itens", [])]
+    itens = [{k: i.get(k) for k in ("url", "titulo", "estado", "detalhe", "cortes_prontos", "tempo_fonte")} for i in fila.get("itens", [])]
     return {"fila": FL.resumir(fila), "itens": itens[:300], "opcoes": fila.get("opcoes"),
             "paralelos_sugeridos": paralelos_sugeridos()}
 
