@@ -4,6 +4,7 @@ Uso: python lote_cortes.py caminho_da_fila.json
 """
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
+import argparse
 import json
 import os
 import subprocess
@@ -71,7 +72,7 @@ def produzir_item(item, fila):
         if corte_pronto(pasta, pick):
             return True, "reaproveitado"
         gancho = candidato.get("gancho_sugerido") or ""
-        opcoes = {"nome": nome, "pick": pick, "layout": fila["layout"], "legenda": fila["legenda"],
+        opcoes = {"nome": nome, "pick": pick, "layout": item.get("layout") or fila["layout"], "legenda": fila["legenda"],
                   "gancho": gancho, "titulo": gancho}
         if fila["rapido"]:
             opcoes["edicao"] = ["pausas", "voz"]
@@ -97,11 +98,18 @@ def produzir_item(item, fila):
         return False, str(e)
 
 
-def produzir(arquivo):
+def produzir(arquivo, indice=None, layout=None):
     fila = CT._ler(arquivo)
     itens = fila["itens"]
     parar = arquivo.with_suffix(".parar")
-    pendentes = iter(i for i in itens if i["estado"] in ("pendente", "renderizando"))
+    if indice is None:
+        selecionados = [i for i in itens if i["estado"] in ("pendente", "renderizando")]
+    else:
+        if not (0 <= indice < len(itens)) or itens[indice]["estado"] != "erro" or layout not in CT.LAYOUTS:
+            raise ValueError("O corte selecionado não está disponível para nova tentativa.")
+        selecionados = [itens[indice]]
+        itens[indice]["layout"] = layout
+    pendentes = iter(selecionados)
     ativos = {}
     inicio = ultimo_checkpoint = time.perf_counter()
     concluidos_desde_checkpoint = 0
@@ -141,6 +149,8 @@ def produzir(arquivo):
                     concluidos_desde_checkpoint = 0
                 estado = resumir_fila(fila)
                 concluidos = estado["prontos"] + estado["erros"]
+                if indice is not None:
+                    concluidos = estado["total"] = 1
                 print(f"({concluidos}/{estado['total']}) {item['nome']} · momento {item['pick']}: {detalhe}", flush=True)
                 iniciar_item(pool)
     medicao["segundos"] = round(time.perf_counter() - inicio, 3)
@@ -149,8 +159,13 @@ def produzir(arquivo):
     estado = resumir_fila(fila)
     print(f"{estado['prontos']} prontos · {estado['erros']} com erro · {estado['pendentes']} pendentes "
           f"({time.perf_counter() - inicio:.1f} s nesta execução)", flush=True)
-    return int(bool(estado["erros"]))
+    return int(itens[indice]["estado"] != "pronto") if indice is not None else int(bool(estado["erros"]))
 
 
 if __name__ == "__main__":
-    sys.exit(produzir(Path(sys.argv[1])))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("arquivo", type=Path)
+    parser.add_argument("--item", type=int)
+    parser.add_argument("--layout", choices=CT.LAYOUTS)
+    args = parser.parse_args()
+    sys.exit(produzir(args.arquivo, args.item, args.layout))

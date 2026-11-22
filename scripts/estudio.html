@@ -374,7 +374,7 @@ async function ir(view, extra = {}) { Object.assign(S, { view }, extra); marcarN
 async function abrirProjeto(nome, aba) { S.projeto = nome; S.view = "projeto"; if (aba) S.aba = aba; marcarNav(); try { await carregarProjeto(); if (S.view === "projeto" && S.projeto === nome) render(); } catch (e) { erroTela(e); } }
 async function carregarProjeto() { const nome = S.projeto, dados = await api("/api/projeto/" + encodeURIComponent(nome)); if (S.projeto !== nome) return; S.dados = dados; S.rot = dados.roteiro ? JSON.parse(JSON.stringify(dados.roteiro)) : null; }
 async function lista() { const j = await api("/api/projetos"); S.trabalho = j.trabalho; return j; }
-const VERSAO_PAGINA = 32;
+const VERSAO_PAGINA = 33;
 function erroTela(e) {
   $("#main").innerHTML = `<div class="aviso-box"><b>Não consegui abrir esta tela.</b><br>${esc(e.message || e)}<br><br>
     Se você acabou de atualizar o Estúdio, feche a janela preta do Estúdio e abra o <b>estudio.bat</b> de novo.</div>`;
@@ -1344,7 +1344,9 @@ async function modalFilaCortes() {
           ${fila.erros ? `<button id="fcerros" ${ocupado ? "disabled" : ""}>Tentar cortes com erro</button>` : ""}`}</div>` : ""}
       ${ritmoFila(fila.medicao)}
       ${falhas.length ? `<details style="margin-bottom:10px"><summary>Ver falhas${fila.erros > falhas.length ? ` (${falhas.length} de ${fila.erros})` : ""}</summary>
-        <ul>${falhas.map(f => `<li>${esc(f.nome)} · momento ${f.pick}: ${esc(f.detalhe)}</li>`).join("")}</ul></details>` : ""}
+        <ul style="max-height:320px;overflow:auto">${falhas.map((f,i) => `<li><b>${esc(f.nome)} · momento ${f.pick}</b><p class="sub">${esc(f.detalhe)}</p>
+          <div class="linha"><label for="fclay-${i}">Formato</label><select id="fclay-${i}">${LAYOUTS.map(([k,t]) => `<option value="${k}" ${k === f.layout ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>
+          <button data-repetir="${i}" ${ocupado ? "disabled" : ""}>Tentar só este corte</button></div></li>`).join("")}</ul></details>` : ""}
       ${fontes.length ? `<div class="grid2"><div><label for="fclayout">Formato dos cortes</label><select id="fclayout">${LAYOUTS.map(([k,t]) => `<option value="${k}" ${k === "facecam" ? "selected" : ""}>${t}</option>`).join("")}</select></div>
         <div><label for="fclegenda">Legenda</label><select id="fclegenda"><option value="word">Palavra por palavra</option><option value="bubble">Frase em balão</option><option value="none">Sem legenda</option></select></div>
         <div><label for="fcparalelos">Cortes em paralelo</label><select id="fcparalelos">${[1, 2, 3, 4].map(n => `<option value="${n}" ${paralelos_sugeridos === n ? "selected" : ""}>${n} corte${n > 1 ? "s" : ""}${n === paralelos_sugeridos ? " (sugerido)" : ""}</option>`).join("")}</select></div>
@@ -1370,6 +1372,10 @@ async function modalFilaCortes() {
   };
   if ($("#fcretomar", md)) $("#fcretomar", md).onclick = () => enviar({ acao: "retomar" });
   if ($("#fcerros", md)) $("#fcerros", md).onclick = () => enviar({ acao: "retomar", repetir_erros: true });
+  md.querySelectorAll("[data-repetir]").forEach(b => b.onclick = () => {
+    const i = Number(b.dataset.repetir), f = falhas[i];
+    enviar({acao:"repetir_item", nome:f.nome, pick:f.pick, trecho:f.trecho, layout:$("#fclay-"+i,md).value});
+  });
   if (!fontes.length) return;
   const botao = $("#fcnova", md), todos = $("#fctodos", md), substituir = $("#fcsubstituir", md);
   const itens = [...md.querySelectorAll("[data-fonte]")];

@@ -32,7 +32,7 @@ import lote_cortes as LC  # fila de produção entre fontes
 import cortes as CT  # noqa: E402  (tela Cortes e lives)
 import atualizar as ATU  # noqa: E402  (atualização automática pelo GitHub)
 
-VERSAO = 32
+VERSAO = 33
 URL_CHECKOUT_LICENCAS = "https://estudio-gta6-checkout.vercel.app/api/licenca"
 URL_CHECKOUT_CONFIG = "https://estudio-gta6-checkout.vercel.app/api/config"
 ARQ_LICENCA = Path(os.getenv("LOCALAPPDATA") or Path.home()) / "Estudio GTA 6" / "licenca.json"
@@ -638,8 +638,8 @@ def arquivo_fila_cortes():
 
 def estado_fila_cortes():
     fila = ler(arquivo_fila_cortes()) or {}
-    falhas = [i for i in fila.get("itens", []) if i["estado"] == "erro"]
-    return {"fila": LC.resumir_fila(fila), "fontes": LC.fontes_disponiveis(), "falhas": falhas[:20],
+    falhas = [dict(i, layout=i.get("layout") or fila.get("layout")) for i in fila.get("itens", []) if i["estado"] == "erro"]
+    return {"fila": LC.resumir_fila(fila), "fontes": LC.fontes_disponiveis(), "falhas": falhas,
             "paralelos_sugeridos": paralelos_sugeridos()}
 
 
@@ -652,6 +652,7 @@ def paralelos_sugeridos():
 def iniciar_fila_cortes(corpo):
     arquivo = arquivo_fila_cortes()
     acao = corpo.get("acao")
+    argumentos = []
     with TRAVA_FILA_CORTES:
         if ocupado():
             raise RuntimeError("aguarde o trabalho atual terminar")
@@ -689,6 +690,16 @@ def iniciar_fila_cortes(corpo):
                 raise ValueError("selecione fontes com 1 a 1.000 cortes pendentes no total")
             fila = {"itens": itens, "layout": layout, "legenda": legenda, "paralelos": paralelos,
                     "rapido": corpo.get("rapido") is True}
+        elif acao == "repetir_item":
+            nome, pick, layout = corpo.get("nome"), corpo.get("pick"), corpo.get("layout")
+            if type(pick) is not int or layout not in CT.LAYOUTS:
+                raise ValueError("Escolha um momento e um formato válidos.")
+            indice = next((n for n, item in enumerate(fila.get("itens", []))
+                           if item["nome"] == nome and item["pick"] == pick and item["estado"] == "erro"
+                           and item["trecho"] == corpo.get("trecho")), None)
+            if indice is None:
+                raise ValueError("O momento ou a fila mudou. Abra a lista de falhas novamente.")
+            argumentos = ["--item", str(indice), "--layout", layout]
         elif acao == "retomar":
             estados = {"pendente", "renderizando"}
             if corpo.get("repetir_erros") is True:
@@ -712,7 +723,7 @@ def iniciar_fila_cortes(corpo):
                 TRABALHO["cancelando"] = True
             return codigo
 
-        iniciar("cortes_escala", lambda: [["lote_cortes.py", str(arquivo)]],
+        iniciar("cortes_escala", lambda: [["lote_cortes.py", str(arquivo), *argumentos]],
                 CT.CORTES / "_fila_cortes_log.txt", depois=concluir)
 
 
