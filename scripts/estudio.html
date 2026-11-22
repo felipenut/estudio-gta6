@@ -374,7 +374,7 @@ async function ir(view, extra = {}) { Object.assign(S, { view }, extra); marcarN
 async function abrirProjeto(nome, aba) { S.projeto = nome; S.view = "projeto"; if (aba) S.aba = aba; marcarNav(); try { await carregarProjeto(); if (S.view === "projeto" && S.projeto === nome) render(); } catch (e) { erroTela(e); } }
 async function carregarProjeto() { const nome = S.projeto, dados = await api("/api/projeto/" + encodeURIComponent(nome)); if (S.projeto !== nome) return; S.dados = dados; S.rot = dados.roteiro ? JSON.parse(JSON.stringify(dados.roteiro)) : null; }
 async function lista() { const j = await api("/api/projetos"); S.trabalho = j.trabalho; return j; }
-const VERSAO_PAGINA = 34;
+const VERSAO_PAGINA = 35;
 function erroTela(e) {
   $("#main").innerHTML = `<div class="aviso-box"><b>Não consegui abrir esta tela.</b><br>${esc(e.message || e)}<br><br>
     Se você acabou de atualizar o Estúdio, feche a janela preta do Estúdio e abra o <b>estudio.bat</b> de novo.</div>`;
@@ -1683,6 +1683,7 @@ async function viewAgendar(m) {
   if (Number.isNaN(+S.calMes)) S.calMes = new Date();
   S.calMes = new Date(S.calMes.getFullYear(), S.calMes.getMonth(), 1); S.calDia = S.calDia || z.inicio_diario.slice(0, 10);
   m.innerHTML = `<h2>Agendar no Zernio</h2><p class="sub">Escolha os vídeos e confira a previsão antes de enviar ao Zernio. O Estúdio reserva até 10 horários por dia entre 08:00 e 21:30 (${esc(z.fuso)}).</p>
+    <section class="cartao"><div class="linha"><h3>Confirmações do dia</h3><label for="zrecdata">Data</label><input type="date" id="zrecdata" style="width:auto"></div><div id="zrecibos" aria-live="polite"></div></section>
     <div class="cartao"><b>1. Chave da API</b> <span class="sub" style="margin:0">(zernio.com → Dashboard → API Keys). Fica salva só no seu PC.</span>
       <div class="linha" style="margin-top:8px"><input id="zkey" type="password" placeholder="${z.configurado ? "chave salva (cole outra para trocar)" : "cole a chave aqui"}" style="flex:1">
       <button id="zsalvar">Salvar e carregar contas</button></div>
@@ -1700,6 +1701,27 @@ async function viewAgendar(m) {
       <td><span class="pill ${a.status === "published" ? "ok" : /fail|partial/.test(a.status || "") ? "erro" : "rodando"}">${esc({ scheduled: "agendado", published: "publicado", failed: "falhou", draft: "rascunho", partial: "parcial" }[a.status] || a.status || "?")}</span></td>
       <td class="sub" style="margin:0;font-size:12px">${esc((a.plataformas || a.contas || []).join(" · "))}${a.conferido_em ? `<br>conferido ${esc(fmt(a.conferido_em))}` : " · não conferido"}</td>
       <td style="width:90px"><button class="mini" data-cancel="${esc(a.nome)}" data-tit="${esc(a.titulo)}" ${oc ? "disabled" : ""}>Cancelar</button></td></tr>`).join("")}</table></details>` : `<p class="sub">Nenhum ainda.</p>`}</div>`;
+  const dataRecibo = $("#zrecdata", m);
+  dataRecibo.value = S.dataRecibo || new Intl.DateTimeFormat("sv-SE", {timeZone:z.fuso}).format(new Date());
+  function mostrarRecibos() {
+    S.dataRecibo = dataRecibo.value;
+    const estados = {scheduled:"Agendado", published:"Publicado", pending:"Pendente", partial:"Parcial", failed:"Falhou", draft:"Rascunho", nao_confirmado:"Sem confirmação", ausente:"Não encontrado"};
+    const linhas = [...z.agendados,...z.pendencias].filter(a=>a.horario?.slice(0,10) === dataRecibo.value).sort((a,b)=>a.horario.localeCompare(b.horario));
+    let confirmados = 0;
+    const linhasHtml = linhas.map(a=>{
+      const destinos = a.destinos || [];
+      const alerta = a.falha_consulta || !a.post_id || !["scheduled","published"].includes(a.status) || destinos.some(d=>d.erro || ["failed","partial","error"].includes(d.status)) || (a.plataformas || []).some(p=>/=failed|=error/i.test(p));
+      if (!alerta) confirmados++;
+      const detalhes = destinos.map(d=>[d.plataforma,d.usuario].filter(Boolean).join(" · ")+" — "+(d.erro ? "Erro" : estados[d.status] || d.status || "Sem retorno da conta"));
+      return `<tr><td>${esc(a.horario.slice(11,16))}<br><small>${esc(a.fuso || z.fuso)}</small></td><td>${esc(a.titulo)}<br><small>${esc((a.contas || []).join(" · "))}</small></td>
+        <td><b>${esc(estados[a.status] || a.status || "Sem retorno")}</b>${alerta ? " · conferir" : ""}
+        ${detalhes.length ? "<br>"+detalhes.map(esc).join("<br>") : ""}
+        ${a.falha_consulta ? "<br>Última consulta falhou." : a.motivo ? "<br>"+esc(a.motivo) : ""}
+        ${a.conferido_em ? "<br><small>Consultado em "+esc(fmt(a.conferido_em))+"</small>" : ""}</td></tr>`;
+    }).join("");
+    $("#zrecibos",m).innerHTML = linhas.length ? `<p>${confirmados} com agendamento ou publicação confirmados · ${linhas.length-confirmados} para conferir</p><table><tr><th>Horário</th><th>Vídeo e contas</th><th>Retorno do Zernio</th></tr>${linhasHtml}</table>` : "<p class='sub'>Nenhum envio registrado para esta data.</p>";
+  }
+  dataRecibo.onchange = mostrarRecibos; mostrarRecibos();
   m.querySelectorAll("[data-cancel]").forEach(b => b.onclick = () => cancelarAgendamento(b.dataset.cancel, b.dataset.tit, async () => { await lista(); render(); }));
   $("#zconf").onclick = async () => { try { const j = await api("/api/zernio/conferir", {}); S.trabalho = j.trabalho; toast("Conferindo no Zernio…"); if (!$("#gaveta").classList.contains("aberta")) gaveta(); } catch (e) { toast(e.message); } };
   const pintarContas = (lista, escolhidas) => {

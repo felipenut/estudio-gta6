@@ -170,6 +170,48 @@ def planejar_diario(quantidade, inicio, existentes):
     return horarios
 
 
+def horario_confirmado(post, fuso, reserva):
+    valor = post.get("scheduledFor")
+    if not isinstance(valor, str):
+        return reserva
+    try:
+        data = datetime.datetime.fromisoformat(valor.replace("Z", "+00:00"))
+        if data.tzinfo:
+            try:
+                zona = ZoneInfo(fuso)
+            except ZoneInfoNotFoundError:
+                if fuso not in ("America/Bahia", "America/Sao_Paulo"):
+                    return reserva
+                zona = datetime.timezone(datetime.timedelta(hours=-3))
+            data = data.astimezone(zona)
+        return data.strftime("%Y-%m-%dT%H:%M")
+    except (ValueError, TypeError):
+        return reserva
+
+
+def destinos_post(post, contas):
+    destinos = []
+    for pl in post.get("platforms") or []:
+        if not isinstance(pl, dict):
+            continue
+        conta = pl.get("accountId")
+        identificador = conta.get("_id") if isinstance(conta, dict) else conta
+        nome = conta.get("username") if isinstance(conta, dict) else ""
+        nome = nome or next((c.get("usuario") for c in contas if identificador and c.get("id") == identificador), "")
+        destinos.append({"plataforma": pl.get("platform") or "", "usuario": nome or "",
+                         "status": pl.get("status") or "", "erro": bool(pl.get("errorMessage") or pl.get("error"))})
+    return destinos
+
+
+def registrar_pendencia(p, quando, cfg, motivo):
+    arquivo = p / "out" / "zernio_pendencia.json"
+    arquivo.parent.mkdir(exist_ok=True)
+    dados = {"horario": quando.isoformat(timespec="minutes"), "fuso": cfg.get("fuso", FUSO),
+             "contas": [f"{c['plataforma']}:{c.get('usuario', '')}" for c in cfg["contas"]],
+             "status": "nao_confirmado", "motivo": motivo}
+    arquivo.write_text(json.dumps(dados, ensure_ascii=False), encoding="utf-8")
+
+
 def agendar(projetos, inicio, intervalo_h, horarios=None):
     cfg = config()
     if not cfg["contas"]:
@@ -187,8 +229,10 @@ def agendar(projetos, inicio, intervalo_h, horarios=None):
             print(f"pulando {nome}: já agendado"); continue
         v = video_final(p)
         if not v:
+            registrar_pendencia(p, quando, cfg, "Projeto sem vídeo pronto.")
             print(f"ERRO {nome}: sem vídeo pronto"); erros += 1; continue
         if horarios is not None and quando < agora_no_fuso(cfg["fuso"]) + datetime.timedelta(minutes=1):
+            registrar_pendencia(p, quando, cfg, "O horário escolhido passou antes do envio.")
             print(f"ERRO {nome}: o horário do lote passou durante o envio. Escolha uma nova data.", flush=True)
             erros += 1
             continue
@@ -205,10 +249,12 @@ def agendar(projetos, inicio, intervalo_h, horarios=None):
             if not post.get("_id"):
                 raise ErroZernio("o Zernio não confirmou o agendamento; confira no painel antes de reenviar")
             reg.write_text(json.dumps({"post_id": post.get("_id"), "status": post.get("status"),
-                                       "horario": quando.strftime("%Y-%m-%dT%H:%M"), "fuso": cfg.get("fuso", FUSO),
+                                       "horario": horario_confirmado(post, cfg.get("fuso", FUSO), quando.strftime("%Y-%m-%dT%H:%M")), "fuso": cfg.get("fuso", FUSO),
                                        "contas": [f"{c['plataforma']}:{c['usuario']}" for c in cfg["contas"]],
+                                       "destinos": destinos_post(post, cfg["contas"]),
                                        "enviado_em": datetime.datetime.now().isoformat(timespec="seconds")},
                                       ensure_ascii=False, indent=1), encoding="utf-8")
+            (p / "out" / "zernio_pendencia.json").unlink(missing_ok=True)
             if post.get("status") not in ("scheduled", "published"):
                 (p / "status.txt").write_text("ATENÇÃO: conferir envio no Zernio", encoding="utf-8")
                 raise ErroZernio(f"post {post['_id']} recebido sem confirmação de agendamento; confira no Zernio")
@@ -216,8 +262,15 @@ def agendar(projetos, inicio, intervalo_h, horarios=None):
             print(f"   ok: post {post.get('_id')} ({post.get('status')})", flush=True)
             quando += datetime.timedelta(hours=intervalo_h)
         except ErroZernio as e:
+            if not reg.exists():
+                registrar_pendencia(p, quando, cfg, "Envio sem confirmação. Confira no painel do Zernio antes de tentar novamente.")
             print(f"ERRO {nome}: {e}", flush=True); erros += 1
             if "recusada" in str(e):
+                for n, restante in enumerate(projetos[i:], i):
+                    pasta = VIDEOS / restante
+                    if not (pasta / "out" / "zernio.json").exists():
+                        previsto = horarios[n] if horarios is not None else quando + datetime.timedelta(hours=(n-i+1)*intervalo_h)
+                        registrar_pendencia(pasta, previsto, cfg, "Envio não iniciado. Confira a chave do Zernio.")
                 break
     return erros
 
@@ -237,6 +290,8 @@ def cancelar(nome):
     reg["cancelado_em"] = datetime.datetime.now().isoformat(timespec="seconds")
     (p / "out" / "zernio_cancelado.json").write_text(json.dumps(reg, ensure_ascii=False, indent=1), encoding="utf-8")
     reg_p.unlink()
+    (p / "out" / "zernio_falhou.json").unlink(missing_ok=True)
+    (p / "out" / "zernio_pendencia.json").unlink(missing_ok=True)
     (p / "status.txt").write_text("PRONTO (agendamento cancelado)", encoding="utf-8")
     return reg
 
@@ -245,6 +300,7 @@ def conferir():
     """Consulta cada post agendado e atualiza out/zernio.json e o status do projeto.
     Post apagado no Zernio (404) -> desmarca, para poder agendar de novo."""
     probs = 0
+    contas = config().get("contas", [])
     for p in sorted(VIDEOS.iterdir()):
         reg_p = p / "out" / "zernio.json"
         if not reg_p.is_file():
@@ -255,10 +311,14 @@ def conferir():
             j = _req("GET", f"/posts/{pid}")
         except ErroZernio as e:
             if "HTTP 404" in str(e):
+                reg.update(status="ausente", motivo="Publicação não encontrada no Zernio.")
+                (p / "out" / "zernio_pendencia.json").write_text(json.dumps(reg, ensure_ascii=False), encoding="utf-8")
                 reg_p.unlink()
                 (p / "status.txt").write_text("PRONTO (agendamento sumiu do Zernio)", encoding="utf-8")
                 print(f"NÃO EXISTE MAIS  {p.name}  (post {pid}): desmarcado, pode agendar de novo"); probs += 1
                 continue
+            reg["falha_consulta"] = True
+            reg_p.write_text(json.dumps(reg, ensure_ascii=False), encoding="utf-8")
             print(f"ERRO ao consultar {p.name}: {e}"); probs += 1
             continue
         post = j.get("post", j)
@@ -268,7 +328,9 @@ def conferir():
         for pl in plats:
             msg = pl.get("errorMessage") or pl.get("error") or ""
             det.append(f"{pl.get('platform')}={pl.get('status')}" + (f" ({msg})" if msg else ""))
-        reg.update(status=st, plataformas=det, conferido_em=datetime.datetime.now().isoformat(timespec="seconds"))
+        reg["horario"] = horario_confirmado(post, reg.get("fuso") or FUSO, reg.get("horario", ""))
+        reg.pop("falha_consulta", None)
+        reg.update(status=st, destinos=destinos_post(post, contas), plataformas=det, conferido_em=datetime.datetime.now().isoformat(timespec="seconds"))
         reg_p.write_text(json.dumps(reg, ensure_ascii=False, indent=1), encoding="utf-8")
         h = reg.get("horario", "")[5:16].replace("T", " ")
         falhou = st in ("failed", "partial") or any("failed" in d or "error" in d for d in det)

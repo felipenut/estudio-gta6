@@ -32,7 +32,7 @@ import lote_cortes as LC  # fila de produção entre fontes
 import cortes as CT  # noqa: E402  (tela Cortes e lives)
 import atualizar as ATU  # noqa: E402  (atualização automática pelo GitHub)
 
-VERSAO = 34
+VERSAO = 35
 URL_CHECKOUT_LICENCAS = "https://estudio-gta6-checkout.vercel.app/api/licenca"
 URL_CHECKOUT_CONFIG = "https://estudio-gta6-checkout.vercel.app/api/config"
 ARQ_LICENCA = Path(os.getenv("LOCALAPPDATA") or Path.home()) / "Estudio GTA 6" / "licenca.json"
@@ -1016,7 +1016,7 @@ def sugestao_inicio_zernio(intervalo, agendados=None):
 
 def zernio_estado():
     z = _zernio(); c = z.config()
-    prontos, agendados = [], []
+    prontos, agendados, pendencias = [], [], []
     for d in sorted(VIDEOS.iterdir()) if VIDEOS.exists() else []:
         if not d.is_dir() or d.name.startswith((".", "_")) or not (d / "roteiro.json").exists():
             continue
@@ -1025,12 +1025,16 @@ def zernio_estado():
         titulo = rot.get("titulo", d.name)
         if reg:
             agendados.append({"nome": d.name, "titulo": titulo, **reg})
-        elif video_final(d) and not (d / "postado.txt").exists():
+        else:
+            pendencia = ler(d / "out" / "zernio_pendencia.json") or ler(d / "out" / "zernio_falhou.json")
+            if pendencia:
+                pendencias.append({"nome": d.name, "titulo": titulo, **pendencia})
+        if not reg and video_final(d) and not (d / "postado.txt").exists():
             prontos.append({"nome": d.name, "titulo": titulo, "aprovado": aprovado(d), "checagem": checagem_projeto(d),
                             "tipo": rot.get("tipo") or "narrado"})
     return {"configurado": bool(c["api_key"]),
             "contas": c["contas"], "intervalo_h": c["intervalo_h"], "fuso": c["fuso"],
-            "prontos": prontos, "agendados": sorted(agendados, key=lambda a: a.get("horario", "")),
+            "pendencias": pendencias, "prontos": prontos, "agendados": sorted(agendados, key=lambda a: a.get("horario", "")),
             "sugestao_inicio": sugestao_inicio_zernio(c["intervalo_h"], agendados),
             "inicio_diario": plano_diario(1)[0]}
 
