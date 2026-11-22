@@ -374,7 +374,7 @@ async function ir(view, extra = {}) { Object.assign(S, { view }, extra); marcarN
 async function abrirProjeto(nome, aba) { S.projeto = nome; S.view = "projeto"; if (aba) S.aba = aba; marcarNav(); try { await carregarProjeto(); if (S.view === "projeto" && S.projeto === nome) render(); } catch (e) { erroTela(e); } }
 async function carregarProjeto() { const nome = S.projeto, dados = await api("/api/projeto/" + encodeURIComponent(nome)); if (S.projeto !== nome) return; S.dados = dados; S.rot = dados.roteiro ? JSON.parse(JSON.stringify(dados.roteiro)) : null; }
 async function lista() { const j = await api("/api/projetos"); S.trabalho = j.trabalho; return j; }
-const VERSAO_PAGINA = 33;
+const VERSAO_PAGINA = 34;
 function erroTela(e) {
   $("#main").innerHTML = `<div class="aviso-box"><b>Não consegui abrir esta tela.</b><br>${esc(e.message || e)}<br><br>
     Se você acabou de atualizar o Estúdio, feche a janela preta do Estúdio e abra o <b>estudio.bat</b> de novo.</div>`;
@@ -1623,7 +1623,7 @@ async function viewBiblioteca(m) {
         <button id="bindex" ${oc ? "disabled" : ""}>Reindexar pasta</button></div>
 </div></div>
     <table><tr><th>Vídeo</th><th>Cenas</th><th>Sem etiqueta</th><th>Ruins</th></tr>${b.videos.map(v => `<tr class="click" data-v="${esc(v.id)}"><td>${esc(v.id)}</td><td>${v.cenas}</td><td>${v.pendentes}</td><td>${v.ruins}</td></tr>`).join("")}</table>
-    <h3>Cenas</h3><div class="linha" style="margin-bottom:10px"><select id="bfiltro" style="width:170px">${[["pendentes", "Sem etiqueta"], ["todas", "Todas"], ["boas", "Boas"], ["ruins", "Ruins"]].map(([k, n]) => `<option value="${k}" ${F.filtro === k ? "selected" : ""}>${n}</option>`).join("")}</select>
+    <h3>Cenas</h3><p class="sub" id="brevisao">${b.revisao.total ? `Personagens: ${b.revisao.acordo} de ${b.revisao.total} cenas conferidas coincidem com a identificação anterior.` : "Use o filtro Revisar personagens para conferir as identificações."}</p><div class="linha" style="margin-bottom:10px"><select id="bfiltro" style="width:170px">${[["pendentes", "Sem etiqueta"], ["todas", "Todas"], ["boas", "Boas"], ["ruins", "Ruins"], ["revisar","Revisar personagens"], ["conferidas","Já conferidas"]].map(([k, n]) => `<option value="${k}" ${F.filtro === k ? "selected" : ""}>${n}</option>`).join("")}</select>
       <select id="bvideo" style="width:260px"><option value="">Todos os vídeos</option>${b.videos.map(v => `<option ${F.video === v.id ? "selected" : ""}>${esc(v.id)}</option>`).join("")}</select>
       <input id="bq" placeholder="buscar por tags/descrição" value="${esc(F.q)}" style="flex:1;min-width:200px"></div><div class="bgrid" id="bgrid">carregando…</div>`;
   $("#bbaixar").onclick = () => bibAcao("baixar", { url: $("#burl").value, trecho: $("#btrecho").value });
@@ -1640,13 +1640,17 @@ async function cenasBib() {
   $("#bgrid").innerHTML = j.cenas.map(c => { const ruim = c.tags.includes("ruim");
     return `<div class="bcard ${ruim ? "ruim" : ""} ${c.tags.length ? "" : "pend"}" data-id="${esc(c.id)}"><img src="${c.thumb}" loading="lazy"><div class="c">
       <div class="id"><span>${esc(c.id.replace("GTA6_", ""))}</span><span>${(+c.inicio).toFixed(1)}–${(+c.fim).toFixed(1)}s</span></div>
+      ${ruim ? "" : `<label>Personagens · ${c.personagens == null ? "a conferir" : "conferidos"}
+        <select data-k="personagens"><option value="" disabled ${c.personagens == null ? "selected" : ""}>Conferir · ${esc(c.sugestao.join(" e ") || "sem indicação")}</option>
+        ${[["jason","Jason"],["lucia","Lucia"],["jason,lucia","Jason e Lucia"],["nenhum","Nenhum dos dois"]].map(([k,t])=>`<option value="${k}" ${c.personagens != null && (c.personagens.join(",") || "nenhum") === k ? "selected" : ""}>${t}</option>`).join("")}</select></label>`}
       <input data-k="descricao" value="${esc(c.descricao)}" placeholder="descrição curta">
       <input data-k="tags" value="${esc(ruim ? "" : c.tags.join(", "))}" placeholder="tags, separadas, por vírgula">
       <label class="linha" style="margin:0;color:var(--texto);font-size:12px"><input type="checkbox" data-k="ruim" ${ruim ? "checked" : ""}> não usar (ruim)</label></div></div>`; }).join("") || `<div class="vazio">Nenhuma cena neste filtro.</div>`;
   document.querySelectorAll(".bcard").forEach(el => el.querySelectorAll("[data-k]").forEach(inp => inp.onchange = async () => {
     const k = inp.dataset.k, corpo = { id: el.dataset.id };
+    if (k === "personagens") corpo.personagens = inp.value === "nenhum" ? [] : inp.value.split(",");
     if (k === "descricao") corpo.descricao = inp.value; if (k === "tags") corpo.tags = inp.value.split(","); if (k === "ruim") corpo.ruim = inp.checked;
-    try { await api("/api/marcar", corpo); el.classList.toggle("ruim", k === "ruim" && inp.checked); el.classList.remove("pend"); toast("Cena salva"); } catch (e) { toast(e.message); } }));
+    try { await api("/api/marcar", corpo); if (k === "personagens") { toast("Personagens salvos"); render(); return; } el.classList.toggle("ruim", k === "ruim" && inp.checked); el.classList.remove("pend"); toast("Cena salva"); } catch (e) { toast(e.message); } }));
 }
 
 /* ---------- TEMAS ---------- */

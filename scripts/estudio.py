@@ -32,7 +32,7 @@ import lote_cortes as LC  # fila de produção entre fontes
 import cortes as CT  # noqa: E402  (tela Cortes e lives)
 import atualizar as ATU  # noqa: E402  (atualização automática pelo GitHub)
 
-VERSAO = 33
+VERSAO = 34
 URL_CHECKOUT_LICENCAS = "https://estudio-gta6-checkout.vercel.app/api/licenca"
 URL_CHECKOUT_CONFIG = "https://estudio-gta6-checkout.vercel.app/api/config"
 ARQ_LICENCA = Path(os.getenv("LOCALAPPDATA") or Path.home()) / "Estudio GTA 6" / "licenca.json"
@@ -1562,16 +1562,18 @@ def biblioteca_resumo():
     uso = B.uso_recente(LIB, 10)
     boas = [c["id"] for v in lib["videos"] for c in v["cenas"] if c["tags"] and "ruim" not in c["tags"]]
     usadas = sum(1 for c in boas if uso.get(c))
-    return {"videos": vids, "status": status_de(BIB), "trabalho": TRABALHO,
+    revisadas = [c for v in lib["videos"] for c in v["cenas"] if "personagens_conferidos" in c]
+    acordo = sum(c["personagens_conferidos"] == c.get("personagens_sugeridos") for c in revisadas)
+    return {"revisao": {"total": len(revisadas), "acordo": acordo}, "videos": vids, "status": status_de(BIB), "trabalho": TRABALHO,
             "variedade": {"boas": len(boas), "usadas_recentes": usadas, "livres": len(boas) - usadas}}
 
 
 def biblioteca_cenas(video=None, filtro="todas", q="", limite=300):
     lib = ler(LIB, {"videos": []})
     termos = [t for t in re.split(r"\s+", q.lower().strip()) if t]
+    import biblioteca as B
     res = []
-    if termos:
-        import biblioteca as B
+    if termos and filtro not in ("revisar", "conferidas"):
         for _, _, _, c in B.buscar(LIB, q, limite):
             res.append(c)
     else:
@@ -1579,6 +1581,11 @@ def biblioteca_cenas(video=None, filtro="todas", q="", limite=300):
             if video and v["id"] != video:
                 continue
             for c in v["cenas"]:
+                if filtro in ("revisar", "conferidas"):
+                    if ("personagens_conferidos" in c) != (filtro == "conferidas") or "ruim" in c["tags"]:
+                        continue
+                    if termos and not B.pontuar(c, [B.normalizar(t) for t in termos]):
+                        continue
                 if filtro == "pendentes" and c["tags"]:
                     continue
                 if filtro == "ruins" and "ruim" not in c["tags"]:
@@ -1587,10 +1594,15 @@ def biblioteca_cenas(video=None, filtro="todas", q="", limite=300):
                     continue
                 res.append(c)
     return [{"id": c["id"], "inicio": c["inicio"], "fim": c["fim"], "descricao": c["descricao"], "tags": c["tags"],
+             "personagens": c.get("personagens_conferidos"), "sugestao": c.get("personagens_sugeridos", B.nomes_na_cena(c)),
              "thumb": "/bib/" + c["thumb"]} for c in res[:limite]]
 
 
-def marcar_cena(cid, descricao=None, tags=None, ruim=None):
+def marcar_cena(cid, descricao=None, tags=None, ruim=None, personagens=None):
+    import biblioteca as B
+    if personagens is not None and (not isinstance(personagens, list) or
+            any(not isinstance(p, str) or p not in B.PERSONAGENS for p in personagens)):
+        raise ValueError("Escolha os personagens da lista.")
     lib = ler(LIB)
     for v in lib["videos"]:
         for c in v["cenas"]:
@@ -1603,6 +1615,10 @@ def marcar_cena(cid, descricao=None, tags=None, ruim=None):
                     c["tags"] = ["ruim"]
                 elif ruim is False and c["tags"] == ["ruim"]:
                     c["tags"] = []
+                if personagens is not None:
+                    c.setdefault("personagens_sugeridos", B.nomes_na_cena(c))
+                    c["personagens_conferidos"] = sorted(set(personagens))
+                B.aplicar_revisao(c)
                 gravar(LIB, lib)
                 return c
     raise FileNotFoundError(cid)
@@ -2014,7 +2030,7 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"ok": True, "trabalho": TRABALHO})
             if u == "/api/marcar":
                 return self._json({"ok": True, "cena": marcar_cena(corpo["id"], corpo.get("descricao"),
-                                                                    corpo.get("tags"), corpo.get("ruim"))})
+                                                                    corpo.get("tags"), corpo.get("ruim"), corpo.get("personagens"))})
             return self._json({"erro": "rota desconhecida"}, 404)
         except FileNotFoundError:
             return self._json({"erro": "projeto/cena não encontrado"}, 404)

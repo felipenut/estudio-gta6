@@ -9,6 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from comum import ler_json, salvar_json
 import ia
+from biblioteca import aplicar_revisao
 
 VOCAB = ("personagens: jason, lucia, npc, policia, gangue | lugares: vice city, leonida, praia, keys, pantano, estrada, "
          "cidade, balada, academia, loja, mapa, aeroporto, porto | ação: carro, perseguicao, assalto, tiro, explosao, "
@@ -64,6 +65,7 @@ def main():
             else:
                 c["descricao"] = str(r.get("descricao", ""))[:120]
                 c["tags"] = [str(t).lower().strip() for t in r.get("tags", []) if str(t).strip()][:8] or ["gameplay"]
+            aplicar_revisao(c)
             feitas += 1
         salvar_json(lib_path, lib)
         print(f"  {min(i + a.lote, len(fila))}/{len(fila)}  ex.: {lote[0]['id']} -> {str(lote[0].get('descricao') or '')[:60]}", flush=True)
