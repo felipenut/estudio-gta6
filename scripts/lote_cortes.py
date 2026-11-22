@@ -64,12 +64,12 @@ def produzir_item(item, fila):
     nome, pick = item["nome"], item["pick"]
     try:
         pasta = CT.trabalho_dir(nome)
-        if corte_pronto(pasta, pick):
-            return True, "reaproveitado"
         candidatos = (CT._ler(pasta / "candidates.json") or {}).get("candidates", [])
         candidato = next((c for c in candidatos if c["n"] == pick), None)
         if candidato is None or [candidato["start"], candidato["end"]] != item["trecho"]:
             return False, "o momento mudou desde que entrou na fila; crie uma nova fila com esse trecho"
+        if corte_pronto(pasta, pick):
+            return True, "reaproveitado"
         gancho = candidato.get("gancho_sugerido") or ""
         opcoes = {"nome": nome, "pick": pick, "layout": fila["layout"], "legenda": fila["legenda"],
                   "gancho": gancho, "titulo": gancho}

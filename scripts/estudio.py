@@ -32,7 +32,7 @@ import lote_cortes as LC  # fila de produção entre fontes
 import cortes as CT  # noqa: E402  (tela Cortes e lives)
 import atualizar as ATU  # noqa: E402  (atualização automática pelo GitHub)
 
-VERSAO = 29
+VERSAO = 30
 URL_CHECKOUT_LICENCAS = "https://estudio-gta6-checkout.vercel.app/api/licenca"
 URL_CHECKOUT_CONFIG = "https://estudio-gta6-checkout.vercel.app/api/config"
 ARQ_LICENCA = Path(os.getenv("LOCALAPPDATA") or Path.home()) / "Estudio GTA 6" / "licenca.json"
@@ -594,7 +594,7 @@ def iniciar_lote_cortes(corpo):
             try:
                 mp4 = pasta / "edits" / f"clip_{pick}.mp4"
                 meta = ler(mp4.with_suffix(".json")) or {}
-                if not (mp4.is_file() and meta):
+                if not LC.corte_pronto(pasta, pick):
                     cod, _ = _executar(etapas, log, None, f"CORTE {i + 1}/{len(fila)} · momento {pick}",
                                        base=i / len(fila), span=1 / len(fila))
                     if cod:

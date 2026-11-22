@@ -374,7 +374,7 @@ async function ir(view, extra = {}) { Object.assign(S, { view }, extra); marcarN
 async function abrirProjeto(nome, aba) { S.projeto = nome; S.view = "projeto"; if (aba) S.aba = aba; marcarNav(); try { await carregarProjeto(); if (S.view === "projeto" && S.projeto === nome) render(); } catch (e) { erroTela(e); } }
 async function carregarProjeto() { const nome = S.projeto, dados = await api("/api/projeto/" + encodeURIComponent(nome)); if (S.projeto !== nome) return; S.dados = dados; S.rot = dados.roteiro ? JSON.parse(JSON.stringify(dados.roteiro)) : null; }
 async function lista() { const j = await api("/api/projetos"); S.trabalho = j.trabalho; return j; }
-const VERSAO_PAGINA = 29;
+const VERSAO_PAGINA = 30;
 function erroTela(e) {
   $("#main").innerHTML = `<div class="aviso-box"><b>Não consegui abrir esta tela.</b><br>${esc(e.message || e)}<br><br>
     Se você acabou de atualizar o Estúdio, feche a janela preta do Estúdio e abra o <b>estudio.bat</b> de novo.</div>`;
@@ -482,7 +482,8 @@ async function botaoLote() {
       iniciar.disabled = quantidade === 0;
       iniciar.textContent = `Produzir ${quantidade} vídeo(s)`;
     };
-    todos.onchange = () => { itens.forEach(i => { i.checked = todos.checked; }); contar(); };
+    $("#clnovos",md).onclick = () => { itens.forEach(i => i.checked = !prontos.has(+i.dataset.clpick)); contar(); };
+  todos.onchange = () => { itens.forEach(i => { i.checked = todos.checked; }); contar(); };
     itens.forEach(i => { i.onchange = contar; });
     contar();
     iniciar.onclick = async () => {
@@ -1378,11 +1379,12 @@ async function modalFilaCortes() {
 }
 
 function modalLoteCortes(d) {
+  const prontos = new Set(d.clipes.filter(c => c.arquivo).map(c => c.n));
   const md = abrirModal(`<div class="cab"><b style="flex:1">Produzir cortes em lote</b><button id="clfechar">Fechar</button></div>
     <div class="corpo"><div class="grid2"><div><label for="cllayout">Formato dos cortes novos</label><select id="cllayout">${LAYOUTS.map(([k, t]) => `<option value="${k}" ${k === "facecam" ? "selected" : ""}>${t}</option>`).join("")}</select></div>
       <div><label for="cllegenda">Legenda</label><select id="cllegenda"><option value="word">Palavra por palavra</option><option value="bubble">Frase em balão</option><option value="none">Sem legenda</option></select></div></div>
-      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="cltodos"> Selecionar todos os momentos</label>
-      <div style="max-height:260px;overflow:auto">${d.momentos.map(c => `<label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" data-clpick="${c.n}"> #${c.n} · ${fmtT(c.start)}–${fmtT(c.end)} ${esc(c.gancho_sugerido || "")}</label>`).join("")}</div>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="cltodos"> Selecionar todos os momentos</label><button class="mini" id="clnovos">Selecionar só os novos</button>
+      <div style="max-height:260px;overflow:auto">${d.momentos.map(c => `<label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" data-clpick="${c.n}"> ${prontos.has(c.n) ? "Pronto" : "Novo"} · #${c.n} · ${fmtT(c.start)}–${fmtT(c.end)} ${esc(c.gancho_sugerido || "")}</label>`).join("")}</div>
       <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="clprojetos"> Preparar projetos para agendar depois</label>
       <p class="sub">Os cortes já prontos são reaproveitados. Para publicar, use apenas trechos de criadores que permitem cortes e mantenha o crédito.</p>
       <div class="linha"><span style="flex:1"></span><button id="clok" class="prim" disabled>Produzir lote</button></div></div>`, 640);
@@ -1390,7 +1392,8 @@ function modalLoteCortes(d) {
   const contar = () => {
     const n = itens.filter(i => i.checked).length;
     botao.disabled = n === 0;
-    botao.textContent = `Produzir ${n} corte(s)`;
+    const novos = itens.filter(i => i.checked && !prontos.has(+i.dataset.clpick)).length;
+    botao.textContent = n ? `Continuar · ${novos} para gerar · ${n-novos} para reaproveitar` : "Produzir lote";
     todos.checked = n === itens.length;
     todos.indeterminate = n > 0 && !todos.checked;
   };
@@ -1424,7 +1427,8 @@ function modalCortar(d, c, antigo, projetoAtualizar = null) {
     <div class="corpo"><label style="margin-top:0">Formato</label>
       <div class="lays">${LAYOUTS.map(([k, t, dsc]) => `<label class="lay ${k === lay0 ? "on" : ""}"><input type="radio" name="klay" value="${k}" ${k === lay0 ? "checked" : ""}><b>${t}</b><span>${dsc}</span></label>`).join("")}</div>
       <div id="kenquad"><label><input id="kmanual" type="checkbox" ${d.enquadramento || (ant.layout === "facecam" && caixaAnterior.length === 4) ? "checked" : ""}> Ajustar enquadramento</label>
-      <div id="kcontroles"><p class="sub">Ao cortar, o Estúdio salva estas posições para os próximos cortes deste canal.</p>
+      <label><input type="checkbox" id="kpadrao" ${antigo ? "" : "checked"}> Usar este enquadramento nos próximos cortes ${d.canal ? "do canal" : "deste vídeo"}</label>
+      <div id="kcontroles">
       ${camposQuadro.map(([k,t]) => `<label for="quadro-${k}">${t}</label><input id="quadro-${k}" type="range" min="${["altura","largura"].includes(k)?5:0}" max="100" value="${Number(quadro[k])}">`).join("")}</div></div>
       <div id="kgancho"><label>Gancho (aparece nos primeiros 4 segundos)</label><input id="kg" maxlength="90" value="${esc(ant.gancho || sugerido)}" placeholder="Ex.: Ninguém viu esse carro escondido"></div>
       <div id="ktitulo"><label>Título (aparece nos primeiros 4 segundos)</label><input id="kt" maxlength="110" value="${esc(ant.titulo || sugerido)}" placeholder="Ex.: Speed FICOU CHOCADO com a polícia do GTA 6"></div>
@@ -1509,6 +1513,7 @@ function modalCortar(d, c, antigo, projetoAtualizar = null) {
       legenda: $("#kl", md).value, inicio, fim, palavroes: $("#kp", md).checked,
       texto_y: +$("#ky", md).value, texto_tamanho: +$("#ktam", md).value, texto_cor: $("#kcor", md).value, projeto_atualizar: projetoAtualizar,
       pergunta: $("#kq", md).value, edicao: [...md.querySelectorAll("[data-ed]:checked")].map(x => x.dataset.ed) };
+    corpo.salvar_padrao = $("#kpadrao",md).checked;
     if (lay() === "facecam") corpo.enquadramento = $("#kmanual",md).checked ? Object.fromEntries(camposQuadro.map(([k]) => [k,+$("#quadro-"+k,md).value])) : null;
     if (Number.isFinite(v.duration) && corpo.fim > v.duration + 0.05) return toast("O fim do corte ultrapassa o vídeo original");
     if (corpo.fim - corpo.inicio < 3) return toast("Trecho curto demais");

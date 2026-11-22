@@ -321,7 +321,7 @@ def etapas_cortar(corpo):
     cor = corpo.get("texto_cor") if corpo.get("texto_cor") in ("rosa", "laranja", "roxo", "escuro") else "rosa"
     e += ["--texto-cor", cor]
     e += ["--title-style", corpo.get("estilo_titulo") if corpo.get("estilo_titulo") in ("box", "outline") else "box"]
-    if corpo.get("projeto_atualizar") and layout in ("react", "facecam"):
+    if corpo.get("projeto_atualizar") and layout in ("react", "facecam") and "enquadramento" not in corpo:
         anterior = _ler(d / "edits" / f"clip_{pick}.json", {}) or {}
         render = anterior.get("render") or {}
         cam = str(render.get("cam") or "")
@@ -356,9 +356,9 @@ def etapas_cortar(corpo):
                 raise ValueError("Confira o enquadramento da câmera e do jogo.")
             cam_manual = (x / 100 * (1 - largura / 100), y / 100 * (1 - altura / 100), largura / 100, altura / 100)
             e += ["--cam", ":".join(f"{v:.6f}" for v in cam_manual), "--posicao-jogo", str(jogo)]
-            if "enquadramento" in corpo:
+            if "enquadramento" in corpo and corpo.get("salvar_padrao", True):
                 _gravar(arquivo, dict(zip(("x", "y", "largura", "altura", "jogo"), valores)))
-        elif "enquadramento" in corpo:
+        elif "enquadramento" in corpo and corpo.get("salvar_padrao", True):
             arquivo.unlink(missing_ok=True)
     return [e]
 
