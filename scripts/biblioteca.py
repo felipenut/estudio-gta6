@@ -158,7 +158,9 @@ def pontuar(cena, termos):
     tags = {normalizar(w) for t in cena["tags"] for w in [t] + t.split()}   # "vista aerea" casa com "vista" e "aerea"
     alvo = tags | {normalizar(t) for t in cena["descricao"].split()}
     alvo.discard("")
-    return sum(2 if t in tags else 1 for t in termos if t in alvo)
+    pontos = sum(2 if t in tags else 1 for t in termos if t in alvo)
+    personagens = {"jason", "lucia"}.intersection(termos)
+    return pontos + 4 * len(personagens & tags)
 
 
 def uso_recente(lib_path, n=10, excluir=None):

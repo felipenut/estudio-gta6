@@ -16,7 +16,7 @@ VOCAB = ("personagens: jason, lucia, npc, policia, gangue | lugares: vice city, 
          "tipo: logo, texto, close, paisagem, vista aerea, gameplay, hud, humor, rede social")
 
 PROMPT = """Você está catalogando cenas de vídeos de GTA 6 (Grand Theft Auto VI) para um editor de vídeos curtos.
-Personagens principais: Jason (homem, cabelo comprido/boné, barba) e Lucia (mulher latina, cabelo cacheado preso).
+Use jason ou lucia somente quando o personagem do jogo for claramente reconhecível. Uma roupa, boné ou cabelo isolado não basta. Em caso de dúvida descreva a ação e use npc para figurantes. Distinga o rosto do apresentador de um personagem do jogo.
 Para CADA uma das {n} imagens, na ordem, devolva:
 - "descricao": frase curta e concreta EM PORTUGUÊS (quem, o quê, onde, luz). Ex.: "Lucia de bandana assaltando loja de conveniência".
 - "tags": 5 a 8 tags EM PORTUGUÊS, minúsculas, sem acento, preferindo este vocabulário: {vocab}
@@ -49,10 +49,15 @@ def main():
             time.sleep(2)
             continue
         if isinstance(resp, dict):
-            resp = resp.get("cenas") or resp.get("imagens") or list(resp.values())[0]
+            resp = resp.get("cenas") or resp.get("imagens") or []
+        if not isinstance(resp, list):
+            continue
         for k, c in enumerate(lote):
-            r = next((x for x in resp if isinstance(x, dict) and x.get("n") == k + 1), resp[k] if k < len(resp) else None)
-            if not isinstance(r, dict):
+            correspondentes = [x for x in resp if isinstance(x, dict) and str(x.get("n")) == str(k + 1)]
+            if len(correspondentes) != 1:
+                continue
+            r = correspondentes[0]
+            if not isinstance(r.get("tags"), list) or not isinstance(r.get("ruim"), bool):
                 continue
             if r.get("ruim"):
                 c["tags"], c["descricao"] = ["ruim"], r.get("descricao", "descartada pela IA")
@@ -61,7 +66,7 @@ def main():
                 c["tags"] = [str(t).lower().strip() for t in r.get("tags", []) if str(t).strip()][:8] or ["gameplay"]
             feitas += 1
         salvar_json(lib_path, lib)
-        print(f"  {min(i + a.lote, len(fila))}/{len(fila)}  ex.: {lote[0]['id']} -> {lote[0]['descricao'][:60]}", flush=True)
+        print(f"  {min(i + a.lote, len(fila))}/{len(fila)}  ex.: {lote[0]['id']} -> {str(lote[0].get('descricao') or '')[:60]}", flush=True)
     print(f"ok: {feitas} cenas etiquetadas. Confira na aba Biblioteca do Estúdio.", flush=True)
 
 

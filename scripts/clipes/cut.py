@@ -160,7 +160,7 @@ def video_filter(layout, cam, ass, band=None, cam_side='right', src=None, game_x
         altura_cam = even(H * 0.38)
         altura_jogo = H - altura_cam
         v = (f"[0:v]split[a][b];[a]crop=iw*{w}:ih*{h}:iw*{x}:ih*{y},scale={W}:{altura_cam}:force_original_aspect_ratio=increase,"
-             f"crop={W}:{altura_cam}[cam];[b]scale=-2:{altura_jogo},crop={W}:{altura_jogo}:(iw-ow)*{posicao_jogo}/100:0[game];[cam][game]vstack[v]")
+             f"crop={W}:{altura_cam},setsar=1[cam];[b]scale={W}:{altura_jogo}:force_original_aspect_ratio=increase:force_divisible_by=2,crop={W}:{altura_jogo}:(iw-ow)*{posicao_jogo}/100:(ih-oh)/2,setsar=1[game];[cam][game]vstack[v]")
     if band:
         y0, bh, secs, *cores = band
         cor = cores[0] if cores else '0xB92F78'
