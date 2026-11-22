@@ -114,17 +114,14 @@ def localizar(score, partes, words, heat, janelas, dur, minimo, maximo):
     usados = np.zeros(len(score), dtype=bool)
     por_segundo = {t: (ini, fim) for ini, fim in janelas for t in range(ini, fim)}
     picks = []
+    bordas = base.BordasDeFala(words)
     for pico in np.argsort(-score):
         if score[pico] <= 0:
             break
         if pico not in por_segundo or usados[pico]:
             continue
         a, b = por_segundo[pico]
-        ini, fim = base.limites(int(pico), score, words, dur, minimo, maximo)
-        ini, fim = max(ini, a), min(fim, b)
-        if fim - ini < minimo:
-            ini = max(a, min(ini, b - minimo))
-            fim = min(b, ini + minimo)
+        ini, fim = base.limites(int(pico), score, words, dur, minimo, maximo, bordas, (a, b))
         if fim <= ini:
             continue
         usados[a:b] = True
@@ -141,7 +138,7 @@ def localizar(score, partes, words, heat, janelas, dur, minimo, maximo):
             motivos.append("pico no chat")
         texto = " ".join(w["w"] for w in words if ini <= w["s"] < fim)
         picks.append({"n": len(picks) + 1, "start": ini, "end": fim, "peak": int(pico),
-                      "score": round(float(score[pico]), 2), "why": motivos or ["energia geral"], "text": texto[:400]})
+                      "score": round(float(score[pico]), 2), "why": motivos or ["energia geral"], "text": base.resumo_fala(texto)})
     return picks
 
 

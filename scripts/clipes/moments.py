@@ -9,6 +9,7 @@ Writes jobs/<id>/candidates.md + candidates.json.
 usage: python moments.py <url-or-file> [--top 8] [--min 15] [--max 40] [--chat chat.json] [--max-minutes 90] [--sem-ia]
 """
 import argparse, json, math, os, re, sys, wave
+from bisect import bisect_left, bisect_right
 from time import perf_counter
 from pathlib import Path
 import numpy as np
@@ -327,7 +328,7 @@ def frases(words):
         elif w["s"] - ant["e"] > 0.6:
             out.append((ini, ant["e"])); ini = w["s"]
         ant = w
-        if w["w"][-1:] in ".?!":
+        if w["w"].rstrip('”"»’').endswith((".", "?", "!", "…")):
             out.append((ini, w["e"])); ini = None
     if ini is not None and ant:
         out.append((ini, ant["e"]))
@@ -361,7 +362,59 @@ def sinais(db, words, heat, chat, n):
     return score, partes, pesos
 
 
-def limites(p, curva, words, dur, mn, mx):
+class BordasDeFala:
+    """Índice em centésimos de segundo, compartilhado pelos candidatos de uma análise."""
+    def __init__(self, palavras):
+        self.inicios = sorted(round(w["s"] * 100) for w in palavras)
+        self.fins = sorted(round(w["e"] * 100) for w in palavras)
+        sentencas = frases(palavras)
+        self.aberturas = sorted(round(s * 100) for s, _ in sentencas)
+        self.fechamentos = sorted(round(e * 100) for _, e in sentencas)
+
+    def corta_palavra(self, t):
+        return bisect_left(self.inicios, t) > bisect_right(self.fins, t)
+
+    @staticmethod
+    def perto(pontos, alvo):
+        return pontos[bisect_left(pontos, alvo-600):bisect_right(pontos, alvo+600)]
+
+    def ajustar(self, inicio, fim, pico, minimo, maximo, a, b):
+        # Compara as duas bordas juntas: esticar até o mínimo depois de ajustar
+        # uma frase poderia voltar a cortar a última palavra ao meio.
+        a, b = math.ceil(a*100), math.floor(b*100)
+        mn, mx = min(b-a, math.ceil(minimo*100)), min(b-a, math.floor(maximo*100))
+        p = max(a, min(b, round(pico*100)))
+        antes, depois = max(a, p-300), min(b, p+100)
+        s = max(a, min(antes, b-mn, round(inicio*100)))
+        s = max(s, depois-mx)
+        e = min(b, max(depois, s+mn, min(s+mx, round(fim*100))))
+        aberturas = set(self.perto(self.aberturas, s))
+        fechamentos = set(self.perto(self.fechamentos, e))
+        inicios = {s, *aberturas, *self.perto(self.inicios, s)}
+        fins = {e, *fechamentos, *self.perto(self.fins, e)}
+        for t in fechamentos:
+            inicios.update((t-mn, t-mx))
+        melhor, custo_min = (s,e), float("inf")
+        for x in sorted(inicios):
+            if not a <= x <= antes or x+mn > b:
+                continue
+            custo_x = abs(x-s) + 200*(x not in aberturas) + 2000*self.corta_palavra(x)
+            for y in fins | {x+mn, min(b,x+mx)}:
+                if not (depois <= y <= b and mn <= y-x <= mx):
+                    continue
+                custo = custo_x + abs(y-e) + 240*(y not in fechamentos) + 2000*self.corta_palavra(y)
+                if custo < custo_min:
+                    melhor, custo_min = (x,y), custo
+        return melhor[0]/100, melhor[1]/100
+
+
+def resumo_fala(texto):
+    if len(texto) <= 480:
+        return texto
+    return texto[:270].rsplit(" ", 1)[0] + " […] " + texto[-200:].split(" ", 1)[-1]
+
+
+def limites(p, curva, words, dur, mn, mx, bordas=None, janela=None):
     """Começo onde a energia começa a subir (1,5 s antes, no início de uma frase) e fim quando a reação acalma
     (+1,5 s, no fim de uma frase). Mantém a duração em [mn, mx] sem perder os 3 s antes do pico."""
     c = smooth(curva, 2)
@@ -379,24 +432,8 @@ def limites(p, curva, words, dur, mn, mx):
             j -= 1
             break
     e0 = min(dur, j + 1.5)
-    fr = frases(words)
-    inis = [s for s, _ in fr if s0 - 3 <= s <= min(s0 + 0.8, p - 1)]
-    if inis:
-        s0 = max(0.0, min(inis, key=lambda s: abs(s - s0)) - 0.25)
-    for w in words:                                       # nunca começar no meio de uma palavra
-        if w["s"] < s0 < w["e"]:
-            s0 = max(0.0, w["s"] - 0.15)
-    fins = [e for _, e in fr if e0 - 1 <= e <= e0 + 2.5 and e > p]
-    if fins:
-        e0 = min(dur, min(fins, key=lambda e: abs(e - e0)) + 0.5)
-    if e0 - s0 < mn:
-        e0 = min(dur, s0 + mn)
-        if e0 - s0 < mn:
-            s0 = max(0.0, e0 - mn)
-    if e0 - s0 > mx:
-        s0 = max(s0, min(p - 3.0, e0 - mx))
-        e0 = min(e0, s0 + mx)
-    return round(s0, 2), round(e0, 2)
+    a, b = janela or (0, dur)
+    return (bordas or BordasDeFala(words)).ajustar(s0, e0, p, mn, mx, a, min(b, dur))
 
 
 def revisar_com_ia(picks, info, top):
@@ -414,7 +451,7 @@ def revisar_com_ia(picks, info, top):
                  "pelos sinais (não finja ter visto a imagem). Notas de 0 a 10:\n"
                  "- gancho: os primeiros segundos prendem? (fato forte, ação, reação, pergunta)\n"
                  "- emocao: desperta humor, surpresa, identificação, 'uau' ou tensão?\n"
-                 "- contexto: quem nunca viu a live entende sozinho?\n"
+                 "- contexto: quem nunca viu a live entende a situação e ouve a reação ou o desfecho? Reduza a nota se a fala termina antes da resposta. O símbolo […] omite palavras no meio do resumo.\n"
                  "- risco: spoiler da história, vazamento/jogar antes, ofensa/preconceito, música com direitos autorais, "
                  "conteúdo sem GTA (só conversa).\n"
                  "tipo: humor|surpresa|identificacao|uau|tensao|nenhum. gancho_sugerido: texto de tela em português, 3 a 9 "
@@ -541,10 +578,13 @@ def main():
     usar_ia = not a.sem_ia
     pool = max(a.top, min(15, int(a.top * 2))) if usar_ia else a.top
     picks, used = [], np.zeros(n + 1, bool)
+    bordas = BordasDeFala(words)
     for p in np.argsort(-score):
         if len(picks) >= pool or score[p] <= 0:
             break
-        s0, e0 = limites(int(p), score, words, dur, a.min, a.max)
+        if used[p]:
+            continue
+        s0, e0 = limites(int(p), score, words, dur, a.min, a.max, bordas)
         lo, hi = max(0, int(s0) - 6), min(n, int(math.ceil(e0)) + 6)
         if used[int(s0):int(math.ceil(e0))].any():
             continue
@@ -558,7 +598,7 @@ def main():
         if heat[p] > 0.5: why.append(f"mais repetido {heat[p]:.2f}")
         if w_chat and partes["chat"][p] > 1: why.append("chat explodiu")
         picks.append({"n": len(picks) + 1, "start": s0, "end": e0, "peak": int(p),
-                      "score": round(float(score[p]), 2), "why": why or ["energia geral"], "text": text[:400]})
+                      "score": round(float(score[p]), 2), "why": why or ["energia geral"], "text": resumo_fala(text)})
     com_ia = False
     if usar_ia and picks:
         print(f"   a IA está avaliando {len(picks)} candidatos (gancho, emoção, contexto, risco)…", flush=True)
