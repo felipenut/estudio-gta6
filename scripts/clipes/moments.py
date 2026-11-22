@@ -9,6 +9,8 @@ Writes jobs/<id>/candidates.md + candidates.json.
 usage: python moments.py <url-or-file> [--top 8] [--min 15] [--max 40] [--chat chat.json] [--max-minutes 90] [--sem-ia]
 """
 import argparse, json, math, os, re, sys, wave
+from bisect import bisect_left, bisect_right
+from time import perf_counter
 from pathlib import Path
 import numpy as np
 sys.path.insert(0, str(Path(__file__).parent))
@@ -18,50 +20,155 @@ HYPE = re.compile(r"\b(no way|oh my god|omg|what|wait|bro|let'?s go|holy|insane|
 CHAT_HYPE = re.compile(r"(LMAO|LOL|KEKW|OMEGALUL|W+\b|CLIP|💀|😂|🔥|NO WAY|HOLY|KKKK|CLIPA|CARACA|MEU DEUS|JAJA)", re.I)
 
 
-def fetch(src, d, max_min, info_de=None):
+FONTE_LONGA = 3 * 3600   # acima disso (lives de horas) o vídeo é recortado na fonte
+FUNDO = {}   # download do vídeo rodando em segundo plano enquanto o áudio é analisado
+
+
+def _duracao(arquivo):
+    try:
+        return float(ffprobe(arquivo)["format"]["duration"])
+    except (SystemExit, KeyError, ValueError, TypeError):
+        return 0.0
+
+
+def _ja_coberto(arquivo, precisa):
+    return arquivo.exists() and _duracao(arquivo) + 3 >= precisa
+
+
+def fetch(src, d, max_min, info_de=None, video_junto=False):
+    """Baixa primeiro só o áudio (uns 40 MB, a análise começa em segundos) e deixa o vídeo baixando em
+    segundo plano; esperar_video() espera por ele antes de gravar os momentos. video_junto=True baixa tudo agora."""
     info = {}
     if is_url(src):
-        info = ytdlp_json(src)
+        vid = d / "source.mp4"
+        limite = max_min * 60
+        salvo = load_json(d / "info.json") if (d / "info.json").exists() else {}
+        chat_pronto = not salvo.get("was_live") or any(d.glob("chat*.live_chat.json"))
+        if salvo.get("duration") and chat_pronto and _ja_coberto(vid, min(salvo["duration"], limite)):
+            print("   vídeo e dados já baixados; reaproveitando a fonte", flush=True)
+            return vid, salvo
+        try:
+            info = ytdlp_json(src, ["--no-playlist"])
+        except SystemExit as erro:
+            if "confirm you" in str(erro).lower() and "bot" in str(erro).lower():
+                sys.exit("O YouTube pediu confirmação de login e bloqueou o download. Se tiver o MP4, cole o caminho dele no campo da busca.")
+            raise
         if info.get("is_live"):
             sys.exit("este vídeo está ao vivo. Use o Modo ao vivo para gravar.")
         save_json(d / "info.json", {k: info.get(k) for k in ("id", "title", "uploader", "channel", "uploader_id", "webpage_url",
                                                              "duration", "view_count", "upload_date", "heatmap", "is_live", "was_live")})
-        vid = d / "source.mp4"
-        limite = max_min * 60
         duracao_fonte = info.get("duration") or 0
-        atual = float(ffprobe(vid)["format"]["duration"]) if vid.exists() and duracao_fonte else 0
-        expandir = atual and atual + 3 < min(duracao_fonte, limite)
-        if not vid.exists() or expandir:
+        precisa = min(duracao_fonte, limite) if duracao_fonte else limite
+        if vid.exists() and (not duracao_fonte or _ja_coberto(vid, precisa)):
+            print("   vídeo já baixado; reaproveitando a fonte", flush=True)
+        else:
             # Baixar "só um trecho" (--download-sections) passa pelo ffmpeg, que o YouTube limita à velocidade de
-            # reprodução (~0,3 MB/s). O downloader normal é bem mais rápido, então só cortamos na fonte quando a
-            # sobra é grande (lives de horas); senão baixamos inteiro e a análise usa só os primeiros minutos.
-            cortar = duracao_fonte > limite and (duracao_fonte > limite * 2 or duracao_fonte - limite > 40 * 60)
+            # reprodução (~0,3 MB/s: 15 min de vídeo levavam ~9 min). O downloader normal baixa em pedaços na
+            # velocidade da internet, então só recortamos na fonte em lives muito longas (mais de 3 h); abaixo
+            # disso baixamos inteiro (em segundo plano) e a análise usa só os primeiros minutos.
+            cortar = duracao_fonte > limite and duracao_fonte > FONTE_LONGA
+            secoes = ["--download-sections", f"*0-{limite}"] if cortar else []
             temporario = d / (f"source-{max_min}min.parcial.mp4" if cortar else "source-inteiro.parcial.mp4")
             for velho in d.glob("source-*.parcial.mp4*"):       # restos de tentativas no outro modo
                 if not velho.name.startswith(temporario.name):
                     velho.unlink(missing_ok=True)
-            args = ytdlp_base() + ["--newline", "-f", "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080]/b",
-                                   "--merge-output-format", "mp4", "-N", "4", "-o", str(temporario)]
-            if cortar:
-                args += ["--download-sections", f"*0-{limite}"]
+            video = ytdlp_base() + ["--no-playlist", "--newline", "-S", "res:720,fps:30", "-f", "bv*[height<=720][ext=mp4]+ba[ext=m4a]/bv*[height<=720]+ba/b[height<=720]/b",
+                                    "--merge-output-format", "mp4", "-N", "4", "-o", str(temporario), *secoes, src]
+            # Sempre: só o áudio primeiro (poucos MB, a análise começa em segundos) e o vídeo em segundo plano.
+            # Antes, fontes recortadas baixavam imagem+áudio juntos e a análise esperava o download inteiro.
+            if video_junto:
+                print("   baixando o trecho com imagem e áudio juntos para a análise e os cortes…", flush=True)
+                run(video)
+                temporario.replace(vid)
             else:
-                print(f"   baixando o vídeo inteiro ({duracao_fonte / 60:.0f} min), é mais rápido que baixar só um trecho",
-                      flush=True)
-            run(args + [src])
-            temporario.replace(vid)
-        else:
-            print("   vídeo já baixado; reaproveitando a fonte", flush=True)
+                iniciar_video(video, temporario, vid, d)
+                FUNDO["audio"] = baixar_audio(src, d, precisa, secoes)
         if info.get("was_live") and not list(d.glob("chat*.live_chat.json")):  # YouTube chat replay
             run(ytdlp_base() + ["--skip-download", "--write-subs", "--sub-langs", "live_chat", "-o", str(d / "chat"), src], check=False)
     else:
         vid = Path(src).resolve()
-        meta = {"title": vid.stem, "webpage_url": str(vid)}
+        meta = {"title": vid.stem, "webpage_url": ""}
         if info_de and (Path(info_de) / "info.json").exists():      # trecho do modo ao vivo: herda canal e link da live
             pai = load_json(Path(info_de) / "info.json")
             meta.update({k: pai.get(k) for k in ("title", "channel", "uploader", "webpage_url") if pai.get(k)})
             meta["title"] = f"{pai.get('title') or ''} ({vid.stem})".strip()
         save_json(d / "info.json", meta)
     return vid, info
+
+
+def baixar_audio(src, d, precisa, secoes):
+    """Só a faixa de áudio (m4a/opus), para analisar volume e fala sem esperar o vídeo."""
+    for antigo in d.glob("audio_fonte.*"):
+        if antigo.suffix in (".part", ".ytdl") or ".parcial" in antigo.name:
+            antigo.unlink(missing_ok=True)
+        elif _ja_coberto(antigo, precisa):
+            print("   áudio já baixado; reaproveitando", flush=True)
+            return antigo
+    print("   baixando só o áudio primeiro (a análise começa enquanto o vídeo baixa)…", flush=True)
+    run(ytdlp_base() + ["--newline", "-f", "ba[ext=m4a]/ba", "-N", "4", "-o", str(d / "audio_fonte.parcial.%(ext)s"),
+                        *secoes, src])
+    feito = next((f for f in d.glob("audio_fonte.parcial.*") if f.suffix not in (".part", ".ytdl")), None)
+    if not feito:
+        sys.exit("não consegui baixar o áudio do vídeo")
+    final = d / f"audio_fonte{feito.suffix}"
+    feito.replace(final)
+    return final
+
+
+def iniciar_video(cmd, temporario, destino, d):
+    import atexit, subprocess
+    log = open(d / "download_video.log", "w", encoding="utf-8", errors="replace")
+    kw = {"creationflags": 0x08000000} if sys.platform.startswith("win") else {}
+    proc = subprocess.Popen([str(c) for c in cmd], stdout=log, stderr=subprocess.STDOUT, text=True, **kw)
+    FUNDO.update(proc=proc, temporario=temporario, destino=destino, log=log, log_path=d / "download_video.log")
+    print("   vídeo baixando em segundo plano", flush=True)
+
+    def parar():                      # se a análise parar no meio, não deixa o download órfão
+        if proc.poll() is None:
+            proc.kill()
+    atexit.register(parar)
+
+
+def fonte_de_audio(vid):
+    """O que analisar: o áudio já baixado (se o vídeo ainda está vindo) ou o próprio vídeo."""
+    return FUNDO.get("audio") if FUNDO.get("proc") else vid
+
+
+class TemposAnalise:
+    def __init__(self):
+        self.ultimo = perf_counter()
+        self.etapas = {}
+
+    def registrar(self, etapa):
+        agora = perf_counter()
+        self.etapas[etapa] = round(agora - self.ultimo, 3)
+        self.ultimo = agora
+
+
+def esperar_video():
+    """Espera o vídeo terminar (os cortes e a prévia usam source.mp4)."""
+    import re as _re, time
+    proc = FUNDO.get("proc")
+    if not proc:
+        return
+    ultimo = -10
+    while proc.poll() is None:
+        try:
+            linhas = FUNDO["log_path"].read_text(encoding="utf-8", errors="replace").splitlines()[-20:]
+            pct = max([float(m[1]) for l in linhas for m in [_re.search(r"\[download\]\s+([\d.]+)%", l)] if m] or [0])
+        except OSError:
+            pct = 0
+        if pct >= ultimo + 10:
+            print(f"   esperando o vídeo terminar de baixar ({pct:.0f}%)…", flush=True)
+            ultimo = pct
+        time.sleep(2)
+    FUNDO["log"].close()
+    if proc.returncode:
+        cauda = FUNDO["log_path"].read_text(encoding="utf-8", errors="replace")[-1200:]
+        sys.exit(f"o download do vídeo falhou ({proc.returncode}):\n{cauda}")
+    FUNDO["temporario"].replace(FUNDO["destino"])
+    FUNDO.clear()
+    print("   vídeo baixado", flush=True)
 
 
 def segundos_wav(wav):
@@ -91,34 +198,97 @@ def transcribe(wav, d, segundos):
     out = d / "transcript.json"
     alcance = d / "transcript_alcance.json"
     limite = min(segundos, segundos_wav(wav))
-    if out.exists():
-        coberto = load_json(alcance)["segundos"] if alcance.exists() else limite
-        if coberto + 0.25 >= limite:
-            if not alcance.exists():
-                save_json(alcance, {"segundos": coberto})
-            print("   transcrição reaproveitada", flush=True)
-            return [p for p in load_json(out) if p["s"] < limite]
+    dados = load_json(alcance) if alcance.exists() else {}
+    coberto = min(limite, float(dados.get("segundos", limite))) if out.exists() else 0
+    todas_anteriores = load_json(out) if out.exists() else []
+    anteriores = [w for w in todas_anteriores if w["s"] < coberto]
+    if out.exists() and coberto + 0.25 >= limite:
+        if not alcance.exists():
+            save_json(alcance, {"segundos": coberto})
+        print("   transcrição reaproveitada", flush=True)
+        return [p for p in anteriores if p["s"] < limite]
+
+    # Reanalisa alguns segundos antes da emenda para dar contexto ao modelo.
+    inicio = max(0, math.floor(coberto) - 6)
+    if inicio:
+        print(f"   transcrição parcial reaproveitada; continuando a partir de {inicio // 60}:{inicio % 60:02d}", flush=True)
+    def juntar(novas):
+        if not inicio:
+            return novas
+        # Conserva as palavras da área já coberta e acrescenta as do trecho novo.
+        fim_anterior = max((w["e"] for w in anteriores), default=0)
+        inicio_novo = max(inicio, min(fim_anterior, coberto))
+        return anteriores + [w for w in novas if w["s"] >= inicio_novo and w["e"] > fim_anterior]
+
+    import nuvem
+    if nuvem.configurada():
+        print(f"   transcrevendo na nuvem ({nuvem.provedor()})…", flush=True)
+        try:
+            novas, idioma = nuvem.transcrever(wav, [(inicio, limite)], progresso=lambda f, t: print(
+                f"transcrição completa: {int((inicio + (limite - inicio) * f / t) * 100 / max(0.01, limite))}%", flush=True))
+            novas = juntar(novas)
+            salvar_atomico(out, novas + [w for w in todas_anteriores if w["s"] >= limite])
+            salvar_atomico(alcance, {"segundos": limite, "idioma": idioma or dados.get("idioma")})
+            return novas
+        except Exception as e:
+            print(f"   a transcrição na nuvem falhou ({str(e)[:160]}); usando o Whisper do PC", flush=True)
+    cuda = tem_gpu()
+    with wave.open(str(wav)) as w:  # amostras de áudio mono a 16 kHz, sem decodificação extra
+        w.setpos(inicio * 16000)
+        pcm = np.frombuffer(w.readframes(round((limite - inicio) * 16000)), dtype=np.int16).astype(np.float32) / 32768
+
+    def rodar_modelo(device):
+        print("   carregando o modelo de fala…", flush=True)
+        modelo = carregar_whisper(device)
+        segs, info = modelo.transcribe(pcm, word_timestamps=True, vad_filter=True, language=dados.get("idioma"),
+                                       beam_size=1, best_of=1, temperature=0.0, condition_on_previous_text=False)
+        palavras, ultimo, salvo = [], -1, 0.0
+        for seg in segs:
+            palavras.extend({"w": w.word.strip(), "s": round(w.start + inicio, 2), "e": round(w.end + inicio, 2)}
+                            for w in (seg.words or []))
+            pct = min(100, int((inicio + seg.end) * 100 / max(0.01, limite)))
+            if pct > ultimo:
+                print(f"transcrição completa: {pct}%", flush=True)
+                ultimo = pct
+            if seg.end - salvo >= 60:      # salva a cada minuto de áudio: se interromper, continua daqui
+                salvo = seg.end
+                salvar_atomico(out, juntar(palavras))
+                salvar_atomico(alcance, {"segundos": round(inicio + seg.end, 2), "idioma": info.language})
+        return palavras, info.language
+
+    try:
+        novas, idioma = rodar_modelo("cuda" if cuda else "cpu")
+    except RuntimeError as e:
+        if not cuda:
+            raise
+        print(f"   transcrição por GPU indisponível ({str(e)[:80]}); usando CPU", flush=True)
+        novas, idioma = rodar_modelo("cpu")
+    novas = juntar(novas)
+    salvar_atomico(out, novas + [w for w in todas_anteriores if w["s"] >= limite])
+    salvar_atomico(alcance, {"segundos": limite, "idioma": idioma})
+    return novas
+
+
+def carregar_whisper(device):
+    """Whisper "small"; na CPU usa todos os núcleos (o padrão do faster-whisper é só 4)."""
     from faster_whisper import WhisperModel
+    if device == "cuda":
+        return WhisperModel("small", device="cuda", compute_type="float16")
+    return WhisperModel("small", device="cpu", compute_type="int8", cpu_threads=max(4, os.cpu_count() or 4))
+
+
+def tem_gpu():
     try:
         import ctranslate2
-        cuda = ctranslate2.get_cuda_device_count() > 0
+        return ctranslate2.get_cuda_device_count() > 0
     except Exception:
-        cuda = False
-    with wave.open(str(wav)) as w:  # pass samples directly (16 kHz mono), no extra decoder needed
-        pcm = np.frombuffer(w.readframes(round(limite * 16000)), dtype=np.int16).astype(np.float32) / 32768
+        return False
 
-    def run_on(device):
-        model = WhisperModel("small", device=device, compute_type="float16" if device == "cuda" else "int8")
-        segs, _ = model.transcribe(pcm, word_timestamps=True, vad_filter=True)
-        return [{"w": w.word.strip(), "s": round(w.start, 2), "e": round(w.end, 2)} for s in segs for w in (s.words or [])]
-    try:
-        words = run_on("cuda" if cuda else "cpu")
-    except RuntimeError as e:  # GPU present but CUDA libraries missing: fall back to CPU
-        print(f"GPU transcription unavailable ({str(e)[:80]}), using CPU")
-        words = run_on("cpu")
-    save_json(out, words)
-    save_json(alcance, {"segundos": limite})
-    return words
+
+def salvar_atomico(arquivo, dados):
+    temporario = arquivo.with_suffix(".novo")
+    save_json(temporario, dados)
+    temporario.replace(arquivo)
 
 
 def chat_series(d, n, chat_arg, info):
@@ -158,7 +328,7 @@ def frases(words):
         elif w["s"] - ant["e"] > 0.6:
             out.append((ini, ant["e"])); ini = w["s"]
         ant = w
-        if w["w"][-1:] in ".?!":
+        if w["w"].rstrip('”"»’').endswith((".", "?", "!", "…")):
             out.append((ini, w["e"])); ini = None
     if ini is not None and ant:
         out.append((ini, ant["e"]))
@@ -192,7 +362,59 @@ def sinais(db, words, heat, chat, n):
     return score, partes, pesos
 
 
-def limites(p, curva, words, dur, mn, mx):
+class BordasDeFala:
+    """Índice em centésimos de segundo, compartilhado pelos candidatos de uma análise."""
+    def __init__(self, palavras):
+        self.inicios = sorted(round(w["s"] * 100) for w in palavras)
+        self.fins = sorted(round(w["e"] * 100) for w in palavras)
+        sentencas = frases(palavras)
+        self.aberturas = sorted(round(s * 100) for s, _ in sentencas)
+        self.fechamentos = sorted(round(e * 100) for _, e in sentencas)
+
+    def corta_palavra(self, t):
+        return bisect_left(self.inicios, t) > bisect_right(self.fins, t)
+
+    @staticmethod
+    def perto(pontos, alvo):
+        return pontos[bisect_left(pontos, alvo-600):bisect_right(pontos, alvo+600)]
+
+    def ajustar(self, inicio, fim, pico, minimo, maximo, a, b):
+        # Compara as duas bordas juntas: esticar até o mínimo depois de ajustar
+        # uma frase poderia voltar a cortar a última palavra ao meio.
+        a, b = math.ceil(a*100), math.floor(b*100)
+        mn, mx = min(b-a, math.ceil(minimo*100)), min(b-a, math.floor(maximo*100))
+        p = max(a, min(b, round(pico*100)))
+        antes, depois = max(a, p-300), min(b, p+100)
+        s = max(a, min(antes, b-mn, round(inicio*100)))
+        s = max(s, depois-mx)
+        e = min(b, max(depois, s+mn, min(s+mx, round(fim*100))))
+        aberturas = set(self.perto(self.aberturas, s))
+        fechamentos = set(self.perto(self.fechamentos, e))
+        inicios = {s, *aberturas, *self.perto(self.inicios, s)}
+        fins = {e, *fechamentos, *self.perto(self.fins, e)}
+        for t in fechamentos:
+            inicios.update((t-mn, t-mx))
+        melhor, custo_min = (s,e), float("inf")
+        for x in sorted(inicios):
+            if not a <= x <= antes or x+mn > b:
+                continue
+            custo_x = abs(x-s) + 200*(x not in aberturas) + 2000*self.corta_palavra(x)
+            for y in fins | {x+mn, min(b,x+mx)}:
+                if not (depois <= y <= b and mn <= y-x <= mx):
+                    continue
+                custo = custo_x + abs(y-e) + 240*(y not in fechamentos) + 2000*self.corta_palavra(y)
+                if custo < custo_min:
+                    melhor, custo_min = (x,y), custo
+        return melhor[0]/100, melhor[1]/100
+
+
+def resumo_fala(texto):
+    if len(texto) <= 480:
+        return texto
+    return texto[:270].rsplit(" ", 1)[0] + " […] " + texto[-200:].split(" ", 1)[-1]
+
+
+def limites(p, curva, words, dur, mn, mx, bordas=None, janela=None):
     """Começo onde a energia começa a subir (1,5 s antes, no início de uma frase) e fim quando a reação acalma
     (+1,5 s, no fim de uma frase). Mantém a duração em [mn, mx] sem perder os 3 s antes do pico."""
     c = smooth(curva, 2)
@@ -210,24 +432,8 @@ def limites(p, curva, words, dur, mn, mx):
             j -= 1
             break
     e0 = min(dur, j + 1.5)
-    fr = frases(words)
-    inis = [s for s, _ in fr if s0 - 3 <= s <= min(s0 + 0.8, p - 1)]
-    if inis:
-        s0 = max(0.0, min(inis, key=lambda s: abs(s - s0)) - 0.25)
-    for w in words:                                       # nunca começar no meio de uma palavra
-        if w["s"] < s0 < w["e"]:
-            s0 = max(0.0, w["s"] - 0.15)
-    fins = [e for _, e in fr if e0 - 1 <= e <= e0 + 2.5 and e > p]
-    if fins:
-        e0 = min(dur, min(fins, key=lambda e: abs(e - e0)) + 0.5)
-    if e0 - s0 < mn:
-        e0 = min(dur, s0 + mn)
-        if e0 - s0 < mn:
-            s0 = max(0.0, e0 - mn)
-    if e0 - s0 > mx:
-        s0 = max(s0, min(p - 3.0, e0 - mx))
-        e0 = min(e0, s0 + mx)
-    return round(s0, 2), round(e0, 2)
+    a, b = janela or (0, dur)
+    return (bordas or BordasDeFala(words)).ajustar(s0, e0, p, mn, mx, a, min(b, dur))
 
 
 def revisar_com_ia(picks, info, top):
@@ -245,7 +451,7 @@ def revisar_com_ia(picks, info, top):
                  "pelos sinais (não finja ter visto a imagem). Notas de 0 a 10:\n"
                  "- gancho: os primeiros segundos prendem? (fato forte, ação, reação, pergunta)\n"
                  "- emocao: desperta humor, surpresa, identificação, 'uau' ou tensão?\n"
-                 "- contexto: quem nunca viu a live entende sozinho?\n"
+                 "- contexto: quem nunca viu a live entende a situação e ouve a reação ou o desfecho? Reduza a nota se a fala termina antes da resposta. O símbolo […] omite palavras no meio do resumo.\n"
                  "- risco: spoiler da história, vazamento/jogar antes, ofensa/preconceito, música com direitos autorais, "
                  "conteúdo sem GTA (só conversa).\n"
                  "tipo: humor|surpresa|identificacao|uau|tensao|nenhum. gancho_sugerido: texto de tela em português, 3 a 9 "
@@ -341,17 +547,26 @@ def main():
     ap.add_argument("--chat"); ap.add_argument("--max-minutes", type=int, default=90)
     ap.add_argument("--info-de", help="pasta de um trabalho de onde herdar canal/link (trechos do modo ao vivo)")
     ap.add_argument("--sem-ia", action="store_true", help="não pedir notas à IA (só os sinais)")
+    ap.add_argument("--so-baixar", action="store_true", help="só baixa vídeo e dados (a fila de links adianta o download)")
     a = ap.parse_args()
     d = job_dir(a.src)
     print(f"trabalho: {d.name}", flush=True)
+    tempos = TemposAnalise()
     print("(1/4) baixando o vídeo e os dados (views, mais repetidos, chat)…", flush=True)
-    vid, info = fetch(a.src, d, a.max_minutes, a.info_de)
-    dur = min(float(ffprobe(vid)["format"]["duration"]), a.max_minutes * 60)
+    vid, info = fetch(a.src, d, a.max_minutes, a.info_de, video_junto=a.so_baixar)
+    if a.so_baixar:
+        print(f"baixado: {d.name}", flush=True)
+        return
+    fonte = fonte_de_audio(vid)
+    dur = min(float(ffprobe(fonte)["format"]["duration"]), a.max_minutes * 60)
+    tempos.registrar("fonte")
     print(f"(2/4) analisando o volume ({dur / 60:.0f} min de vídeo)…", flush=True)
-    wav, db = audio_rms(vid, d, dur)
+    wav, db = audio_rms(fonte, d, dur)
     n = len(db)
+    tempos.registrar("audio")
     print("(3/4) transcrevendo a fala (na 1ª vez pode demorar uns minutos)…", flush=True)
     words = transcribe(wav, d, dur)
+    tempos.registrar("fala")
     print("(4/4) pontuando os momentos…", flush=True)
     heat = np.zeros(n)
     for h in (info.get("heatmap") or []):
@@ -363,10 +578,13 @@ def main():
     usar_ia = not a.sem_ia
     pool = max(a.top, min(15, int(a.top * 2))) if usar_ia else a.top
     picks, used = [], np.zeros(n + 1, bool)
+    bordas = BordasDeFala(words)
     for p in np.argsort(-score):
         if len(picks) >= pool or score[p] <= 0:
             break
-        s0, e0 = limites(int(p), score, words, dur, a.min, a.max)
+        if used[p]:
+            continue
+        s0, e0 = limites(int(p), score, words, dur, a.min, a.max, bordas)
         lo, hi = max(0, int(s0) - 6), min(n, int(math.ceil(e0)) + 6)
         if used[int(s0):int(math.ceil(e0))].any():
             continue
@@ -380,7 +598,7 @@ def main():
         if heat[p] > 0.5: why.append(f"mais repetido {heat[p]:.2f}")
         if w_chat and partes["chat"][p] > 1: why.append("chat explodiu")
         picks.append({"n": len(picks) + 1, "start": s0, "end": e0, "peak": int(p),
-                      "score": round(float(score[p]), 2), "why": why or ["energia geral"], "text": text[:400]})
+                      "score": round(float(score[p]), 2), "why": why or ["energia geral"], "text": resumo_fala(text)})
     com_ia = False
     if usar_ia and picks:
         print(f"   a IA está avaliando {len(picks)} candidatos (gancho, emoção, contexto, risco)…", flush=True)
@@ -392,9 +610,12 @@ def main():
         for x in picks:
             x["nota"] = round(10 * max(0, x["score"]) / maxs, 1)
     picks.sort(key=lambda x: (-x.get("nota", 0), x["start"]))      # o melhor primeiro
+    tempos.registrar("selecao")
+    esperar_video()
+    tempos.registrar("espera")
     numerar_momentos(picks, d)
     meta = load_json(d / "info.json")
-    save_json(d / "candidates.json", {"source": str(vid), "info": meta, "duration": dur, "candidates": picks,
+    save_json(d / "candidates.json", {"source": str(vid), "info": meta, "duration": dur, "tempos": tempos.etapas, "candidates": picks,
                                       "signals": {"heatmap": bool(w_heat), "chat": bool(w_chat), "words": len(words),
                                                   "ia": com_ia, "pesos": pesos}})
     fmt = lambda t: f"{int(t // 60)}:{int(t % 60):02d}"

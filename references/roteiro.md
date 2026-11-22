@@ -73,10 +73,46 @@ Modelo completo e aprovado pelo checador: `roteiro_exemplo.json`. Os caminhos s�
 | `destaque` | 1 ou 2 palavras do texto que aparecem em amarelo e tocam um "pop". |
 | `cartela` | Texto grande e amarelo, inclinado, durante o segmento todo (data, número, "MITO"). Use `"\n"` para quebrar linha, ou `{"texto", "y", "inclinacao"}`. |
 | `imagem` | PNG (ou lista) sobreposto durante o segmento. Assets prontos: `seta_cima/baixo/esquerda/direita/diagonal.png`, `circulo.png`, `x_vermelho.png`, `check_verde.png`. `y` é o topo da imagem em px (0 a 1920) e `escala` é a fração da largura. |
-| `sfx` | Efeito extra no começo do segmento: `impacto`, `whoosh` ou `pop`. Os automáticos já existem: impacto no início do vídeo, whoosh a cada troca de segmento e pop nos destaques. |
+| `sfx` | Som extra no começo do segmento: `impacto`, `whoosh`, `whoosh_cine`, `pop`, `glitch`, `riser`, `notificacao`, `dinheiro`, `relogio`. Os automáticos já existem: impacto no início, som nas transições fortes, sons dos efeitos de interface e pop nos destaques. |
+| `efeitos` | Lista de elementos de interface no estilo do HUD do GTA 6 (veja "Efeitos de interface" abaixo). |
+| `transicao` | Como o segmento entra: `corte` (seco), `zoom`, `whip` (chicote), `glitch` ou `flash`. Sem o campo, o vídeo usa corte seco e põe uma transição forte sozinho a cada 3 trocas de assunto (`estilo.transicao_a_cada`; `estilo.transicoes: "nenhuma"` desliga). |
+| `revelacao` | `true` na virada principal do vídeo: um riser sobe até o corte e a cena entra com glitch. Use uma vez por vídeo. |
+| `tremer` | `true` faz a câmera tremer no segmento todo (briga, batida, explosão, fuga). |
 | `zoom` | Intensidade do zoom suave por corte (padrão 0,06; 0 desliga). Vale no estilo, no segmento ou no clipe. |
 | `ritmo_corte` | Duração média de cada corte, em segundos (as referências usam 2 a 2,8). |
 | `barra_progresso` | Barra amarela no topo que enche até o fim. Ajuda a retenção em vídeos mais longos. |
+
+## Efeitos de interface (`efeitos`)
+Elementos no estilo do HUD do GTA 6 que entram deslizando rápido, param seco e somem com um fade. Ficam por
+cima do vídeo e por baixo da legenda. Use 1 ou 2 por segmento, onde reforçam a fala (não decore à toa).
+```json
+"efeitos": [{"tipo": "estrelas", "qtd": 3, "em": 0.3},
+            {"tipo": "card", "titulo": "Veículo roubado", "sub": "SUV vermelha", "em": 0.4}]
+```
+Comuns a todos: `em` (segundos depois do início do segmento, padrão 0,15), `dur` ou `ate` (padrão ~2,4 s, sem passar
+muito do segmento), `x`/`y` (centro do elemento, 0 a 1), `cor` (amarelo, rosa, verde, vermelho, laranja, branco ou
+`#RRGGBB`) e `som` (outro som ou `false`).
+
+| tipo | Parâmetros | Visual (posição padrão) |
+|---|---|---|
+| `card` | `titulo`, `sub` | Painel escuro com barra colorida: "VEÍCULO ROUBADO / SUV VERMELHA" (topo) |
+| `aviso` | `texto` | Pílula de aviso do jogo com triângulo: "MOTOR DANIFICADO" (topo) |
+| `texto` | `texto`, `tamanho` | Pílula de texto livre (topo) |
+| `titulo` | `texto`, `tamanho` | Título grande inclinado com sublinhado: "GTA VI" (topo) |
+| `fato` | `n`, `total` | Selo "FATO 3/10" com barra de progresso (canto superior esquerdo) |
+| `numero` | `n`, `sub`, `tamanho` | Número gigante amarelo→laranja: "93" + "MILHÕES EM 24H" |
+| `estrelas` | `qtd`, `total` (5) | Estrelas de procurado acendendo uma a uma, com som |
+| `dinheiro` | `de`, `para` | Contador de dinheiro: verde subindo, vermelho caindo |
+| `cronometro` | `de` (60) | Relógio circular em contagem regressiva com tique (canto superior direito) |
+| `icone` | `simbolo`: `alerta`, `check`, `x`, `cifrao`, `proibido` | Ícone redondo pulsando (`alerta` = atalho para o ícone de alerta) |
+| `moldura` | `x`, `y`, `w`, `h` (frações da tela) | Cantos amarelos fechando em volta de algo na imagem |
+| `pin` | `x`, `y`, `texto` | Pino de mapa com etiqueta; a ponta fica em (x, y) |
+| `rota` | `pontos` `[[x, y], ...]` | Linha verde que se desenha (use sobre o mapa) |
+| `seta` | `dir`: `cima`, `baixo`, `esquerda`, `direita` | Seta amarela grossa dando empurrõezinhos |
+
+Regras: elementos grandes no terço de cima (`y` 0,08 a 0,30), longe do rosto do personagem (≈ 0,35–0,55) e
+da legenda (≈ 0,69). Não use `cartela` e um efeito de topo no mesmo segmento (ocupam o mesmo lugar).
+Fatos e valores nos efeitos seguem a mesma regra do texto: nada inventado.
 
 O áudio final sai normalizado em −14 LUFS, o padrão do TikTok/Reels/Shorts. A música abaixa sozinha quando a voz fala.
 

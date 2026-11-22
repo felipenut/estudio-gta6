@@ -10,10 +10,11 @@ usage: python cut.py jobs/<id> --pick 1 [--layout fill|blur|facecam|react] [--ho
                      [--cam auto|x:y:w:h] [--title "TEXT" --title-style box|outline --title-secs 4] [--captions word|bubble|none]
                      [--edicao pausas,zoom,voz,loop | --edicao nenhuma]
 """
+from time import perf_counter
 import argparse, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
-from common import load_json, renderizar_com_progresso, save_json, tool
+from common import executar_render, load_json, renderizar_com_progresso, save_json, tool
 
 W, H = 1080, 1920
 
@@ -131,13 +132,15 @@ def even(n):
     return int(n) // 2 * 2
 
 
-def video_filter(layout, cam, ass, band=None, cam_side='right', src=None, game_x=None, face_expr=None):
+def video_filter(layout, cam, ass, band=None, cam_side='right', src=None, game_x=None, face_expr=None, posicao_jogo=50):
     """Layout + burned-caption filter graph ending in [vo]. Reused by translate.py."""
     if layout == "fill":
-        v = f"[0:v]scale=-2:{H},crop={W}:{H}[v]"
+        v = (f"[0:v]scale={W}:{H}:force_original_aspect_ratio=increase:force_divisible_by=2,"
+             f"crop={W}:{H}[v]")
     elif layout == "blur":
         # O fundo é desfocado: calculá-lo em 1/4 da resolução mantém o efeito e reduz o custo.
-        v = (f"[0:v]split[a][b];[a]scale=-2:{H // 4},crop={W // 4}:{H // 4},boxblur=6:2,"
+        v = (f"[0:v]split[a][b];[a]scale={W // 4}:{H // 4}:force_original_aspect_ratio=increase:"
+             f"force_divisible_by=2,crop={W // 4}:{H // 4},boxblur=6:2,"
              f"eq=brightness=-0.08,scale={W}:{H}[bg];"
              f"[b]scale={W}:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2-80[v]")
     elif layout == 'react':
@@ -158,14 +161,14 @@ def video_filter(layout, cam, ass, band=None, cam_side='right', src=None, game_x
         altura_cam = even(H * 0.38)
         altura_jogo = H - altura_cam
         v = (f"[0:v]split[a][b];[a]crop=iw*{w}:ih*{h}:iw*{x}:ih*{y},scale={W}:{altura_cam}:force_original_aspect_ratio=increase,"
-             f"crop={W}:{altura_cam}[cam];[b]scale=-2:{altura_jogo},crop={W}:{altura_jogo}[game];[cam][game]vstack[v]")
+             f"crop={W}:{altura_cam},setsar=1[cam];[b]scale={W}:{altura_jogo}:force_original_aspect_ratio=increase:force_divisible_by=2,crop={W}:{altura_jogo}:(iw-ow)*{posicao_jogo}/100:(ih-oh)/2,setsar=1[game];[cam][game]vstack[v]")
     if band:
         y0, bh, secs, *cores = band
         cor = cores[0] if cores else '0xB92F78'
         en = f":enable='lte(t,{secs})'" if secs > 0 else ''
         v = v[:-3] + f"[v0];[v0]drawbox=x=0:y={y0}:w=iw:h={bh}:color={cor}@0.92:t=fill{en}[v]"
     sub = str(ass).replace("\\", "/").replace(":", "\\:")
-    return v + f";[v]scale={W}:{H},setsar=1,fps=30,subtitles='{sub}'[vo]"
+    return v + f";[v]setsar=1,subtitles='{sub}'[vo]"
 
 
 def game_offset(video, s0, e0, src, cam_box):
@@ -321,18 +324,23 @@ def expr_zoom(dur, pico=None, passo=4.0, leve=0.06, forte=0.12):
 
 def filtro_edicao(v, manter, zoom=None, dur=None, loop=False):
     """Encaixa no grafo do layout: corte de pausas no começo, zoom antes da legenda e emenda de loop no fim."""
+    # Descarte os quadros excedentes antes de aplicar escala, desfoque e zoom.
+    entrada = "[0:v]fps=30"
     if manter and len(manter) > 1:
         sel = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in manter)
-        usos = v.count("[0:v]")
-        rot = [f"[vin{i}]" for i in range(usos)]
-        pre = f"[0:v]fps=30,select='{sel}',setpts=N/30/TB" + (f",split={usos}" if usos > 1 else "") + "".join(rot) + ";"
-        for r in rot:
-            v = v.replace("[0:v]", r, 1)
-        v = pre + v
+        entrada += f",select='{sel}',setpts=N/30/TB"
+    usos = v.count("[0:v]")
+    rotulos = [f"[vin{i}]" for i in range(usos)]
+    if usos > 1:
+        entrada += f",split={usos}"
+    for rotulo in rotulos:
+        v = v.replace("[0:v]", rotulo, 1)
+    v = entrada + "".join(rotulos) + ";" + v
     if zoom:
-        corpo, fim = v.rsplit(";[v]", 1)                     # fim = "fps=30,subtitles=...[vo]" (ou scale,...)
-        v = (corpo + f";[v]scale=w='trunc({W}*({zoom})/2)*2':h='trunc({H}*({zoom})/2)*2':eval=frame,"
-             f"crop={W}:{H}[vz];[vz]" + fim)
+        corpo, fim = v.rsplit(";[v]", 1)
+        expr = _re.sub(r"\bt\b", "it", zoom)
+        v = (corpo + f";[v]zoompan=z='{expr}':x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2'"
+             f":d=1:s={W}x{H}:fps=30[vz];[vz]" + fim)
     if loop and dur and dur > 3:
         v = v[:-4] + f"[vsub];[vsub]split[lx][ly];[ly]trim=0:{LOOP_SECS},setpts=PTS-STARTPTS[lh];" \
                      f"[lx][lh]xfade=transition=fade:duration=0.3:offset={dur - 0.3:.3f}[vo]"
@@ -362,11 +370,14 @@ def comando_render(src, s0, e0, rp, ass, band, saida, voz_mp3=None, hook_secs=2.
     """Comando ffmpeg completo (usado pelo cut.py e pelo traduzir.py, para as versões saírem iguais)."""
     manter = [tuple(x) for x in (rp.get("manter") or [])]
     dur = duracao_editada(manter) if manter else (e0 - s0)
-    v = video_filter(rp["layout"], rp["cam"], ass, band=band, cam_side=rp.get("side") or "right",
+    v = video_filter(rp["layout"], rp["cam"], ass, band=band, posicao_jogo=rp.get("posicao_jogo", 50), cam_side=rp.get("side") or "right",
                      src=tuple(rp["src"]) if rp.get("src") else None, game_x=rp.get("gx"),
                      face_expr=tuple(rp["face_expr"]) if rp.get("face_expr") else None)
     v = filtro_edicao(v, manter, rp.get("zoom"), dur, rp.get("loop"))
     cmd = [tool("ffmpeg"), "-y", "-v", "error", "-ss", f"{s0:.2f}", "-to", f"{e0:.2f}", "-i", str(src)]
+    threads = str(rp["threads"]) if rp.get("threads") else None
+    if threads:
+        cmd[1:1] = ["-filter_complex_threads", threads, "-threads:v", threads]
     mapa = ["-map", "[vo]"]
     if tem_audio(src):
         if voz_mp3:
@@ -382,18 +393,22 @@ def comando_render(src, s0, e0, rp, ass, band, saida, voz_mp3=None, hook_secs=2.
             a = filtro_audio(manter, rp.get("voz", True), rp.get("loop"), dur)
         v = v + ";" + a
         mapa += ["-map", "[ao]"]
-    cmd += ["-filter_complex", v, *mapa, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
-            "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart", str(saida)]
+    from common import codificador_video
+    codificador = codificador_video()
+    cmd += ["-filter_complex", v, *mapa, *codificador]
+    if threads and codificador[1] == "libx264":
+        cmd += ["-threads:v", threads]
+    cmd += ["-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart", str(saida)]
     return cmd
 
 
 def titulo_e_faixa(text, style, secs, layout, posicao=None, tamanho=66, cor='rosa'):
-    """Gancho e faixa nos primeiros 3 a 5 segundos do clipe."""
+    """Gancho e faixa nos primeiros 3 a 8 segundos do clipe."""
     if not text:
         return None, None
-    secs = max(3.0, min(5.0, float(secs or 4)))
+    secs = max(3.0, min(8.0, float(secs or 4)))
     tamanho = max(40, min(100, int(tamanho)))
-    ty = max(250, min(1450, int(posicao if posicao is not None else (1050 if layout in ('react', 'facecam') else 480))))
+    ty = max(250, min(1450, int(posicao if posicao is not None else (750 if layout == 'facecam' else 1050 if layout == 'react' else 480))))
     n = len(wrap(text, max(12, int(26 * 66 / tamanho))))
     if style == 'box':
         bh = n * int(tamanho * 1.22) + 36
@@ -402,13 +417,35 @@ def titulo_e_faixa(text, style, secs, layout, posicao=None, tamanho=66, cor='ros
     return ('outline', text, ty, secs, tamanho), None
 
 
+def caixa_do_rosto(bx, layout):
+    """Câmera sem moldura (só o rosto achado). O find_cam já devolve ~3x a largura do rosto, que é o tamanho
+    de uma webcam. No facecam ela é usada como está (antes era alargada 2,6x e o topo mostrava meio jogo);
+    se encostar num canto da tela, gruda no canto, como as webcams de live. No react ainda alarga um pouco."""
+    x, y, w, h = bx
+    if layout == 'react':
+        cx, cy = x + w / 2, y + h / 2
+        w, h = min(1.0, w * 2.6), min(1.0, h * 2.2)
+        x, y = cx - w / 2, cy - h / 2
+    else:
+        if x < 0.06:
+            w, x = w + x, 0.0
+        elif x + w > 0.94:
+            w = 1.0 - x
+        if y < 0.06:
+            h, y = h + y, 0.0
+        elif y + h > 0.94:
+            h = 1.0 - y
+    w, h = min(1.0, w), min(1.0, h)
+    return [min(max(0.0, x), 1 - w), min(max(0.0, y), 1 - h), w, h]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("job"); ap.add_argument("--pick", type=int, default=1)
-    ap.add_argument("--layout", choices=["fill", "blur", "facecam", "react"], default="blur")
+    ap.add_argument("--layout", choices=["fill", "blur", "facecam", "react"], default="facecam")
     ap.add_argument("--title", default="", help="reaction title, e.g. 'Speed REALIZED why GTA 6 took 13 YEARS'")
     ap.add_argument("--title-style", choices=["box", "outline"], default="box")
-    ap.add_argument("--title-secs", type=float, default=4, help="duração do gancho em segundos (3 a 5; padrão: 4)")
+    ap.add_argument("--title-secs", type=float, default=4, help="duração da faixa em segundos (3 a 8; padrão: 4)")
     ap.add_argument("--texto-y", type=int, default=None)
     ap.add_argument("--texto-tamanho", type=int, default=66)
     ap.add_argument("--texto-cor", choices=['rosa', 'laranja', 'roxo', 'escuro'], default='rosa')
@@ -416,17 +453,24 @@ def main():
     ap.add_argument("--hook", default="")
     ap.add_argument("--allow-profanity", action="store_true", help="keep swear words in captions (slurs are always masked)")
     ap.add_argument("--cam", default="auto", help="auto (find the webcam) or x:y:w:h fractions")
+    ap.add_argument("--posicao-jogo", type=int, choices=range(101), default=50)
     ap.add_argument("--game-x", type=int, default=None, help="enquadramento horizontal já calculado")
     ap.add_argument("--start", type=float); ap.add_argument("--end", type=float)
     ap.add_argument("--edicao", default=EDICAO_PADRAO, help="pausas,zoom,voz,loop (ou 'nenhuma')")
     ap.add_argument("--pergunta", default=None, help="pergunta aberta para o post (padrão: a sugerida pela IA)")
+    ap.add_argument("--threads", type=int, choices=range(1, 9), help="limite de processamento para cortes em paralelo")
+    ap.add_argument("--amostra", action="store_true")
     a = ap.parse_args()
+    inicio_corte = perf_counter()
     d = Path(a.job); c = load_json(d / "candidates.json")
     print("(1/2) preparando legenda e enquadramento…", flush=True)
     pick = next(x for x in c["candidates"] if x["n"] == a.pick)
     s0 = a.start if a.start is not None else pick["start"]; e0 = a.end if a.end is not None else pick["end"]
     words = load_json(d / "transcript.json")
     out = d / "edits"; out.mkdir(exist_ok=True)
+    if a.amostra:
+        out = out / "amostras"
+        out.mkdir(exist_ok=True)
     layout, cam, side = a.layout, a.cam, 'right'
     face_expr = None
     if layout in ('react', 'facecam') and cam == 'auto':
@@ -452,21 +496,20 @@ def main():
                 print(f"facecam: no clean cam frame, tracking the face ({r.get('summary', '')})")
         if r.get('mode') in ('cam', 'face'):
             bx = list(r['box'])
-            if r['mode'] == 'face':  # no webcam frame: widen the face crop so it is not a blurry close-up
-                cx, cy = bx[0] + bx[2] / 2, bx[1] + bx[3] / 2
-                bw, bh = min(1.0, bx[2] * 2.6), min(1.0, bx[3] * 2.2)
-                bx = [min(max(0.0, cx - bw / 2), 1 - bw), min(max(0.0, cy - bh / 2), 1 - bh), bw, bh]
+            if r['mode'] == 'face':
+                bx = caixa_do_rosto(bx, layout)
             cam = ':'.join(f'{v:.4f}' for v in bx)
             side = 'left' if r['box'][0] + r['box'][2] / 2 < 0.5 else 'right'
             print(f"facecam: {r.get('mode')} box {cam} ({r.get('summary', '')})")
         else:
-            print(f"facecam: no stable face found ({r.get('reason', '')}), using the blur layout")
-            layout = 'blur'
+            sys.exit("Câmera não identificada neste trecho. Selecione outro momento ou formato.")
+
     elif layout in ('react', 'facecam') and cam != 'auto':
         side = 'left' if float(cam.split(':')[0]) + float(cam.split(':')[2]) / 2 < 0.5 else 'right'
     cap_y = CAP_Y[layout]
-    texto = a.title or a.hook
-    title, band = titulo_e_faixa(texto, a.title_style, a.title_secs, layout,
+    texto = a.title or a.hook or (pick.get("gancho_sugerido") or " ".join((pick.get("text") or "").split()[:9]) or c.get("info", {}).get("title", ""))[:90]
+    title_secs = max(3.0, min(8.0, float(a.title_secs or 4)))
+    title, band = titulo_e_faixa(texto, a.title_style, title_secs, layout,
                                  a.texto_y, a.texto_tamanho, a.texto_cor)
     ed = {x.strip() for x in (a.edicao or "").split(",")} - {"", "nenhuma"}
     pico_abs = pick.get("peak")
@@ -498,20 +541,33 @@ def main():
         else:
             largura_jogo = max(W, even(src[0] * GAME_H / src[1]))
             gx = max(0, min(largura_jogo - W, even(a.game_x)))
-    rp = {"layout": layout, "cam": cam, "side": side, "src": src, "gx": gx, "face_expr": face_expr,
-          "manter": manter if len(manter) > 1 else None, "zoom": zoom, "voz": "voz" in ed, "loop": "loop" in ed}
+    rp = {"posicao_jogo": a.posicao_jogo, "layout": layout, "cam": cam, "side": side, "src": src, "gx": gx, "face_expr": face_expr,
+          "manter": manter if len(manter) > 1 else None, "zoom": zoom, "voz": "voz" in ed, "loop": "loop" in ed,
+          "threads": a.threads}
     mp4 = out / f"clip_{a.pick}.mp4"
     parcial = out / f"clip_{a.pick}.parcial.mp4"
     meta_anterior = load_json(out / f"clip_{a.pick}.json") if (out / f"clip_{a.pick}.json").exists() else {}
     print(f"(2/2) renderizando {dur:.0f}s em 1080x1920 ({layout}{', ' + ', '.join(sorted(ed)) if ed else ''})…", flush=True)
-    renderizar_com_progresso(comando_render(c["source"], s0, e0, rp, ass, band, parcial), dur)
+    inicio_render = perf_counter()
+    comando = comando_render(c["source"], s0, e0, rp, ass, band, parcial)
+    if a.amostra:
+        comando[-1:-1] = ["-t", str(min(dur, 5))]
+        executar_render(comando, min(dur, 5))
+        parcial.replace(mp4)
+        print(f"ok: {mp4}")
+        return
+    executar_render(comando, dur)
+    fim_render = perf_counter()
     if mp4.exists():
         import shutil, time
         pasta_backup = out / "backup"; pasta_backup.mkdir(exist_ok=True)
         shutil.copy2(mp4, pasta_backup / f"clip_{a.pick}_{time.time_ns()}.mp4")
     parcial.replace(mp4)
     info = c.get("info", {})
-    save_json(out / f"clip_{a.pick}.json", {"file": str(mp4), "start": s0, "end": e0, "layout": layout, "hook": a.hook or a.title, "title": a.title, "cam": cam,
+    save_json(out / f"clip_{a.pick}.json", {"tempos": {"preparo": round(inicio_render-inicio_corte, 3), "render": round(fim_render-inicio_render, 3)},
+                                            "file": str(mp4), "start": s0, "end": e0, "layout": layout,
+                                            "hook": a.hook or (title[1] if title and layout != 'react' else ""),
+                                            "title": a.title or (title[1] if title and layout == 'react' else ""), "cam": cam,
                                             "duracao": round(dur, 2), "pico": round(pico_ed, 2) if pico_ed is not None else None,
                                             "pergunta": (a.pergunta if a.pergunta is not None else (pick.get("pergunta") or meta_anterior.get("pergunta") or "")).strip()[:160],
                                             "nota_momento": pick.get("nota"), "tipo": (pick.get("ia") or {}).get("tipo"),
@@ -519,9 +575,9 @@ def main():
                                             "projetos": meta_anterior.get("projetos") or {},
                                             "source_url": info.get("webpage_url"), "source_title": info.get("title"),
                                             "source_channel": info.get("channel") or info.get("uploader"),
-                                            "render": {"layout": layout, "cam": cam, "side": side, "src": src, "gx": gx,
+                                            "render": {"posicao_jogo": a.posicao_jogo, "layout": layout, "cam": cam, "side": side, "src": src, "gx": gx,
                                                        "face_expr": face_expr, "title_style": a.title_style,
-                                                       "title_secs": a.title_secs, "captions": caps,
+                                                       "title_secs": title_secs, "captions": caps,
                                                        "texto_y": a.texto_y, "texto_tamanho": a.texto_tamanho, "texto_cor": a.texto_cor,
                                                        "profanity": a.allow_profanity, "cap_y": cap_y,
                                                        "texto_y_final": title[2] if title else None,

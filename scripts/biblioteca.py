@@ -150,15 +150,44 @@ def marcar(lib_path, arquivo):
             c["tags"] = [t.lower() for t in val.get("t", c["tags"])]
             if "foco" in val:
                 c["foco"] = val["foco"]
+        aplicar_revisao(c)
     salvar_json(lib_path, lib)
     print(f"{len(novos) - len(faltam)} cenas atualizadas" + (f"; ids desconhecidos: {faltam}" if faltam else ""))
+
+
+PERSONAGENS = {"jason", "lucia"}
+
+
+def nomes_na_cena(cena):
+    texto = " ".join([*cena["tags"], cena.get("descricao") or ""])
+    return sorted(PERSONAGENS.intersection(normalizar(p) for p in re.findall(r"\w+", texto)))
+
+
+def aplicar_revisao(cena):
+    if "personagens_conferidos" not in cena:
+        return
+    nomes = cena["personagens_conferidos"]
+    if "ruim" not in cena["tags"]:
+        outras = [t for t in cena["tags"] if not PERSONAGENS.intersection(normalizar(p) for p in re.findall(r"\w+", t))]
+        cena["tags"] = nomes + outras
+    # Evita que uma descrição antiga continue atribuindo a cena ao personagem errado.
+    cena["descricao"] = re.sub(r"\b(?:jason|l[uú]cia)\b",
+        lambda m: m[0] if normalizar(m[0]) in nomes else "personagem",
+        cena.get("descricao") or "", flags=re.I)
 
 
 def pontuar(cena, termos):
     tags = {normalizar(w) for t in cena["tags"] for w in [t] + t.split()}   # "vista aerea" casa com "vista" e "aerea"
     alvo = tags | {normalizar(t) for t in cena["descricao"].split()}
     alvo.discard("")
-    return sum(2 if t in tags else 1 for t in termos if t in alvo)
+    pontos = sum(2 if t in tags else 1 for t in termos if t in alvo)
+    personagens = {"jason", "lucia"}.intersection(termos)
+    if personagens and "personagens_conferidos" in cena:
+        confirmados = set(cena["personagens_conferidos"])
+        if not personagens.intersection(confirmados):
+            return 0
+        pontos += 4 * len(personagens & confirmados)
+    return pontos + 4 * len(personagens & tags)
 
 
 def uso_recente(lib_path, n=10, excluir=None):

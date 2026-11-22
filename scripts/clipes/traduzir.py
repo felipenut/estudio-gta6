@@ -11,7 +11,7 @@ import argparse, asyncio, sys, tempfile
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(1, str(Path(__file__).resolve().parent.parent))
-from common import ffprobe, load_json, run, save_json, tool
+from common import executar_render, ffprobe, load_json, run, save_json, tool
 from cut import CAP_Y, build_ass, comando_render, duracao_editada, palavras_editadas, titulo_e_faixa
 
 IDIOMAS = {"pt": "português do Brasil", "en": "inglês (EUA)", "es": "espanhol (América Latina)", "de": "alemão",
@@ -80,7 +80,7 @@ def fazer_voz(lang, texto, dest):
 
 def render(src, s0, e0, rp, ass, band, mp4, voz_mp3=None):
     """Mesmo comando do cut.py: a versão traduzida sai com os mesmos cortes de pausa, zoom, voz e loop."""
-    run(comando_render(src, s0, e0, rp, ass, band, mp4, voz_mp3, HOOK_SECONDS))
+    executar_render(comando_render(src, s0, e0, rp, ass, band, mp4, voz_mp3, HOOK_SECONDS))
 
 
 def main():

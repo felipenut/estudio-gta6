@@ -88,6 +88,7 @@ def iou(a, b):
 def stable_face(dets, n):
     """Cluster detections by position; return (median face box, hits) of the best stable cluster."""
     best = None
+    melhor_pontuacao = (0, 0, 0.0)
     flat = [(i, d) for i, ds in enumerate(dets) for d in ds]
     for _, seed in flat:
         members = {}
@@ -97,7 +98,10 @@ def stable_face(dets, n):
             if (dx * dx + dy * dy) ** 0.5 < 1.3 * max(seed[2], d[2]) and 0.6 < d[2] / seed[2] < 1.67:
                 if i not in members or d[4] > members[i][4]:
                     members[i] = d
-        if best is None or len(members) > len(best):
+        # Em empates, favoreça o rosto presente ao longo do trecho e detectado com mais confiança.
+        pontuacao = (len(members), max(members) - min(members), sum(d[4] for d in members.values()))
+        if pontuacao > melhor_pontuacao:
+            melhor_pontuacao = pontuacao
             best = members
     if not best:
         return None, 0

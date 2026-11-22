@@ -9,7 +9,9 @@ Uso:
 A chave e as contas escolhidas ficam em ferramentas/zernio.json (só no PC; não compartilhe esse arquivo).
 Cada projeto agendado ganha videos/<projeto>/out/zernio.json com o id do post e o horário.
 """
-import argparse, datetime, json, mimetypes, os, sys, time, urllib.error, urllib.request
+import argparse, datetime, json, mimetypes, os, sys, time, urllib.error, urllib.request, uuid
+from collections import Counter
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pathlib import Path
 
 AQUI = Path(__file__).resolve().parent
@@ -38,15 +40,17 @@ def salvar_config(c):
     CONFIG.write_text(json.dumps(c, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
-def _req(metodo, caminho, corpo=None, chave=None, tentativas=3):
+def _req(metodo, caminho, corpo=None, chave=None, tentativas=3, idempotencia=None):
     chave = chave or config()["api_key"]
     if not chave:
         raise ErroZernio("cole a chave da API do Zernio na tela Agendar")
     dados = json.dumps(corpo).encode() if corpo is not None else None
+    cabecalhos = {"Authorization": f"Bearer {chave}", "Content-Type": "application/json",
+                  "Accept": "application/json", "User-Agent": "estudio-gta6"}
+    if idempotencia:
+        cabecalhos["Idempotency-Key"] = idempotencia
     for t in range(tentativas):
-        rq = urllib.request.Request(BASE + caminho, data=dados, method=metodo,
-                                    headers={"Authorization": f"Bearer {chave}", "Content-Type": "application/json",
-                                             "Accept": "application/json", "User-Agent": "estudio-gta6"})
+        rq = urllib.request.Request(BASE + caminho, data=dados, method=metodo, headers=cabecalhos)
         try:
             with urllib.request.urlopen(rq, timeout=60) as r:
                 txt = r.read().decode("utf-8", "replace")
@@ -58,10 +62,11 @@ def _req(metodo, caminho, corpo=None, chave=None, tentativas=3):
             if e.code in (401, 403):
                 raise ErroZernio(f"chave do Zernio recusada (HTTP {e.code}). Confira a chave. {msg}")
             raise ErroZernio(f"HTTP {e.code} em {caminho}: {msg}")
-        except urllib.error.URLError as e:
+        except (urllib.error.URLError, TimeoutError) as e:
             if t < tentativas - 1:
                 time.sleep(3); continue
-            raise ErroZernio(f"sem conexão com o Zernio: {e.reason}")
+            aviso = ". Confira no painel antes de reenviar" if idempotencia else ""
+            raise ErroZernio(f"sem resposta do Zernio: {e}{aviso}") from e
 
 
 def contas(chave=None):
@@ -132,39 +137,140 @@ def montar_post(p, quando, cfg, url_video, url_capa):
     return corpo
 
 
-def agendar(projetos, inicio, intervalo_h):
+HORARIOS_DIARIOS = tuple(datetime.time(8 + (i * 90) // 60, (i * 90) % 60) for i in range(10))
+
+
+def agora_no_fuso(fuso):
+    try:
+        zona = ZoneInfo(fuso)
+    except ZoneInfoNotFoundError:
+        if fuso in ("America/Bahia", "America/Sao_Paulo"):
+            zona = datetime.timezone(datetime.timedelta(hours=-3))
+        else:
+            return datetime.datetime.now()
+    return datetime.datetime.now(zona).replace(tzinfo=None)
+
+
+def planejar_diario(quantidade, inicio, existentes):
+    """Preenche horários livres, com no máximo 10 vídeos por data no calendário local."""
+    ocupados = {h.replace(second=0, microsecond=0) for h in existentes}
+    por_dia = Counter(h.date() for h in existentes)
+    dia = inicio.date()
+    horarios = []
+    while len(horarios) < quantidade:
+        for hora in HORARIOS_DIARIOS:
+            candidato = datetime.datetime.combine(dia, hora)
+            if candidato < inicio or candidato in ocupados or por_dia[dia] >= len(HORARIOS_DIARIOS):
+                continue
+            horarios.append(candidato)
+            por_dia[dia] += 1
+            if len(horarios) == quantidade:
+                return horarios
+        dia += datetime.timedelta(days=1)
+    return horarios
+
+
+def horario_confirmado(post, fuso, reserva):
+    valor = post.get("scheduledFor")
+    if not isinstance(valor, str):
+        return reserva
+    try:
+        data = datetime.datetime.fromisoformat(valor.replace("Z", "+00:00"))
+        if data.tzinfo:
+            try:
+                zona = ZoneInfo(fuso)
+            except ZoneInfoNotFoundError:
+                if fuso not in ("America/Bahia", "America/Sao_Paulo"):
+                    return reserva
+                zona = datetime.timezone(datetime.timedelta(hours=-3))
+            data = data.astimezone(zona)
+        return data.strftime("%Y-%m-%dT%H:%M")
+    except (ValueError, TypeError):
+        return reserva
+
+
+def destinos_post(post, contas):
+    destinos = []
+    for pl in post.get("platforms") or []:
+        if not isinstance(pl, dict):
+            continue
+        conta = pl.get("accountId")
+        identificador = conta.get("_id") if isinstance(conta, dict) else conta
+        nome = conta.get("username") if isinstance(conta, dict) else ""
+        nome = nome or next((c.get("usuario") for c in contas if identificador and c.get("id") == identificador), "")
+        destinos.append({"plataforma": pl.get("platform") or "", "usuario": nome or "",
+                         "status": pl.get("status") or "", "erro": bool(pl.get("errorMessage") or pl.get("error"))})
+    return destinos
+
+
+def registrar_pendencia(p, quando, cfg, motivo):
+    arquivo = p / "out" / "zernio_pendencia.json"
+    arquivo.parent.mkdir(exist_ok=True)
+    dados = {"horario": quando.isoformat(timespec="minutes"), "fuso": cfg.get("fuso", FUSO),
+             "contas": [f"{c['plataforma']}:{c.get('usuario', '')}" for c in cfg["contas"]],
+             "status": "nao_confirmado", "motivo": motivo}
+    arquivo.write_text(json.dumps(dados, ensure_ascii=False), encoding="utf-8")
+
+
+def agendar(projetos, inicio, intervalo_h, horarios=None):
     cfg = config()
     if not cfg["contas"]:
         raise ErroZernio("escolha pelo menos uma conta na tela Agendar")
     quando = inicio
+    if horarios is not None and len(horarios) != len(projetos):
+        raise ErroZernio("cada vídeo do lote precisa de um horário")
     erros = 0
     for i, nome in enumerate(projetos, 1):
+        if horarios is not None:
+            quando = horarios[i - 1]
         p = VIDEOS / nome
         reg = p / "out" / "zernio.json"
         if reg.exists():
             print(f"pulando {nome}: já agendado"); continue
         v = video_final(p)
         if not v:
+            registrar_pendencia(p, quando, cfg, "Projeto sem vídeo pronto.")
             print(f"ERRO {nome}: sem vídeo pronto"); erros += 1; continue
+        if horarios is not None and quando < agora_no_fuso(cfg["fuso"]) + datetime.timedelta(minutes=1):
+            registrar_pendencia(p, quando, cfg, "O horário escolhido passou antes do envio.")
+            print(f"ERRO {nome}: o horário do lote passou durante o envio. Escolha uma nova data.", flush=True)
+            erros += 1
+            continue
         try:
             print(f"({i}/{len(projetos)}) [{quando:%d/%m %H:%M}] {nome}: enviando {v.name} ({v.stat().st_size / 1e6:.0f} MB)...", flush=True)
             url_v = enviar_arquivo(v, f"{nome}.mp4")
             capa = p / "out" / "capa.jpg"
             url_c = enviar_arquivo(capa, f"{nome}-capa.jpg") if capa.exists() else None
+            if horarios is not None and quando <= agora_no_fuso(cfg["fuso"]):
+                raise ErroZernio("o horário selecionado passou durante o upload; escolha um novo horário")
             corpo = montar_post(p, quando, cfg, url_v, url_c)
-            j = _req("POST", "/posts", corpo)
+            j = _req("POST", "/posts", corpo, idempotencia=str(uuid.uuid4()))
             post = j.get("post", j)
+            if not post.get("_id"):
+                raise ErroZernio("o Zernio não confirmou o agendamento; confira no painel antes de reenviar")
             reg.write_text(json.dumps({"post_id": post.get("_id"), "status": post.get("status"),
-                                       "horario": quando.strftime("%Y-%m-%dT%H:%M"), "fuso": cfg.get("fuso", FUSO),
+                                       "horario": horario_confirmado(post, cfg.get("fuso", FUSO), quando.strftime("%Y-%m-%dT%H:%M")), "fuso": cfg.get("fuso", FUSO),
                                        "contas": [f"{c['plataforma']}:{c['usuario']}" for c in cfg["contas"]],
+                                       "destinos": destinos_post(post, cfg["contas"]),
                                        "enviado_em": datetime.datetime.now().isoformat(timespec="seconds")},
                                       ensure_ascii=False, indent=1), encoding="utf-8")
+            (p / "out" / "zernio_pendencia.json").unlink(missing_ok=True)
+            if post.get("status") not in ("scheduled", "published"):
+                (p / "status.txt").write_text("ATENÇÃO: conferir envio no Zernio", encoding="utf-8")
+                raise ErroZernio(f"post {post['_id']} recebido sem confirmação de agendamento; confira no Zernio")
             (p / "status.txt").write_text(f"AGENDADO {quando:%d/%m %H:%M}", encoding="utf-8")
             print(f"   ok: post {post.get('_id')} ({post.get('status')})", flush=True)
             quando += datetime.timedelta(hours=intervalo_h)
         except ErroZernio as e:
+            if not reg.exists():
+                registrar_pendencia(p, quando, cfg, "Envio sem confirmação. Confira no painel do Zernio antes de tentar novamente.")
             print(f"ERRO {nome}: {e}", flush=True); erros += 1
             if "recusada" in str(e):
+                for n, restante in enumerate(projetos[i:], i):
+                    pasta = VIDEOS / restante
+                    if not (pasta / "out" / "zernio.json").exists():
+                        previsto = horarios[n] if horarios is not None else quando + datetime.timedelta(hours=(n-i+1)*intervalo_h)
+                        registrar_pendencia(pasta, previsto, cfg, "Envio não iniciado. Confira a chave do Zernio.")
                 break
     return erros
 
@@ -184,6 +290,8 @@ def cancelar(nome):
     reg["cancelado_em"] = datetime.datetime.now().isoformat(timespec="seconds")
     (p / "out" / "zernio_cancelado.json").write_text(json.dumps(reg, ensure_ascii=False, indent=1), encoding="utf-8")
     reg_p.unlink()
+    (p / "out" / "zernio_falhou.json").unlink(missing_ok=True)
+    (p / "out" / "zernio_pendencia.json").unlink(missing_ok=True)
     (p / "status.txt").write_text("PRONTO (agendamento cancelado)", encoding="utf-8")
     return reg
 
@@ -192,6 +300,7 @@ def conferir():
     """Consulta cada post agendado e atualiza out/zernio.json e o status do projeto.
     Post apagado no Zernio (404) -> desmarca, para poder agendar de novo."""
     probs = 0
+    contas = config().get("contas", [])
     for p in sorted(VIDEOS.iterdir()):
         reg_p = p / "out" / "zernio.json"
         if not reg_p.is_file():
@@ -202,10 +311,14 @@ def conferir():
             j = _req("GET", f"/posts/{pid}")
         except ErroZernio as e:
             if "HTTP 404" in str(e):
+                reg.update(status="ausente", motivo="Publicação não encontrada no Zernio.")
+                (p / "out" / "zernio_pendencia.json").write_text(json.dumps(reg, ensure_ascii=False), encoding="utf-8")
                 reg_p.unlink()
                 (p / "status.txt").write_text("PRONTO (agendamento sumiu do Zernio)", encoding="utf-8")
                 print(f"NÃO EXISTE MAIS  {p.name}  (post {pid}): desmarcado, pode agendar de novo"); probs += 1
                 continue
+            reg["falha_consulta"] = True
+            reg_p.write_text(json.dumps(reg, ensure_ascii=False), encoding="utf-8")
             print(f"ERRO ao consultar {p.name}: {e}"); probs += 1
             continue
         post = j.get("post", j)
@@ -215,7 +328,9 @@ def conferir():
         for pl in plats:
             msg = pl.get("errorMessage") or pl.get("error") or ""
             det.append(f"{pl.get('platform')}={pl.get('status')}" + (f" ({msg})" if msg else ""))
-        reg.update(status=st, plataformas=det, conferido_em=datetime.datetime.now().isoformat(timespec="seconds"))
+        reg["horario"] = horario_confirmado(post, reg.get("fuso") or FUSO, reg.get("horario", ""))
+        reg.pop("falha_consulta", None)
+        reg.update(status=st, destinos=destinos_post(post, contas), plataformas=det, conferido_em=datetime.datetime.now().isoformat(timespec="seconds"))
         reg_p.write_text(json.dumps(reg, ensure_ascii=False, indent=1), encoding="utf-8")
         h = reg.get("horario", "")[5:16].replace("T", " ")
         falhou = st in ("failed", "partial") or any("failed" in d or "error" in d for d in det)
@@ -224,7 +339,8 @@ def conferir():
             (p / "postado.txt").write_text(datetime.datetime.now().isoformat(timespec="seconds"), encoding="utf-8")
         elif falhou:
             (p / "status.txt").write_text(f"ERRO: Zernio {st} ({', '.join(det)})"[:200], encoding="utf-8"); probs += 1
-            reg_p.replace(p / "out" / "zernio_falhou.json")   # libera para agendar de novo
+            if st == "failed" and not any(pl.get("status") == "published" for pl in plats):
+                reg_p.replace(p / "out" / "zernio_falhou.json")   # falha total permite reagendar
         elif st in ("draft",):
             (p / "status.txt").write_text(f"RASCUNHO no Zernio {h}", encoding="utf-8"); probs += 1
         print(f"{'OK  ' if not falhou and st != 'draft' else 'ATENÇÃO'} {h}  {p.name}: {st}  {' | '.join(det)}", flush=True)
@@ -310,6 +426,7 @@ def main():
     a.add_argument("--projetos", required=True)
     a.add_argument("--inicio", required=True, help="AAAA-MM-DDTHH:MM no fuso configurado")
     a.add_argument("--intervalo", type=float, default=4)
+    a.add_argument("--horarios", help="horários explícitos do lote, separados por vírgula")
     args = ap.parse_args()
     try:
         if args.cmd == "conferir":
@@ -321,7 +438,9 @@ def main():
                 print(f"{c['plataforma']:10} {c['usuario']:25} {c['id']}")
             return 0
         ini = datetime.datetime.strptime(args.inicio[:16], "%Y-%m-%dT%H:%M")
-        return 1 if agendar([x for x in args.projetos.split(",") if x], ini, args.intervalo) else 0
+        horarios = ([datetime.datetime.fromisoformat(h) for h in args.horarios.split(",")]
+                    if args.horarios else None)
+        return 1 if agendar([x for x in args.projetos.split(",") if x], ini, args.intervalo, horarios) else 0
     except ErroZernio as e:
         print(f"ERRO: {e}")
         return 1

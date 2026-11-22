@@ -58,6 +58,20 @@ def checar(rot, lib_path):
     tipos = [s.get("tipo", "") for s in segs]
     for t in set(tipos) - TIPOS - {""}:
         avisos.append(f"tipo desconhecido '{t}' (use: {', '.join(sorted(TIPOS))})")
+    validos = ("card", "aviso", "alerta", "icone", "fato", "numero", "estrelas", "dinheiro", "cronometro",
+               "moldura", "pin", "rota", "seta", "texto", "titulo")
+    n_efeitos = 0
+    for i, s in enumerate(segs):
+        for e in s.get("efeitos") or []:
+            n_efeitos += 1
+            if not isinstance(e, dict) or e.get("tipo") not in validos:
+                avisos.append(f"segmento {i + 1}: efeito inválido {e!r} (use: {', '.join(validos)})")
+        if s.get("transicao") not in (None, "corte", "zoom", "whip", "glitch", "flash"):
+            avisos.append(f"segmento {i + 1}: transição '{s['transicao']}' desconhecida (corte, zoom, whip, glitch, flash)")
+    if not n_efeitos:
+        avisos.append("nenhum efeito de interface: estrelas, card, dinheiro, fato n/total ou moldura deixam o vídeo com cara de jogo")
+    if sum(1 for s in segs if s.get("revelacao")) > 1:
+        avisos.append("mais de uma 'revelacao': guarde o riser + glitch para a virada principal")
     if len(set(tipos)) < 4:
         avisos.append(f"pouca variedade de tipos ({', '.join(sorted(set(tipos)))}): misture curiosidade, história, piada...")
     if not ({"piada", "duplo_sentido"} & set(tipos)):
@@ -114,7 +128,8 @@ def checar(rot, lib_path):
                 erros.append(f"{rot_i}: imagem não encontrada: {a}")
     if sem_destaque > len(segs) * 0.4:
         avisos.append(f"{sem_destaque} segmentos sem 'destaque': marque 1–2 palavras-chave em amarelo")
-    if not any(s.get("cartela") for s in segs):
+    if not any(s.get("cartela") or any(isinstance(e, dict) and e.get("tipo") in ("numero", "dinheiro", "fato")
+                                       for e in s.get("efeitos") or []) for s in segs):
         avisos.append("nenhuma cartela: um número/data grande na tela (ex.: '19 DE NOVEMBRO') reforça o fato principal")
     if (rot.get("idioma") or "pt") != "pt":   # versão traduzida: regras de contagem/CTA em português viram só aviso
         leves = ("palavras: fora da faixa", "nenhum CTA", "falta CTA", "gancho com", "gancho começa")
@@ -156,7 +171,8 @@ def consertar(rot):
                 s["cartela"] = c; mud.append(f"{r}: cartela em maiúsculas")
             if not c:
                 s.pop("cartela")
-        if s.get("sfx") and s["sfx"] not in ("impacto", "whoosh", "pop"):
+        if s.get("sfx") and s["sfx"] not in ("impacto", "whoosh", "pop", "whoosh_cine", "glitch", "riser",
+                                              "notificacao", "dinheiro", "relogio"):
             mud.append(f"{r}: efeito '{s['sfx']}' removido"); s.pop("sfx")
     return rot, mud
 

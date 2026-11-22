@@ -4,7 +4,7 @@ Pasta: <dados>/cortes/<trabalho>/ (um trabalho por vídeo/live). Os scripts pesa
 (adaptados do gtavi-claudecode, licença MIT) e rodam pela fila de trabalhos do Estúdio; o modo ao vivo roda à parte,
 porque grava por até horas e não pode travar o resto do programa.
 """
-import csv, datetime, json, re, shutil, subprocess, sys, time
+import csv, datetime, json, math, re, shutil, subprocess, sys, time
 from pathlib import Path
 
 AQUI = Path(__file__).resolve().parent
@@ -208,7 +208,7 @@ def detalhe(nome):
                        "inicio": meta.get("start"), "fim": meta.get("end"), "layout": meta.get("layout"),
                        "gancho": meta.get("hook"), "titulo": meta.get("title"), "traducoes": trad,
                        "render": meta.get("render") or {}, "pergunta": meta.get("pergunta") or "",
-                       "duracao": meta.get("duracao"), "tipo": meta.get("tipo"),
+                       "tempos": meta.get("tempos"), "duracao": meta.get("duracao"), "tipo": meta.get("tipo"),
                        "legendas": _ler(j.parent / f"clip_{n}_legendas.json", {}), "legenda": leg,
                        "checagem": checar_clipe(mp4, leg, canal) if mp4.exists() else None,
                        "projetos": meta.get("projetos") or {},
@@ -225,8 +225,8 @@ def detalhe(nome):
             s["trabalho"] = tn if (CORTES / tn / "candidates.json").exists() else None
         trechos.append(s)
     rodando = bool(LIVE["proc"] and LIVE["trabalho"] == d.name and LIVE["proc"].poll() is None)
-    return {"nome": d.name, "info": info, "canal": canal, "momentos": cand.get("candidates") or [],
-            "sinais": cand.get("signals") or {}, "duracao": cand.get("duration"), "clipes": clipes,
+    return {"nome": d.name, "info": info, "canal": canal, "enquadramento": _ler(arquivo_enquadramento(d)), "momentos": cand.get("candidates") or [],
+            "tempos": cand.get("tempos"), "sinais": cand.get("signals") or {}, "duracao": cand.get("duration"), "clipes": clipes,
             "tem_fonte": bool(cand.get("source") and Path(cand["source"]).exists()),
             "live": est, "trechos": trechos, "live_rodando": rodando}
 
@@ -281,29 +281,63 @@ def etapas_momentos(corpo):
             raise FileNotFoundError("trecho")
         src, extra = str(f), ["--info-de", str(pai)]
     else:
-        src, extra = _url_ok(corpo.get("url")), []
+        entrada = str(corpo.get("url") or "").strip().strip('"')
+        if re.match(r"^[A-Za-z]:[\\/]", entrada):
+            arquivo = Path(entrada).resolve()
+            if arquivo.suffix.lower() != ".mp4" or not arquivo.is_file():
+                raise ValueError("Escolha um arquivo MP4 que exista neste computador.")
+            src, extra = str(arquivo), []
+        else:
+            src, extra = _url_ok(entrada), []
     nome = nome_trabalho(src)
     (CORTES / nome).mkdir(parents=True, exist_ok=True)
-    etapas = [["clipes/moments.py", src, "--top", str(top), "--min", f"{mn:g}", "--max", f"{mx:g}",
+    script = "clipes/momentos_prioritarios.py" if corpo.get("priorizar") is True else "clipes/moments.py"
+    etapas = [[script, src, "--top", str(top), "--min", f"{mn:g}", "--max", f"{mx:g}",
                "--max-minutes", str(minutos)] + extra,
               ["clipes/secrets_map.py", "scan", str(CORTES / nome)]]
+    if corpo.get("cortar_auto") is True:             # já entrega os cortes prontos (câmera, legenda, gancho)
+        quantos = max(1, min(top, int(corpo.get("cortes") or top)))
+        etapas.append(["clipes/auto_cortes.py", str(CORTES / nome), "--n", str(quantos)]
+                      + (["--projetos"] if corpo.get("projetos", True) is not False else []))
     return nome, etapas
+
+
+def arquivo_enquadramento(d):
+    import hashlib
+    info = _ler(d / "info.json", {})
+    canal = info.get("uploader_id") or info.get("channel") or info.get("uploader")
+    if not canal:
+        return d / "enquadramento.json"
+    chave = hashlib.sha256(canal.encode("utf-8")).hexdigest()
+    return CORTES / "_enquadramentos" / (chave + ".json")
+
+
+def segundos_faixa(valor=4):
+    """Normaliza a duração do gancho/faixa para o intervalo seguro de 3 a 8 segundos."""
+    try:
+        valor = float(valor)
+    except (TypeError, ValueError):
+        valor = 4
+    if not math.isfinite(valor):
+        valor = 4
+    return round(max(3.0, min(8.0, valor)) * 2) / 2
 
 
 def etapas_cortar(corpo):
     d = trabalho_dir(corpo["nome"])
     pick = int(corpo["pick"])
-    layout = corpo.get("layout") if corpo.get("layout") in LAYOUTS else "blur"
+    layout = corpo.get("layout") if corpo.get("layout") in LAYOUTS else "facecam"
     e = ["clipes/cut.py", str(d), "--pick", str(pick), "--layout", layout,
          "--captions", corpo.get("legenda") if corpo.get("legenda") in ("word", "bubble", "none") else "word"]
-    for campo, argumento, padrao, minimo, maximo in (("texto_y", "--texto-y", 1050 if layout in ("react", "facecam") else 480, 250, 1450),
+    for campo, argumento, padrao, minimo, maximo in (("texto_y", "--texto-y", 750 if layout == "facecam" else 1050 if layout == "react" else 480, 250, 1450),
                                                        ("texto_tamanho", "--texto-tamanho", 66, 40, 100)):
         valor = max(minimo, min(maximo, int(corpo.get(campo) or padrao)))
         e += [argumento, str(valor)]
     cor = corpo.get("texto_cor") if corpo.get("texto_cor") in ("rosa", "laranja", "roxo", "escuro") else "rosa"
     e += ["--texto-cor", cor]
     e += ["--title-style", corpo.get("estilo_titulo") if corpo.get("estilo_titulo") in ("box", "outline") else "box"]
-    if corpo.get("projeto_atualizar") and layout in ("react", "facecam"):
+    e += ["--title-secs", str(segundos_faixa(corpo.get("title_secs", 4)))]
+    if corpo.get("projeto_atualizar") and layout in ("react", "facecam") and "enquadramento" not in corpo:
         anterior = _ler(d / "edits" / f"clip_{pick}.json", {}) or {}
         render = anterior.get("render") or {}
         cam = str(render.get("cam") or "")
@@ -328,6 +362,25 @@ def etapas_cortar(corpo):
     if isinstance(ed, (list, tuple)):
         ed = [x for x in ed if x in ("pausas", "zoom", "voz", "loop")]
         e += ["--edicao", ",".join(ed) if ed else "nenhuma"]
+    cam_auto = str(corpo.get("cam") or "")
+    if layout in ("react", "facecam") and "--cam" not in e and re.fullmatch(r"[01](?:\.\d+)?(?::[01](?:\.\d+)?){3}", cam_auto):
+        x, y, w, h = map(float, cam_auto.split(":"))
+        if w > 0 and h > 0 and x + w <= 1.001 and y + h <= 1.001 and not (layout == "facecam" and _ler(arquivo_enquadramento(d))):
+            e += ["--cam", cam_auto]                   # câmera achada uma vez para o vídeo todo (cortes automáticos)
+    if layout == "facecam":
+        arquivo = arquivo_enquadramento(d)
+        ajuste = corpo.get("enquadramento", _ler(arquivo))
+        if ajuste is not None:
+            valores = [int(ajuste[k]) for k in ("x", "y", "largura", "altura", "jogo")]
+            x, y, largura, altura, jogo = valores
+            if not (0 <= x <= 100 and 0 <= y <= 100 and 5 <= largura <= 100 and 5 <= altura <= 100 and 0 <= jogo <= 100):
+                raise ValueError("Confira o enquadramento da câmera e do jogo.")
+            cam_manual = (x / 100 * (1 - largura / 100), y / 100 * (1 - altura / 100), largura / 100, altura / 100)
+            e += ["--cam", ":".join(f"{v:.6f}" for v in cam_manual), "--posicao-jogo", str(jogo)]
+            if "enquadramento" in corpo and corpo.get("salvar_padrao", True):
+                _gravar(arquivo, dict(zip(("x", "y", "largura", "altura", "jogo"), valores)))
+        elif "enquadramento" in corpo and corpo.get("salvar_padrao", True):
+            arquivo.unlink(missing_ok=True)
     return [e]
 
 
