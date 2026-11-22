@@ -32,7 +32,7 @@ import lote_cortes as LC  # fila de produção entre fontes
 import cortes as CT  # noqa: E402  (tela Cortes e lives)
 import atualizar as ATU  # noqa: E402  (atualização automática pelo GitHub)
 
-VERSAO = 35
+VERSAO = 36
 URL_CHECKOUT_LICENCAS = "https://estudio-gta6-checkout.vercel.app/api/licenca"
 URL_CHECKOUT_CONFIG = "https://estudio-gta6-checkout.vercel.app/api/config"
 ARQ_LICENCA = Path(os.getenv("LOCALAPPDATA") or Path.home()) / "Estudio GTA 6" / "licenca.json"
@@ -1239,7 +1239,7 @@ def lista_projetos():
             segs = rot.get("segmentos", [])
             chk = checagem_projeto(d) if rot.get("tipo") == "clipe" and video_final(d) else None
             lista.append({"nome": d.name, "titulo": rot.get("titulo", "") or ped.get("tema", "") or d.name, "status": status_de(d),
-                          "tem_video": bool(video_final(d)), "postado": (d / "postado.txt").exists(), "mtime": d.stat().st_mtime,
+                          "tem_capa": (d / "out" / "capa.jpg").is_file(), "tem_video": bool(video_final(d)), "postado": (d / "postado.txt").exists(), "mtime": d.stat().st_mtime,
                           "gancho": segs[0]["texto"] if segs else "", "cta": segs[-1]["texto"] if segs else "",
                           "data_post": rot.get("data_post", d.name[:10]), "tem_roteiro": bool(rot),
                           "aprovado": aprovado(d) if video_final(d) else False,

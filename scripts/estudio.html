@@ -17,12 +17,12 @@
 @font-face { font-family:"Barlow Semi Condensed"; src:url("/fonte/barlow-semi-condensed-latin-700-normal.woff2") format("woff2"); font-weight:700; font-display:swap; }
 :root {
   color-scheme: dark;
-  --bg:#161224; --p1:#1E1830; --p2:#272040; --p3:#322A50; --linha:#3A3157; --linha-forte:#5A4E80;
-  --texto:#F4F0FF; --fraco:#ABA3C7;
+  --bg:#13151A; --p1:#1C1F26; --p2:#272B35; --p3:#343947; --linha:#363B48; --linha-forte:#666E80;
+  --texto:#F7F5F3; --fraco:#B3B8C6;
   --rosa:#FF5C96; --laranja:#FF8A3D; --amarelo:#FFD84D; --verde:#3DDBC5; --azul:#8FB8FF; --erro:#FF7A7A; --aviso:#FFB547;
   --sol: linear-gradient(90deg, #FF5C96 0%, #FF8A3D 100%);
   --tinta:#1A0F1F;                         /* texto sobre o pôr do sol */
-  --r-painel:16px; --r-item:10px; --r-campo:8px;
+  --r-painel:12px; --r-item:9px; --r-campo:8px;
   --t-rapida:120ms; --t-media:200ms; --curva:cubic-bezier(.2,.7,.2,1);
   --corpo:"Barlow", system-ui, "Segoe UI", sans-serif; --titulo:"Barlow Semi Condensed", "Barlow", system-ui, sans-serif;
 }
@@ -318,27 +318,120 @@ body.primeira aside { display:none; } body.primeira .app { grid-template-columns
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important; }
 }
+
+/* Bancada de produção, navegação e editor */
+header { height:60px; padding-inline:22px; background:var(--p1); }
+header h1 { background:none; padding:0; flex:none; }
+header .marca { padding:4px 0; border:0; background:var(--sol); background-clip:text; color:transparent; font:29px/1 Bangers,Impact,sans-serif; letter-spacing:1px; }
+header .marca:hover:not(:disabled) { background:var(--sol); background-clip:text; }
+.marca small { font:600 12px/1 var(--corpo); letter-spacing:.06em; color:var(--fraco); }
+#job { min-width:0; max-width:54%; } #jobtxt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#abrir-menu { display:none; }
+.app { height:calc(100dvh - 60px); }
+main { min-width:0; padding:clamp(20px,2.5vw,44px) clamp(18px,3.3vw,64px) 90px; scrollbar-gutter:stable; }
+main > * { max-width:1440px; margin-inline:auto; }
+main h2 { font:700 clamp(28px,2.2vw,38px)/1.12 var(--titulo); }
+main h3 { font-family:var(--titulo); }
+main > .sub { margin-inline:0; } main:focus { outline:none; }
+.pagina-cab { align-items:center; margin-bottom:24px; }
+.pagina-cab h2,.cartao h3:first-child,.cab-lista h3 { margin:0; }
+.marca,.metrica,.projeto-info { text-align:left; }
+.data-painel { display:block; color:var(--fraco); margin-bottom:5px; font-size:14px; }
+.data-painel::first-letter { text-transform:uppercase; }
+.etapas-painel { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:12px; margin-bottom:24px; }
+button.metrica { display:grid; grid-template-columns:1fr auto; gap:14px 8px; justify-content:stretch; background:var(--p1); padding:18px 20px; border-radius:var(--r-painel); }
+.metrica span { grid-column:1/-1; display:flex; align-items:center; gap:9px; font-size:14px; color:var(--fraco); }
+.metrica strong { font:600 36px/1 var(--titulo); color:var(--texto); font-variant-numeric:tabular-nums; }
+.metrica > .ic { align-self:end; color:var(--fraco); }
+.fase-producao span .ic { color:var(--azul); } .fase-revisao span .ic { color:var(--aviso); }
+.fase-pronto span .ic { color:var(--rosa); } .fase-agendado span .ic { color:var(--verde); }
+.fase-erro span .ic { color:var(--erro); } .fase-publicado span .ic { color:var(--verde); }
+.bancada { display:grid; grid-template-columns:minmax(290px,.9fr) minmax(340px,1.1fr); gap:18px; align-items:start; }
+.destaque,.ultimos,.fontes-recentes { background:var(--p1); border:1px solid var(--linha); border-radius:var(--r-painel); overflow:hidden; }
+.destaque > h3,.cab-lista { margin:0; padding:16px 20px; border-bottom:1px solid var(--linha); }
+.cab-lista { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.destaque-miolo { display:flex; gap:18px; align-items:center; padding:20px; }
+.poster { width:clamp(88px,8vw,144px); flex:none; aspect-ratio:9/16; display:grid; place-items:center; border-radius:6px; overflow:hidden; color:var(--rosa); background:var(--p2); }
+.poster .ic { width:36px; height:36px; } .poster img,.projeto-icone img { width:100%; height:100%; object-fit:cover; }
+.destaque h4 { font:700 clamp(20px,1.7vw,28px)/1.15 var(--titulo); margin:10px 0 8px; overflow-wrap:anywhere; }
+.destaque p,.fontes-recentes .sub,.ultimos .sub { color:var(--fraco); margin:0 0 16px; }
+.fontes-recentes > .sub,.ultimos > .sub { padding:14px 18px; }
+.projeto-icone { width:38px; height:48px; border-radius:5px; overflow:hidden; background:var(--p2); }
+.ultimos .projeto-linha { padding:12px 15px; gap:10px; }
+.projeto-linha .mini { flex:none; }
+.seletor { display:flex; flex-wrap:wrap; gap:6px; border-bottom:1px solid var(--linha); padding:0 0 12px; margin-bottom:20px; }
+.seletor button { background:transparent; color:var(--fraco); border:1px solid transparent; min-height:38px; }
+.seletor button[aria-pressed=true] { background:var(--p2); color:var(--texto); border-color:var(--linha-forte); }
+.area-fonte { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(235px,.85fr); align-items:start; gap:18px; }
+.area-fonte .cartao { margin:0; } [data-secao][hidden] { display:none; }
+[data-secao] { min-width:0; overflow-x:auto; }
+.fonte-recente { width:100%; gap:12px; background:transparent; border:0; border-bottom:1px solid var(--linha); border-radius:0; justify-content:flex-start; text-align:left; padding:14px 16px; }
+.fonte-recente:last-child { border-bottom:0; }
+.fonte-recente > .ic:first-child { color:var(--rosa); }
+.fonte-recente span { flex:1; min-width:0; } .fonte-recente b,.fonte-recente small { display:block; }
+.fonte-recente small { color:var(--fraco); margin-top:5px; }
+[data-secao=planejar] .cal-cab { border-top:1px solid var(--linha); padding-top:18px; }
+[data-secao=planejar] .cal-cab + #calendario .cal-cab { border:0; }
+.modal .caixa { min-height:0; } .modal .caixa .edicao-paineis { display:grid; grid-template-columns:minmax(235px,.66fr) minmax(0,1.34fr); align-items:start; gap:24px; }
+.monitor { position:sticky; top:0; display:flex; align-items:center; flex-direction:column; padding:15px; border-radius:var(--r-item); background:var(--bg); }
+.monitor h3 { align-self:flex-start; margin:0 0 12px; }
+.monitor .linha { justify-content:center; } .monitor p { text-align:center; }
+.edicao-campos { min-width:0; } .edicao-campos .grid2 { grid-template-columns:1fr; }
+.edicao-opcoes { margin-top:14px; } .edicao-opcoes summary { margin-bottom:8px; }
+.rodape-editor { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 20px; border-top:1px solid var(--linha); color:var(--fraco); }
+@media(min-width:761px) {
+  .app { grid-template-columns:218px minmax(0,1fr); } #gaveta { left:218px; }
+  .menu-funcoes { padding:14px 10px; } .menu-funcoes .grupo { font-size:12px; }
+}
+@media(max-width:1150px) {
+  .etapas-painel { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .bancada { grid-template-columns:1fr; } .destaque-miolo { padding:14px 20px; } .poster { width:64px; }
+}
+@media(max-width:920px) { .area-fonte { grid-template-columns:1fr; } }
+@media(max-height:760px) { .monitor { position:static; } }
+@media(max-width:760px) {
+  header { padding-inline:12px; gap:10px; } header .marca { font-size:24px; } .marca small { display:none; }
+  #abrir-menu { display:inline-flex; } body.primeira #abrir-menu { display:none; }
+  #menu-estudio { display:none; max-height:55vh; overflow:auto; }
+  #menu-estudio.aberto { display:block; }
+  #menu-estudio .menu-funcoes { width:100%; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:2px; }
+  #menu-estudio .nav { white-space:normal; } #job { padding:8px; max-width:44%; }
+  .etapas-painel { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  button.metrica { padding:14px; gap:10px; } .metrica strong { font-size:30px; }
+  .bancada { grid-template-columns:minmax(0,1fr); } main { padding:18px 14px 70px; }
+  .projeto-linha { flex-wrap:nowrap; } .projeto-linha .mini { max-width:110px; }
+  .seletor { gap:3px; } .seletor button { padding:8px; }
+  .modal .caixa .edicao-paineis { display:block; } .monitor { position:static; margin-bottom:16px; }
+  .rodape-editor { position:sticky; bottom:0; background:var(--p1); }
+  .pagina-cab { gap:12px; } .menu-funcoes .grupo { display:none; }
+}
+.projeto-info .titulo-projeto,.voltar-projetos { display:block; min-height:0; color:var(--texto); background:transparent; border:0; padding:3px 0; text-align:left; }
+.projeto-info .titulo-projeto { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:600 15px/1.25 var(--corpo); }
+.voltar-projetos { margin-bottom:8px; color:var(--fraco); }
+.titulo-projeto:hover:not(:disabled),.voltar-projetos:hover:not(:disabled) { background:transparent; text-decoration:underline; }
+.video-area video { max-width:100%; }
 </style>
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-plus" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></symbol><symbol id="i-play" viewBox="0 0 256 256"><path d="M232.4,114.49,88.32,26.35a16,16,0,0,0-16.2-.3A15.86,15.86,0,0,0,64,39.87V216.13A15.94,15.94,0,0,0,80,232a16.07,16.07,0,0,0,8.36-2.35L232.4,141.51a15.81,15.81,0,0,0,0-27ZM80,215.94V40l143.83,88Z"/></symbol><symbol id="i-stop" viewBox="0 0 256 256"><path d="M200,40H56A16,16,0,0,0,40,56V200a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,160H56V56H200V200Z"/></symbol><symbol id="i-tesoura" viewBox="0 0 256 256"><path d="M157.73,113.13A8,8,0,0,1,159.82,102L227.48,55.7a8,8,0,0,1,9,13.21l-67.67,46.3a7.92,7.92,0,0,1-4.51,1.4A8,8,0,0,1,157.73,113.13Zm80.87,85.09a8,8,0,0,1-11.12,2.08L136,137.7,93.49,166.78a36,36,0,1,1-9-13.19L121.83,128,84.44,102.41a35.86,35.86,0,1,1,9-13.19l143,97.87A8,8,0,0,1,238.6,198.22ZM80,180a20,20,0,1,0-5.86,14.14A19.85,19.85,0,0,0,80,180ZM74.14,90.13a20,20,0,1,0-28.28,0A19.85,19.85,0,0,0,74.14,90.13Z"/></symbol><symbol id="i-filme" viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40ZM40,88h80v80H40Zm96-16V56h32V72Zm-16,0H88V56h32Zm0,112v16H88V184Zm16,0h32v16H136Zm0-16V88h80v80Zm80-96H184V56h32ZM72,56V72H40V56ZM40,184H72v16H40Zm176,16H184V184h32v16Z"/></symbol><symbol id="i-ideia" viewBox="0 0 256 256"><path d="M176,232a8,8,0,0,1-8,8H88a8,8,0,0,1,0-16h80A8,8,0,0,1,176,232Zm40-128a87.55,87.55,0,0,1-33.64,69.21A16.24,16.24,0,0,0,176,186v6a16,16,0,0,1-16,16H96a16,16,0,0,1-16-16v-6a16,16,0,0,0-6.23-12.66A87.59,87.59,0,0,1,40,104.49C39.74,56.83,78.26,17.14,125.88,16A88,88,0,0,1,216,104Zm-16,0a72,72,0,0,0-73.74-72c-39,.92-70.47,33.39-70.26,72.39a71.65,71.65,0,0,0,27.64,56.3A32,32,0,0,1,96,186v6h64v-6a32.15,32.15,0,0,1,12.47-25.35A71.65,71.65,0,0,0,200,104Zm-16.11-9.34a57.6,57.6,0,0,0-46.56-46.55,8,8,0,0,0-2.66,15.78c16.57,2.79,30.63,16.85,33.44,33.45A8,8,0,0,0,176,104a9,9,0,0,0,1.35-.11A8,8,0,0,0,183.89,94.66Z"/></symbol><symbol id="i-agenda" viewBox="0 0 256 256"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z"/></symbol><symbol id="i-grafico" viewBox="0 0 256 256"><path d="M232,208a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V48a8,8,0,0,1,16,0V156.69l50.34-50.35a8,8,0,0,1,11.32,0L128,132.69,180.69,80H160a8,8,0,0,1,0-16h40a8,8,0,0,1,8,8v40a8,8,0,0,1-16,0V91.31l-58.34,58.35a8,8,0,0,1-11.32,0L96,123.31l-56,56V200H224A8,8,0,0,1,232,208Z"/></symbol><symbol id="i-ajustes" viewBox="0 0 256 256"><path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm109.94-52.79a8,8,0,0,0-3.89-5.4l-29.83-17-.12-33.62a8,8,0,0,0-2.83-6.08,111.91,111.91,0,0,0-36.72-20.67,8,8,0,0,0-6.46.59L128,41.85,97.88,25a8,8,0,0,0-6.47-.6A112.1,112.1,0,0,0,54.73,45.15a8,8,0,0,0-2.83,6.07l-.15,33.65-29.83,17a8,8,0,0,0-3.89,5.4,106.47,106.47,0,0,0,0,41.56,8,8,0,0,0,3.89,5.4l29.83,17,.12,33.62a8,8,0,0,0,2.83,6.08,111.91,111.91,0,0,0,36.72,20.67,8,8,0,0,0,6.46-.59L128,214.15,158.12,231a7.91,7.91,0,0,0,3.9,1,8.09,8.09,0,0,0,2.57-.42,112.1,112.1,0,0,0,36.68-20.73,8,8,0,0,0,2.83-6.07l.15-33.65,29.83-17a8,8,0,0,0,3.89-5.4A106.47,106.47,0,0,0,237.94,107.21Zm-15,34.91-28.57,16.25a8,8,0,0,0-3,3c-.58,1-1.19,2.06-1.81,3.06a7.94,7.94,0,0,0-1.22,4.21l-.15,32.25a95.89,95.89,0,0,1-25.37,14.3L134,199.13a8,8,0,0,0-3.91-1h-.19c-1.21,0-2.43,0-3.64,0a8.08,8.08,0,0,0-4.1,1l-28.84,16.1A96,96,0,0,1,67.88,201l-.11-32.2a8,8,0,0,0-1.22-4.22c-.62-1-1.23-2-1.8-3.06a8.09,8.09,0,0,0-3-3.06l-28.6-16.29a90.49,90.49,0,0,1,0-28.26L61.67,97.63a8,8,0,0,0,3-3c.58-1,1.19-2.06,1.81-3.06a7.94,7.94,0,0,0,1.22-4.21l.15-32.25a95.89,95.89,0,0,1,25.37-14.3L122,56.87a8,8,0,0,0,4.1,1c1.21,0,2.43,0,3.64,0a8.08,8.08,0,0,0,4.1-1l28.84-16.1A96,96,0,0,1,188.12,55l.11,32.2a8,8,0,0,0,1.22,4.22c.62,1,1.23,2,1.8,3.06a8.09,8.09,0,0,0,3,3.06l28.6,16.29A90.49,90.49,0,0,1,222.9,142.12Z"/></symbol><symbol id="i-idioma" viewBox="0 0 256 256"><path d="M247.15,212.42l-56-112a8,8,0,0,0-14.31,0l-21.71,43.43A88,88,0,0,1,108,126.93,103.65,103.65,0,0,0,135.69,64H160a8,8,0,0,0,0-16H104V32a8,8,0,0,0-16,0V48H32a8,8,0,0,0,0,16h87.63A87.76,87.76,0,0,1,96,116.35a87.74,87.74,0,0,1-19-31,8,8,0,1,0-15.08,5.34A103.63,103.63,0,0,0,84,127a87.55,87.55,0,0,1-52,17,8,8,0,0,0,0,16,103.46,103.46,0,0,0,64-22.08,104.18,104.18,0,0,0,51.44,21.31l-26.6,53.19a8,8,0,0,0,14.31,7.16L148.94,192h70.11l13.79,27.58A8,8,0,0,0,240,224a8,8,0,0,0,7.15-11.58ZM156.94,176,184,121.89,211.05,176Z"/></symbol><symbol id="i-busca" viewBox="0 0 256 256"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></symbol><symbol id="i-gravar" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm0-160a72,72,0,1,0,72,72A72.08,72.08,0,0,0,128,56Zm0,128a56,56,0,1,1,56-56A56.06,56.06,0,0,1,128,184Z"/></symbol><symbol id="i-live" viewBox="0 0 256 256"><path d="M128,88a40,40,0,1,0,40,40A40,40,0,0,0,128,88Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,152Zm73.71,7.14a80,80,0,0,1-14.08,22.2,8,8,0,0,1-11.92-10.67,63.95,63.95,0,0,0,0-85.33,8,8,0,1,1,11.92-10.67,80.08,80.08,0,0,1,14.08,84.47ZM69,103.09a64,64,0,0,0,11.26,67.58,8,8,0,0,1-11.92,10.67,79.93,79.93,0,0,1,0-106.67A8,8,0,1,1,80.29,85.34,63.77,63.77,0,0,0,69,103.09ZM248,128a119.58,119.58,0,0,1-34.29,84,8,8,0,1,1-11.42-11.2,103.9,103.9,0,0,0,0-145.56A8,8,0,1,1,213.71,44,119.58,119.58,0,0,1,248,128ZM53.71,200.78A8,8,0,1,1,42.29,212a119.87,119.87,0,0,1,0-168,8,8,0,1,1,11.42,11.2,103.9,103.9,0,0,0,0,145.56Z"/></symbol><symbol id="i-baixar" viewBox="0 0 256 256"><path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,124.69V32a8,8,0,0,0-16,0v92.69L93.66,98.34a8,8,0,0,0-11.32,11.32Z"/></symbol><symbol id="i-atualizar" viewBox="0 0 256 256"><path d="M224,48V96a8,8,0,0,1-8,8H168a8,8,0,0,1,0-16h28.69L182.06,73.37a79.56,79.56,0,0,0-56.13-23.43h-.45A79.52,79.52,0,0,0,69.59,72.71,8,8,0,0,1,58.41,61.27a96,96,0,0,1,135,.79L208,76.69V48a8,8,0,0,1,16,0ZM186.41,183.29a80,80,0,0,1-112.47-.66L59.31,168H88a8,8,0,0,0,0-16H40a8,8,0,0,0-8,8v48a8,8,0,0,0,16,0V179.31l14.63,14.63A95.43,95.43,0,0,0,130,222.06h.53a95.36,95.36,0,0,0,67.07-27.33,8,8,0,0,0-11.18-11.44Z"/></symbol><symbol id="i-ferramenta" viewBox="0 0 256 256"><path d="M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,187,29.24,72,72,0,0,0,88,96,72.34,72.34,0,0,0,94,124.94L33.79,177c-.15.12-.29.26-.43.39a32,32,0,0,0,45.26,45.26c.13-.13.27-.28.39-.42L131.06,162A72,72,0,0,0,232,96,71.56,71.56,0,0,0,226.76,69ZM160,152a56.14,56.14,0,0,1-27.07-7,8,8,0,0,0-9.92,1.77L67.11,211.51a16,16,0,0,1-22.62-22.62L109.18,133a8,8,0,0,0,1.77-9.93,56,56,0,0,1,58.36-82.31l-31.2,33.81a8,8,0,0,0-1.94,7.1L141.83,108a8,8,0,0,0,6.14,6.14l26.35,5.66a8,8,0,0,0,7.1-1.94l33.81-31.2A56.06,56.06,0,0,1,160,152Z"/></symbol><symbol id="i-fogo" viewBox="0 0 256 256"><path d="M183.89,153.34a57.6,57.6,0,0,1-46.56,46.55A8.75,8.75,0,0,1,136,200a8,8,0,0,1-1.32-15.89c16.57-2.79,30.63-16.85,33.44-33.45a8,8,0,0,1,15.78,2.68ZM216,144a88,88,0,0,1-176,0c0-27.92,11-56.47,32.66-84.85a8,8,0,0,1,11.93-.89l24.12,23.41,22-60.41a8,8,0,0,1,12.63-3.41C165.21,36,216,84.55,216,144Zm-16,0c0-46.09-35.79-85.92-58.21-106.33L119.52,98.74a8,8,0,0,1-13.09,3L80.06,76.16C64.09,99.21,56,122,56,144a72,72,0,0,0,144,0Z"/></symbol><symbol id="i-foguete" viewBox="0 0 256 256"><path d="M223.85,47.12a16,16,0,0,0-15-15c-12.58-.75-44.73.4-71.41,27.07L132.69,64H74.36A15.91,15.91,0,0,0,63,68.68L28.7,103a16,16,0,0,0,9.07,27.16l38.47,5.37,44.21,44.21,5.37,38.49a15.94,15.94,0,0,0,10.78,12.92,16.11,16.11,0,0,0,5.1.83A15.91,15.91,0,0,0,153,227.3L187.32,193A15.91,15.91,0,0,0,192,181.64V123.31l4.77-4.77C223.45,91.86,224.6,59.71,223.85,47.12ZM74.36,80h42.33L77.16,119.52,40,114.34Zm74.41-9.45a76.65,76.65,0,0,1,59.11-22.47,76.46,76.46,0,0,1-22.42,59.16L128,164.68,91.32,128ZM176,181.64,141.67,216l-5.19-37.17L176,139.31Zm-74.16,9.5C97.34,201,82.29,224,40,224a8,8,0,0,1-8-8c0-42.29,23-57.34,32.86-61.85a8,8,0,0,1,6.64,14.56c-6.43,2.93-20.62,12.36-23.12,38.91,26.55-2.5,36-16.69,38.91-23.12a8,8,0,1,1,14.56,6.64Z"/></symbol><symbol id="i-serie" viewBox="0 0 256 256"><path d="M248,128a56,56,0,0,1-95.6,39.6l-.33-.35L92.12,99.55a40,40,0,1,0,0,56.9l8.52-9.62a8,8,0,1,1,12,10.61l-8.69,9.81-.33.35a56,56,0,1,1,0-79.2l.33.35,59.95,67.7a40,40,0,1,0,0-56.9l-8.52,9.62a8,8,0,1,1-12-10.61l8.69-9.81.33-.35A56,56,0,0,1,248,128Z"/></symbol><symbol id="i-pergunta" viewBox="0 0 256 256"><path d="M140,180a12,12,0,1,1-12-12A12,12,0,0,1,140,180ZM128,72c-22.06,0-40,16.15-40,36v4a8,8,0,0,0,16,0v-4c0-11,10.77-20,24-20s24,9,24,20-10.77,20-24,20a8,8,0,0,0-8,8v8a8,8,0,0,0,16,0v-.72c18.24-3.35,32-17.9,32-35.28C168,88.15,150.06,72,128,72Zm104,56A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></symbol><symbol id="i-mapa" viewBox="0 0 256 256"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-5.52-.6l-64,16A8,8,0,0,0,24,56V200a8,8,0,0,0,9.94,7.76l61.13-15.28,61.35,30.68A8.15,8.15,0,0,0,160,224a8,8,0,0,0,1.94-.24l64-16A8,8,0,0,0,232,200V56A8,8,0,0,0,228.92,49.69ZM104,52.94l48,24V203.06l-48-24ZM40,62.25l48-12v127.5l-48,12Zm176,131.5-48,12V78.25l48-12Z"/></symbol><symbol id="i-controle" viewBox="0 0 256 256"><path d="M176,112H152a8,8,0,0,1,0-16h24a8,8,0,0,1,0,16ZM104,96H96V88a8,8,0,0,0-16,0v8H72a8,8,0,0,0,0,16h8v8a8,8,0,0,0,16,0v-8h8a8,8,0,0,0,0-16ZM241.48,200.65a36,36,0,0,1-54.94,4.81c-.12-.12-.24-.24-.35-.37L146.48,160h-37L69.81,205.09l-.35.37A36.08,36.08,0,0,1,44,216,36,36,0,0,1,8.56,173.75a.68.68,0,0,1,0-.14L24.93,89.52A59.88,59.88,0,0,1,83.89,40H172a60.08,60.08,0,0,1,59,49.25c0,.06,0,.12,0,.18l16.37,84.17a.68.68,0,0,1,0,.14A35.74,35.74,0,0,1,241.48,200.65ZM172,144a44,44,0,0,0,0-88H83.89A43.9,43.9,0,0,0,40.68,92.37l0,.13L24.3,176.59A20,20,0,0,0,58,194.3l41.92-47.59a8,8,0,0,1,6-2.71Zm59.7,32.59-8.74-45A60,60,0,0,1,172,160h-4.2L198,194.31a20.09,20.09,0,0,0,17.46,5.39,20,20,0,0,0,16.23-23.11Z"/></symbol><symbol id="i-brilho" viewBox="0 0 256 256"><path d="M197.58,129.06,146,110l-19-51.62a15.92,15.92,0,0,0-29.88,0L78,110l-51.62,19a15.92,15.92,0,0,0,0,29.88L78,178l19,51.62a15.92,15.92,0,0,0,29.88,0L146,178l51.62-19a15.92,15.92,0,0,0,0-29.88ZM137,164.22a8,8,0,0,0-4.74,4.74L112,223.85,91.78,169A8,8,0,0,0,87,164.22L32.15,144,87,123.78A8,8,0,0,0,91.78,119L112,64.15,132.22,119a8,8,0,0,0,4.74,4.74L191.85,144ZM144,40a8,8,0,0,1,8-8h16V16a8,8,0,0,1,16,0V32h16a8,8,0,0,1,0,16H184V64a8,8,0,0,1-16,0V48H152A8,8,0,0,1,144,40ZM248,88a8,8,0,0,1-8,8h-8v8a8,8,0,0,1-16,0V96h-8a8,8,0,0,1,0-16h8V72a8,8,0,0,1,16,0v8h8A8,8,0,0,1,248,88Z"/></symbol><symbol id="i-check" viewBox="0 0 256 256"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></symbol><symbol id="i-x" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></symbol><symbol id="i-aviso" viewBox="0 0 256 256"><path d="M236.8,188.09,149.35,36.22h0a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM222.93,203.8a8.5,8.5,0,0,1-7.48,4.2H40.55a8.5,8.5,0,0,1-7.48-4.2,7.59,7.59,0,0,1,0-7.72L120.52,44.21a8.75,8.75,0,0,1,15,0l87.45,151.87A7.59,7.59,0,0,1,222.93,203.8ZM120,144V104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,180Z"/></symbol><symbol id="i-log" viewBox="0 0 256 256"><path d="M128,128a8,8,0,0,1-3,6.25l-40,32a8,8,0,1,1-10-12.5L107.19,128,75,102.25a8,8,0,1,1,10-12.5l40,32A8,8,0,0,1,128,128Zm48,24H136a8,8,0,0,0,0,16h40a8,8,0,0,0,0-16Zm56-96V200a16,16,0,0,1-16,16H40a16,16,0,0,1-16-16V56A16,16,0,0,1,40,40H216A16,16,0,0,1,232,56ZM216,200V56H40V200H216Z"/></symbol><symbol id="i-lixo" viewBox="0 0 256 256"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></symbol><symbol id="i-camera" viewBox="0 0 256 256"><path d="M251.77,73a8,8,0,0,0-8.21.39L208,97.05V72a16,16,0,0,0-16-16H32A16,16,0,0,0,16,72V184a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V159l35.56,23.71A8,8,0,0,0,248,184a8,8,0,0,0,8-8V80A8,8,0,0,0,251.77,73ZM192,184H32V72H192V184Zm48-22.95-32-21.33V116.28L240,95Z"/></symbol><symbol id="i-pilha" viewBox="0 0 256 256"><path d="M230.91,172A8,8,0,0,1,228,182.91l-96,56a8,8,0,0,1-8.06,0l-96-56A8,8,0,0,1,36,169.09l92,53.65,92-53.65A8,8,0,0,1,230.91,172ZM220,121.09l-92,53.65L36,121.09A8,8,0,0,0,28,134.91l96,56a8,8,0,0,0,8.06,0l96-56A8,8,0,1,0,220,121.09ZM24,80a8,8,0,0,1,4-6.91l96-56a8,8,0,0,1,8.06,0l96,56a8,8,0,0,1,0,13.82l-96,56a8,8,0,0,1-8.06,0l-96-56A8,8,0,0,1,24,80Zm23.88,0L128,126.74,208.12,80,128,33.26Z"/></symbol><symbol id="i-pasta" viewBox="0 0 256 256"><path d="M245,110.64A16,16,0,0,0,232,104H216V88a16,16,0,0,0-16-16H130.67L102.94,51.2a16.14,16.14,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V208h0a8,8,0,0,0,8,8H211.1a8,8,0,0,0,7.59-5.47l28.49-85.47A16.05,16.05,0,0,0,245,110.64ZM93.34,64,123.2,86.4A8,8,0,0,0,128,88h72v16H69.77a16,16,0,0,0-15.18,10.94L40,158.7V64Zm112,136H43.1l26.67-80H232Z"/></symbol><symbol id="i-seta" viewBox="0 0 256 256"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></symbol><symbol id="i-video" viewBox="0 0 256 256"><path d="M164.44,105.34l-48-32A8,8,0,0,0,104,80v64a8,8,0,0,0,12.44,6.66l48-32a8,8,0,0,0,0-13.32ZM120,129.05V95l25.58,17ZM216,40H40A16,16,0,0,0,24,56V168a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,128H40V56H216V168Zm16,40a8,8,0,0,1-8,8H32a8,8,0,0,1,0-16H224A8,8,0,0,1,232,208Z"/></symbol><symbol id="i-ondas" viewBox="0 0 256 256"><path d="M56,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM88,24a8,8,0,0,0-8,8V224a8,8,0,0,0,16,0V32A8,8,0,0,0,88,24Zm40,32a8,8,0,0,0-8,8V192a8,8,0,0,0,16,0V64A8,8,0,0,0,128,56Zm40,32a8,8,0,0,0-8,8v64a8,8,0,0,0,16,0V96A8,8,0,0,0,168,88Zm40-16a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V80A8,8,0,0,0,208,72Z"/></symbol><symbol id="i-lista" viewBox="0 0 256 256"><path d="M80,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H88A8,8,0,0,1,80,64Zm136,56H88a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm0,64H88a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16ZM44,52A12,12,0,1,0,56,64,12,12,0,0,0,44,52Zm0,64a12,12,0,1,0,12,12A12,12,0,0,0,44,116Zm0,64a12,12,0,1,0,12,12A12,12,0,0,0,44,180Z"/></symbol><symbol id="i-olho" viewBox="0 0 256 256"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></symbol><symbol id="i-trofeu" viewBox="0 0 256 256"><path d="M232,64H208V48a8,8,0,0,0-8-8H56a8,8,0,0,0-8,8V64H24A16,16,0,0,0,8,80V96a40,40,0,0,0,40,40h3.65A80.13,80.13,0,0,0,120,191.61V216H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16H136V191.58c31.94-3.23,58.44-25.64,68.08-55.58H208a40,40,0,0,0,40-40V80A16,16,0,0,0,232,64ZM48,120A24,24,0,0,1,24,96V80H48v32q0,4,.39,8Zm144-8.9c0,35.52-29,64.64-64,64.9a64,64,0,0,1-64-64V56H192ZM232,96a24,24,0,0,1-24,24h-.5a81.81,81.81,0,0,0,.5-8.9V80h24Z"/></symbol><symbol id="i-abrir" viewBox="0 0 256 256"><path d="M224,104a8,8,0,0,1-16,0V59.32l-66.33,66.34a8,8,0,0,1-11.32-11.32L196.68,48H152a8,8,0,0,1,0-16h64a8,8,0,0,1,8,8Zm-40,24a8,8,0,0,0-8,8v72H48V80h72a8,8,0,0,0,0-16H48A16,16,0,0,0,32,80V208a16,16,0,0,0,16,16H176a16,16,0,0,0,16-16V136A8,8,0,0,0,184,128Z"/></symbol><symbol id="i-copiar" viewBox="0 0 256 256"><path d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z"/></symbol><symbol id="i-fechar" viewBox="0 0 256 256"><path d="M165.66,101.66,139.31,128l26.35,26.34a8,8,0,0,1-11.32,11.32L128,139.31l-26.34,26.35a8,8,0,0,1-11.32-11.32L116.69,128,90.34,101.66a8,8,0,0,1,11.32-11.32L128,116.69l26.34-26.35a8,8,0,0,1,11.32,11.32ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></symbol></svg>
 <header>
-  <h1 onclick="ir('inicio')" title="Visão geral">Estúdio GTA 6 Shorts</h1>
+  <button id="abrir-menu" aria-controls="menu-estudio" aria-expanded="false" aria-label="Menu de funções"><svg class="ic" aria-hidden="true"><use href="#i-lista"/></svg></button>
+  <h1><button class="marca" onclick="ir('inicio')" aria-label="Estúdio GTA 6 Shorts, início">Estúdio GTA 6 <small>Shorts</small></button></h1>
   <div id="job" role="button" tabindex="0" aria-label="Trabalho atual: abrir o log" onclick="gaveta()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();gaveta()}"><span class="bolinha"></span><span id="jobpct"></span><span id="jobtxt" aria-live="polite">Livre</span></div>
   <div id="barra"><i></i></div>
 </header>
 <div class="app">
-  <aside aria-label="Navegação principal">
+  <aside id="menu-estudio" aria-label="Navegação principal">
     <nav class="menu-funcoes" aria-label="Funções do Estúdio">
-      <button class="nav" data-v="inicio" onclick="ir('inicio')"><svg class="ic" aria-hidden="true"><use href="#i-grafico"/></svg>Visão geral</button>
-      <button class="nav" data-v="novo" onclick="ir('novo')"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Novo vídeo</button>
+      <button class="nav" data-v="inicio" onclick="ir('inicio')"><svg class="ic" aria-hidden="true"><use href="#i-grafico"/></svg>Painel de produção</button>
+      <button class="nav" data-v="novo" onclick="ir('novo')"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Vídeo narrado</button>
       <button class="nav" data-v="projetos" onclick="ir('projetos')"><svg class="ic" aria-hidden="true"><use href="#i-pasta"/></svg>Projetos</button>
       <div class="grupo">Produção</div>
       <button class="nav" data-v="cortes" onclick="ir('cortes')"><svg class="ic" aria-hidden="true"><use href="#i-tesoura"/></svg>Cortes e lives <span id="navlive"></span></button>
       <button class="nav" data-v="biblioteca" onclick="ir('biblioteca')"><svg class="ic" aria-hidden="true"><use href="#i-filme"/></svg>Biblioteca de cenas</button>
       <button class="nav" data-v="temas" onclick="ir('temas')"><svg class="ic" aria-hidden="true"><use href="#i-ideia"/></svg>Temas e histórico</button>
       <div class="grupo">Publicação</div>
-      <button class="nav" data-v="agendar" onclick="ir('agendar')"><svg class="ic" aria-hidden="true"><use href="#i-agenda"/></svg>Agendar no Zernio</button>
+      <button class="nav" data-v="agendar" onclick="ir('agendar')"><svg class="ic" aria-hidden="true"><use href="#i-agenda"/></svg>Agenda de publicação</button>
       <button class="nav" data-v="resultados" onclick="ir('resultados')"><svg class="ic" aria-hidden="true"><use href="#i-grafico"/></svg>Resultados</button>
       <div class="grupo">Estúdio</div>
       <button class="nav" data-v="ajustes" onclick="ir('ajustes')"><svg class="ic" aria-hidden="true"><use href="#i-ajustes"/></svg>Ajustes e skill</button>
@@ -365,16 +458,36 @@ async function api(url, corpo) {
   const r = await fetch(url, corpo !== undefined ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) } : {});
   const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.erro || ("HTTP " + r.status)); return j;
 }
-const rodando = (t) => t && t.acao && t.fim === null;
+const rodando = t => Boolean(t?.acao && t.fim === null);
 function classeStatus(s) { if (!s) return ""; if (s.startsWith("ERRO")) return "erro"; if (/PRONT|POSTADO|AGENDADO/.test(s)) return "ok"; return "rodando"; }
 function thumbDe(id) { const [v, n] = id.split("#"); return `/bib/miniaturas/${v}_${String(n).padStart(3, "0")}.jpg`; }
 
 /* ---------- navegação ---------- */
-async function ir(view, extra = {}) { Object.assign(S, { view }, extra); marcarNav(); return render(); }
-async function abrirProjeto(nome, aba) { S.projeto = nome; S.view = "projeto"; if (aba) S.aba = aba; marcarNav(); try { await carregarProjeto(); if (S.view === "projeto" && S.projeto === nome) render(); } catch (e) { erroTela(e); } }
+function mostrarMenu(aberto) {
+  $("#menu-estudio").classList.toggle("aberto", aberto);
+  $("#abrir-menu").setAttribute("aria-expanded", String(aberto));
+}
+$("#abrir-menu").onclick = () => mostrarMenu(!$("#menu-estudio").classList.contains("aberto"));
+document.addEventListener("pointerdown", e => {
+  if ($("#menu-estudio").classList.contains("aberto") &&
+      !$("#menu-estudio").contains(e.target) && !$("#abrir-menu").contains(e.target)) mostrarMenu(false);
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && $("#menu-estudio").classList.contains("aberto")) { mostrarMenu(false); $("#abrir-menu").focus(); }
+});
+function entrarNaTela() {
+  mostrarMenu(false);
+  $("#main").scrollTop = 0;
+  $("#main").focus({preventScroll:true});
+}
+async function ir(view, extra = {}) {
+  if (view !== S.view || $("#menu-estudio").classList.contains("aberto")) entrarNaTela();
+  Object.assign(S, { view }, extra); marcarNav(); return render();
+}
+async function abrirProjeto(nome, aba) { entrarNaTela(); S.projeto = nome; S.view = "projeto"; if (aba) S.aba = aba; marcarNav(); try { await carregarProjeto(); if (S.view === "projeto" && S.projeto === nome) render(); } catch (e) { erroTela(e); } }
 async function carregarProjeto() { const nome = S.projeto, dados = await api("/api/projeto/" + encodeURIComponent(nome)); if (S.projeto !== nome) return; S.dados = dados; S.rot = dados.roteiro ? JSON.parse(JSON.stringify(dados.roteiro)) : null; }
 async function lista() { const j = await api("/api/projetos"); S.trabalho = j.trabalho; return j; }
-const VERSAO_PAGINA = 35;
+const VERSAO_PAGINA = 36;
 function erroTela(e) {
   $("#main").innerHTML = `<div class="aviso-box"><b>Não consegui abrir esta tela.</b><br>${esc(e.message || e)}<br><br>
     Se você acabou de atualizar o Estúdio, feche a janela preta do Estúdio e abra o <b>estudio.bat</b> de novo.</div>`;
@@ -511,7 +624,7 @@ async function tick() {
     atualizarAgendamentoProjeto(t);
     $("#zagendar")?.atualizarFila?.();
     if ($("#clote")) $("#clote").disabled = !!rodando(t);
-    if ($("#fila-cortes")) $("#fila-cortes").textContent = rodando(t) && t.acao === "cortes_escala" ? "Ver fila de cortes" : "Produzir em escala";
+    if ($("#fila-cortes")) $("#fila-cortes").textContent = rodando(t) && t.acao === "cortes_escala" ? "Ver fila em andamento" : "Gerar cortes em lote";
     atualizarBuscaMomentos(t);
     $("#job").classList.toggle("rodando", rodando(t));
     const pct = Math.round((t.progresso || 0) * 100), on = rodando(t);
@@ -528,7 +641,7 @@ async function tick() {
     $("#gjobdetail").textContent = on ? `${pct}%${S.eta || ""}${t.etapa ? " · " + t.etapa : ""}` : (t.cancelado ? "Interrompido" : t.acao && t.codigo !== 0 ? "O trabalho não terminou" : "");
     if (rodando(t) && ($("#gaveta").classList.contains("aberta") || (S.view === "projeto" && S.aba === "log"))) atualizarLog();
     if (antes && rodando(antes) && !rodando(t) && t.id === antes.id) aoTerminar(t);
-    const nl = $("#navlive"); if (nl) nl.innerHTML = j.live && j.live.rodando ? `<span class="pill erro" title="Gravando live">● REC ${j.live.trechos}</span>` : "";
+    const nl = $("#navlive"); if (nl) nl.innerHTML = j.live && j.live.rodando ? `<span class="pill erro" title="Gravando live">${ic("ondas")} REC ${j.live.trechos}</span>` : "";
   } catch (e) {} finally { tickEmAndamento = false; }
 }
 async function aoTerminar(t) {
@@ -560,47 +673,94 @@ function proximaEtapa(p) {
   if (p.agendado && !p.postado) return { titulo: "Publicação agendada", texto: "Acompanhe o envio e os resultados.", botao: "Ver agendamento", view: "agendar" };
   return { titulo: "Publicado", texto: "Projeto concluído. Veja o vídeo e os resultados.", botao: "Abrir projeto", aba: "video" };
 }
+const ETAPAS_PRODUCAO = [
+  ["producao", "Em produção", "filme"], ["revisao", "Para revisar", "olho"],
+  ["pronto", "Para agendar", "agenda"], ["agendado", "Agendados", "check"],
+  ["erro", "Com erro", "aviso"], ["publicado", "Publicados", "check"]
+];
+function faseProjeto(p) {
+  if (p.postado || /^POSTADO/i.test(p.status || "")) return "publicado";
+  if (p.agendado || /^AGENDADO/i.test(p.status || "")) return "agendado";
+  if (/^ERRO/i.test(p.status || "")) return "erro";
+  if (!p.tem_video) return "producao";
+  return (p.tipo === "clipe" ? p.checagem_ok : p.aprovado) ? "pronto" : "revisao";
+}
+function arteProjeto(p) {
+  return p.tem_capa ? `<img loading="lazy" alt="" src="/arquivo/${encodeURIComponent(p.nome)}/capa.jpg">` : ic(p.tipo === "clipe" ? "tesoura" : "filme");
+}
+function linhaProjeto(p, i) {
+  const e = proximaEtapa(p);
+  return `<div class="projeto-linha"><span class="projeto-icone">${arteProjeto(p)}</span><div class="projeto-info"><button class="titulo-projeto" data-detalhe="${i}" title="Abrir projeto">${esc(p.titulo || p.nome)}</button><span>${p.tipo === "clipe" ? "Corte" : "Vídeo narrado"} · ${esc(e.titulo)}</span></div>
+    <button class="mini" data-projeto="${i}">${esc(e.botao)} ${ic("seta")}</button></div>`;
+}
+function continuarProjeto(p) {
+  const e = proximaEtapa(p);
+  if (faseProjeto(p) === "pronto") return ir("agendar", {painelAgenda:"planejar", selecionarProjeto:p.nome});
+  if (faseProjeto(p) === "agendado") return abrirProjeto(p.nome, "video");
+  return abrirProjeto(p.nome, e.aba);
+}
+function ligarProjetos(el, projetos) {
+  el.querySelectorAll("[data-detalhe]").forEach(b => b.onclick = () => {
+    const p = projetos[Number(b.dataset.detalhe)];
+    abrirProjeto(p.nome, proximaEtapa(p).aba || "video");
+  });
+  el.querySelectorAll("[data-projeto]").forEach(b => b.onclick = () => continuarProjeto(projetos[Number(b.dataset.projeto)]));
+}
 async function viewInicio(m) {
   const j = await api("/api/projetos"), ps = j.projetos || [];
   if (S.view !== "inicio") return;
-  const publicado = p => p.postado || /^POSTADO/i.test(p.status || "");
-  const agendado = p => p.agendado || /^AGENDADO/i.test(p.status || "");
-  const pendentes = ps.filter(p => !publicado(p) && !agendado(p)), revisar = pendentes.filter(p => p.tem_video && (p.tipo === "clipe" ? !p.checagem_ok : !p.aprovado)).length;
-  const prontos = pendentes.filter(p => p.tem_video && (p.tipo === "clipe" ? p.checagem_ok : p.aprovado)).length;
-  const primeiro = pendentes[0] || ps[0], etapa = primeiro && proximaEtapa(primeiro);
-  m.innerHTML = `<div class="boas-vindas"><div><h2>Seu estúdio, em um só lugar</h2><p>Veja o que falta, retome um projeto ou comece o próximo vídeo.</p></div>
-      <div class="linha"><button class="prim" onclick="ir('novo')">${ic("plus")}Novo vídeo</button><button onclick="ir('cortes')">${ic("tesoura")}Cortes e lives</button></div></div>
-    <div class="resumo-grid"><div class="resumo"><b>${ps.length}</b><span>projetos</span></div><div class="resumo"><b>${revisar}</b><span>aguardando revisão</span></div>
-      <div class="resumo"><b>${prontos}</b><span>prontos para agendar</span></div><div class="resumo"><b>${ps.filter(p => agendado(p) && !publicado(p)).length}</b><span>agendados</span></div></div>
-    ${primeiro ? `<div class="cartao continuar"><div class="texto"><span>Continuar de onde parei</span><b>${esc(primeiro.titulo)}</b><span>${esc(etapa.texto)} · ${esc(primeiro.nome)}</span></div>
-      <span class="pill ${primeiro.tem_video ? "ok" : ""}">${esc(etapa.titulo)}</span><button class="prim" id="continuar">${esc(etapa.botao)}</button></div>`
-      : `<div class="vazio"><b>Seu primeiro vídeo começa aqui.</b><br>Crie um pedido ou encontre um momento de uma live.</div>`}
-    <div class="linha" style="margin:22px 0 8px"><h3 style="margin:0">Projetos recentes</h3><span style="flex:1"></span><button class="mini" onclick="ir('projetos')">Ver todos os projetos</button></div>
-    ${ps.length ? ps.slice(0, 8).map(p => { const e = proximaEtapa(p); return `<div class="cartao continuar" style="padding:12px 16px"><div class="texto"><b>${esc(p.titulo)}</b><span>${esc(p.nome)} · ${esc(e.titulo)}</span></div>
-      <span class="pill ${p.tem_video ? "ok" : ""}">${p.tem_video ? "vídeo pronto" : p.tem_roteiro ? "em produção" : "pedido"}</span><button class="mini" data-abrir="${esc(p.nome)}" data-aba="${esc(e.aba || "video")}" data-view="${esc(e.view || "")}">${esc(e.botao)}</button></div>`; }).join("")
-      : `<p class="sub">Os projetos que você criar aparecerão aqui para continuar de onde parou.</p>`}`;
-  if (primeiro) $("#continuar").onclick = () => etapa.view ? ir(etapa.view) : abrirProjeto(primeiro.nome, etapa.aba);
-  m.querySelectorAll("[data-abrir]").forEach(b => b.onclick = () => b.dataset.view ? ir(b.dataset.view) : abrirProjeto(b.dataset.abrir, b.dataset.aba));
+  const recente = ps.find(p => !["publicado","agendado"].includes(faseProjeto(p)));
+  const restantes = ps.filter(p => p !== recente).slice(0, 5);
+  const dia = new Intl.DateTimeFormat("pt-BR", {weekday:"long",day:"numeric",month:"long"}).format(new Date());
+  m.innerHTML = `<div class="pagina-cab"><div><time class="data-painel">${esc(dia)}</time><h2>Painel de produção</h2></div>
+    <div class="linha"><button onclick="ir('novo')">${ic("plus")}Vídeo narrado</button><button class="prim" onclick="ir('cortes',{painelCortes:'fonte'})">${ic("tesoura")}Criar cortes</button></div></div>
+    <div class="etapas-painel">${ETAPAS_PRODUCAO.map(([k,t,i]) => `<button class="metrica fase-${k}" data-fase="${k}"><span>${ic(i)}${t}</span><strong>${ps.filter(p=>faseProjeto(p)===k).length}</strong>${ic("seta")}</button>`).join("")}</div>
+    <div class="bancada"><section class="destaque"><h3>Retomar produção</h3>${recente ? `<div class="destaque-miolo"><div class="poster">${arteProjeto(recente)}</div><div><span class="pill">${esc(proximaEtapa(recente).titulo)}</span><h4>${esc(recente.titulo || recente.nome)}</h4><p>${esc(proximaEtapa(recente).texto)}</p><button id="continuar">${esc(proximaEtapa(recente).botao)} ${ic("seta")}</button></div></div>` :
+    `<div class="vazio">Nenhum projeto em andamento.<br><button onclick="ir('cortes',{painelCortes:'fonte'})">Começar um corte</button></div>`}</section>
+    <section class="ultimos"><div class="cab-lista"><h3>Projetos recentes</h3><button class="mini" onclick="ir('projetos',{faseLista:'todos',buscaLista:''})">Ver todos</button></div>
+    ${restantes.map(linhaProjeto).join("") || '<p class="sub">Os próximos projetos aparecerão aqui.</p>'}</section></div>`;
+  m.querySelectorAll("[data-fase]").forEach(b => b.onclick = () => ir("projetos",{faseLista:b.dataset.fase,buscaLista:""}));
+  if (recente) $("#continuar",m).onclick = () => continuarProjeto(recente);
+  ligarProjetos(m, restantes);
 }
 
-/* ---------- projetos ---------- */
 async function viewProjetos(m) {
   const j = await lista(), projetos = j.projetos || [];
   if (S.view !== "projetos") return;
-  m.innerHTML = `<div class="pagina-cab"><div><span class="sobretitulo">Seu conteúdo</span><h2>Projetos</h2><p class="sub">Encontre um vídeo e continue de onde parou.</p></div>
-    <div class="linha"><button id="blote" onclick="botaoLote()" title="Gera, em fila, os projetos com roteiro e sem vídeo pronto">${ic("pilha")}Gerar lote</button><button class="prim" onclick="ir('novo')">${ic("plus")}Novo vídeo</button></div></div>
-    <div class="projetos-ferramentas"><div><label for="busca-projetos">Buscar projetos</label><input id="busca-projetos" type="search" placeholder="Busque por título, pasta ou status"></div><span id="contagem-projetos" class="sub" aria-live="polite"></span></div>
+  const fases = [["todos","Todos"], ...ETAPAS_PRODUCAO, ["publicado","Publicados"]];
+  m.innerHTML = `<div class="pagina-cab"><h2>Projetos</h2>
+    <div class="linha"><button id="blote" onclick="botaoLote()">Gerar lote</button><button class="prim" onclick="ir('novo')">${ic("plus")}Vídeo narrado</button></div></div>
+    <div class="seletor" role="group" aria-label="Filtrar por etapa">${fases.map(([k,t])=>`<button data-fase="${k}">${t}</button>`).join("")}</div>
+    <div class="projetos-ferramentas"><div><label for="busca-projetos">Buscar projetos</label><input id="busca-projetos" type="search" placeholder="Título, pasta ou status" value="${esc(S.buscaLista || "")}"></div><span id="contagem-projetos" class="sub" aria-live="polite"></span></div>
     <div id="projetos-lista" class="projetos-lista"></div>`;
   pintarLote(S.lote);
-  const normalizar = t => String(t || "").toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const normalizar = t => t.toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[̀-ͯ]/g, "");
   const pintar = () => {
-    const q = normalizar($("#busca-projetos").value);
-    const encontrados = projetos.filter(p => normalizar([p.titulo, p.nome, p.status].join(" ")).includes(q));
-    $("#contagem-projetos").textContent = `${encontrados.length} de ${projetos.length} projeto(s)`;
-    $("#projetos-lista").innerHTML = encontrados.map((p, i) => { const e = proximaEtapa(p); return `<div class="projeto-linha"><span class="projeto-icone">${ic(p.tipo === "clipe" ? "tesoura" : "video")}</span><div class="projeto-info"><b>${esc(p.titulo || p.nome)}</b><span>${esc(e.titulo)} · ${esc(p.nome)}</span></div><span class="pill ${classeStatus(p.status)}">${esc(p.status || e.titulo)}</span><button data-projeto-indice="${i}">Abrir ${ic("seta")}</button></div>`; }).join("") || `<div class="vazio">${projetos.length ? "Nenhum projeto corresponde à busca." : "Nenhum projeto ainda. Comece criando um vídeo ou um corte."}</div>`;
-    $("#projetos-lista").querySelectorAll("[data-projeto-indice]").forEach(b => b.onclick = () => { const p = encontrados[Number(b.dataset.projetoIndice)], e = proximaEtapa(p); abrirProjeto(p.nome, e.aba || "video"); });
+    const fase = S.faseLista || "todos", q = normalizar(S.buscaLista || "");
+    const encontrados = projetos.filter(p => (fase === "todos" || faseProjeto(p) === fase) && normalizar([p.titulo,p.nome,p.status].join(" ")).includes(q));
+    m.querySelectorAll("[data-fase]").forEach(b=>b.setAttribute("aria-pressed", String(fase === b.dataset.fase)));
+    $("#contagem-projetos",m).textContent = `${encontrados.length} de ${projetos.length} projetos`;
+    const el = $("#projetos-lista",m);
+    el.innerHTML = encontrados.map(linhaProjeto).join("") || '<div class="vazio">Nenhum projeto nesta seleção.</div>';
+    ligarProjetos(el, encontrados);
   };
-  $("#busca-projetos").oninput = pintar; pintar();
+  m.querySelectorAll("[data-fase]").forEach(b=>b.onclick=()=>{ S.faseLista=b.dataset.fase; pintar(); });
+  $("#busca-projetos",m).oninput = e => { S.buscaLista=e.target.value; pintar(); };
+  pintar();
+}
+
+function seletorPaineis(opcoes, rotulo) {
+  return `<div class="seletor" role="group" aria-label="${esc(rotulo)}">${opcoes.map(([k,t])=>`<button type="button" data-painel="${k}">${esc(t)}</button>`).join("")}</div>`;
+}
+function ligarPaineis(m, chave, inicial) {
+  const botoes = [...m.querySelectorAll("[data-painel]")];
+  function mostrar(valor) {
+    S[chave] = valor;
+    botoes.forEach(b => b.setAttribute("aria-pressed",String(b.dataset.painel === valor)));
+    m.querySelectorAll("[data-secao]").forEach(el => el.hidden = el.dataset.secao !== valor);
+  }
+  botoes.forEach(b => b.onclick = () => mostrar(b.dataset.painel));
+  mostrar(botoes.some(b=>b.dataset.painel===S[chave]) ? S[chave] : inicial);
 }
 
 /* ---------- NOVO VÍDEO ---------- */
@@ -608,12 +768,12 @@ async function viewNovo(m) {
   const temas = await api("/api/temas");
   if (S.view !== "novo") return;
   const amanha = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
-  m.innerHTML = `<h2>Novo vídeo</h2><p class="sub">Registre o tema aqui. O roteiro, as cenas, a capa e o post são feitos pelo Claude no chat: depois de criar o pedido, é só mandar a mensagem que aparece abaixo.</p>
+  m.innerHTML = `<h2>Novo vídeo narrado</h2><p class="sub">Crie o pedido com o tema e as fontes. Na próxima etapa, copie a mensagem para preparar o roteiro com o Claude.</p>
     <div class="cartao">
-      <label>Tema do vídeo</label><textarea id="ntema" rows="2" placeholder="Ex.: o que muda na polícia do GTA 6">${esc(S.temaPre || "")}</textarea>
-      <div class="grid2"><div><label>Data do post</label><input type="date" id="ndata" value="${amanha}"></div>
-        <div><label>Notas para o Claude (opcional)</label><input id="nnotas" placeholder="Ex.: foque no sistema de procurado; tom mais engraçado"></div></div>
-      <label>Links de fontes (opcional, separados por vírgula)</label><input id="nfontes" placeholder="https://...">
+      <label for="ntema">Tema do vídeo</label><textarea id="ntema" rows="2" placeholder="Ex.: o que muda na polícia do GTA 6">${esc(S.temaPre || "")}</textarea>
+      <div class="grid2"><div><label for="ndata">Data do post</label><input type="date" id="ndata" value="${amanha}"></div>
+        <div><label for="nnotas">Notas para o Claude (opcional)</label><input id="nnotas" placeholder="Ex.: foque no sistema de procurado; tom mais engraçado"></div></div>
+      <label for="nfontes">Links de fontes (opcional, separados por vírgula)</label><input id="nfontes" placeholder="https://...">
       <div class="linha" style="margin-top:12px"><span style="flex:1"></span><button class="prim" id="ncriar">Criar pedido</button></div>
     </div>
     ${temas.restantes < 10 ? `<div class="aviso-box" style="margin:12px 0">Restam só ${temas.restantes} temas no catálogo. Abra <b>Temas</b> e use as <b>Tendências</b> ou as <b>Séries infinitas</b>, ou peça no chat: "reabasteça o catálogo de temas".</div>` : ""}
@@ -683,17 +843,18 @@ function viewProjeto(m) {
   if (clipe && !["video", "log"].includes(S.aba)) S.aba = "video";
   if (!r && S.aba !== "log") { S.aba = "pedido"; }
   if (r && S.aba === "pedido") { S.aba = "roteiro"; }
-  m.innerHTML = `<div class="topo-proj"><h2>${esc(r ? r.titulo || d.nome : d.nome)}</h2>
-      ${clipe ? `<span class="pill">${ic("tesoura")} clipe${r.idioma ? " · " + esc(r.idioma.toUpperCase()) : ""}</span>${r.corte ? `<button onclick="S.corte='${esc(r.corte.trabalho)}';ir('corte')">Abrir no Cortes</button>` : ""}` : ""}
+  m.innerHTML = `<div class="pagina-cab"><div><button class="voltar-projetos" onclick="ir('projetos')">← Projetos</button><h2>${esc(r ? r.titulo || d.nome : d.nome)}</h2></div>
+    <span class="pill ${classeStatus(d.status)}">${esc(d.status || "Projeto")}</span></div><div class="topo-proj">
+      ${clipe ? `<span class="pill">${ic("tesoura")} clipe${r.idioma ? " · " + esc(r.idioma.toUpperCase()) : ""}</span>${r.corte ? `<button data-fonte="${esc(r.corte.trabalho)}" onclick="ir('corte',{corte:this.dataset.fonte})">Abrir no Cortes</button>` : ""}` : ""}
       ${r && r.idioma && !clipe ? `<span class="pill">${ic("idioma")} ${esc(r.idioma.toUpperCase())}</span>` : ""}
       ${r && !clipe ? `<button data-a="previa" ${oc ? "disabled" : ""}>Prévia (enquadramento)</button>
-      <button class="prim" data-a="gerar" ${oc ? "disabled" : ""}>Gerar vídeo</button>
+      <button class="${d.video_pronto ? "" : "prim"}" data-a="gerar" ${oc ? "disabled" : ""}>Gerar vídeo</button>
       <button data-a="ae" ${oc || !d.arquivos["timeline.json"] ? "disabled" : ""}>After Effects</button>` : ""}
       ${r ? (d.zernio ? `<button disabled title="Já enviado ao Zernio">${ic("agenda")}Agendado ${esc(new Date(d.zernio.horario).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }))}</button>
         <button id="bcancelar" ${oc ? "disabled" : ""} title="Apaga o post no Zernio e libera para agendar de novo">✕ Cancelar agendamento</button>`
-        : `<button id="bagendar" ${oc || !d.video_pronto || d.postado ? "disabled" : ""} title="${d.video_pronto ? "Agendar este vídeo no Zernio" : "Gere o vídeo primeiro"}">${ic("agenda")}Agendar</button>`) : ""}
+        : `<button id="bagendar" class="${d.video_pronto ? "prim" : ""}" ${oc || !d.video_pronto || d.postado ? "disabled" : ""} title="${d.video_pronto ? "Agendar este vídeo no Zernio" : "Gere o vídeo primeiro"}">${ic("agenda")}Agendar</button>`) : ""}
       <button id="bpost" title="Projetos postados não entram no Gerar lote">${d.postado ? "✓ Postado (desfazer)" : "Marcar como postado"}</button>
-      <span style="flex:1"></span><span class="pill ${classeStatus(d.status)}">${esc(d.status || "—")}</span></div>
+      </div>
     ${r && !d.zernio && !d.postado && d.video_pronto ? `<p id="espera-agendamento" class="aviso-box" ${oc ? "" : "hidden"}>Aguarde o trabalho atual terminar para agendar. O botão será liberado automaticamente.</p>` : ""}
     ${clipe && !d.zernio && !d.postado ? `<p class="sub">Pronto para agendar ainda não significa agendado. O envio automático exige checagem aprovada, nota acima de 7,5 e análise de conteúdo pela IA. Você também pode agendar manualmente.</p>` : ""}
     ${r ? `<div class="fluxo" aria-label="Próximas etapas">${etapasGuiadas(d, r).map((x, i, a) => `<button class="${x.feito ? "feito" : x.atual ? "atual" : ""}" data-fluxo="${x.id}" ${oc || (!x.feito && !x.atual) ? "disabled" : ""} aria-current="${x.atual ? "step" : "false"}"><span class="n">${x.feito ? "✓" : i + 1}</span>${esc(x.nome)}</button>`).join("")}</div>` : ""}
@@ -704,6 +865,10 @@ function viewProjeto(m) {
     const alvo = b.dataset.fluxo;
     if (S.sujo && alvo !== "roteiro" && alvo !== "pedido") { if (!confirm("Há mudanças no roteiro não salvas. Salvar antes de continuar?")) return; await salvarRoteiro(true); }
     if (alvo === "gerar") return acao("gerar");
+    if (alvo === "revisao" && clipe) {
+      S.aba = "video"; render(); $("#checagem-clipe")?.scrollIntoView({block:"center"}); return;
+    }
+    if (alvo === "agendar" && (d.zernio || d.postado)) return ir("agendar",{painelAgenda:"recibos",dataRecibo:d.zernio?.horario?.slice(0,10) || ""});
     if (alvo === "agendar") { if (r.tipo !== "clipe" && !d.aprovado && !confirm("Este vídeo ainda não foi revisado. Agendar mesmo assim?")) return; return agendarUm(d.nome, r.titulo || d.nome, d.zernio_cancelado && d.zernio_cancelado.horario); }
     S.aba = alvo === "pedido" ? "pedido" : alvo; render();
   });
@@ -1005,7 +1170,7 @@ function abaVideoClipe(c) {
       <div class="sub" style="margin:6px 0 0;font-size:12px">Credite o criador no texto do post. Só poste clipes de quem permite (campanha de clipagem ou permissão).</div></div>
       <div class="cartao"><h3 style="margin-top:0">Texto do post</h3><textarea id="post" rows="6">${esc(d.post)}</textarea>
         <div class="linha" style="margin-top:8px"><button id="copiar">Copiar</button><button id="salvarPost">Salvar</button></div></div>
-      ${cartaoChecagem(d.checagem)}</div></div>`;
+      <div id="checagem-clipe">${cartaoChecagem(d.checagem)}</div></div></div>`;
   $("#copiar").onclick = () => { navigator.clipboard.writeText($("#post").value); toast("Copiado"); };
   if ($("#editarGancho")) $("#editarGancho").onclick = async () => { try { const corte = r.corte, trabalho = await api("/api/corte/" + encodeURIComponent(corte.trabalho));
     const clipe = trabalho.clipes.find(x => x.n === corte.pick), momento = trabalho.momentos.find(x => x.n === corte.pick);
@@ -1130,14 +1295,15 @@ async function viewCortes(m) {
   if (S.view !== "cortes") return;
   const hora = (ts) => new Date(ts * 1000).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   const noAr = (ts) => { if (!ts) return ""; const h = (Date.now() / 1000 - ts) / 3600; return h < 1 ? Math.round(h * 60) + " min" : h.toFixed(1).replace(".0", "") + " h"; };
-  m.innerHTML = `<div class="linha" style="justify-content:space-between;margin-bottom:6px"><h2>Cortes e lives</h2>
-    <button id="fila-cortes">${ic("pilha")}${oc && S.trabalho.acao === "cortes_escala" ? "Ver fila de cortes" : "Produzir em escala"}</button></div><p class="sub">Clipes verticais de lives e vídeos de outros criadores: o Estúdio acha os melhores momentos (volume, empolgação, chat e o "mais repetido" do YouTube), corta em 9:16 com legenda e gancho e manda para o Agendar. Credite sempre o criador e prefira quem permite cortes (campanhas de clipagem). Nada de vazamento, "jogue antes" ou pirataria.</p>
-    <div class="grid2">
+  const modos = [["fonte","Extrair momentos"],["live",lv.rodando ? "Ao vivo · gravando" : "Ao vivo"],["historico",`Trabalhos (${j.trabalhos.length})`]];
+  m.innerHTML = `<div class="pagina-cab"><h2>Cortes e lives</h2><div class="linha"><button id="fila-cortes">${oc && S.trabalho.acao === "cortes_escala" ? "Ver fila em andamento" : "Gerar cortes em lote"}</button><button class="prim" id="mvarios">${ic("pilha")}Produzir vários links</button></div></div>
+    ${seletorPaineis(modos, "Área de cortes")}
+    <section data-secao="fonte" class="area-fonte">
       <div class="cartao"><b>${ic("busca")} Buscar melhores momentos</b>
         <form id="form-momentos">
           <label for="murl">Link do vídeo ou caminho do MP4</label>
           <input id="murl" type="text" placeholder="https://www.youtube.com/watch?v=…" aria-describedby="mfonte" required>
-          <p class="sub" id="mfonte" style="margin:4px 0 0">YouTube, Twitch, Kick ou MP4 local. Para usar um vídeo do PC, copie o caminho pelo Explorador de Arquivos.</p>
+          <p class="sub" id="mfonte" style="margin:4px 0 0">YouTube, Twitch, Kick ou MP4 local. Use vídeos de quem autoriza cortes e mantenha o crédito.</p>
           <fieldset><legend>Quanto do vídeo analisar</legend><div class="modos-busca">
             ${Object.entries(MODOS_MOMENTOS).map(([k, op]) => `<label class="lay"><input type="radio" name="modo-momentos" value="${k}"><b>${op.titulo}</b><span>Até ${op.minutos} min</span></label>`).join("")}
           </div></fieldset>
@@ -1151,20 +1317,22 @@ async function viewCortes(m) {
               <div><label for="mmax">Duração máxima (s)</label><input id="mmax" type="number" min="10" max="90" required></div>
             </div>
           </details>
-          <div class="linha" style="margin-top:14px"><p class="sub" id="mresumo"></p><button type="button" id="mvarios" title="Cole vários links: o Estúdio baixa, analisa e corta todos em linha de produção">${ic("pilha")}Vários links</button><button type="submit" class="prim" id="machar">Buscar momentos</button></div>
+          <div class="linha" style="margin-top:14px"><p class="sub" id="mresumo"></p><button type="submit" class="prim" id="machar">Buscar momentos</button></div>
           <p id="mestado" role="status"></p>
           <details style="margin-top:10px"><summary>O que o Estúdio analisa?</summary>
             <p class="sub" style="margin:4px 0 0">O Estúdio combina fala, reações e sinais do vídeo, como os trechos mais repetidos quando disponíveis. Na primeira análise, pode baixar cerca de 500 MB para transcrever a fala.</p>
           </details>
         </form>
       </div>
-      <div class="cartao"><b>${ic("gravar")} Modo ao vivo</b> ${lv.rodando ? `<span class="pill erro">● gravando</span>` : ""}
+      <section class="fontes-recentes"><div class="cab-lista"><h3>Fontes recentes</h3><button class="mini" type="button" id="ver-trabalhos">Ver todas</button></div>
+       ${j.trabalhos.slice(0,4).map(t=>`<button class="fonte-recente" data-fonte="${esc(t.nome)}">${ic(t.live ? "live" : "filme")}<span><b>${esc(t.titulo || t.nome)}</b><small>${t.momentos || 0} momentos · ${t.clipes || 0} clipes</small></span>${ic("seta")}</button>`).join("") || '<p class="sub">Os vídeos analisados aparecem aqui para continuar a edição.</p>'}</section>
+      </section><section data-secao="live" hidden><div class="cartao"><b>${ic("gravar")} Modo ao vivo</b> ${lv.rodando ? `<span class="pill erro">${ic("ondas")} ao vivo</span>` : ""}
         ${lv.rodando ? `<div style="margin-top:8px;font-size:13px;word-break:break-all">${esc(lv.url)}</div>
           <div style="margin-top:4px;font-size:13px">gravando há ${Math.round((Date.now() / 1000 - lv.inicio) / 60)} de ${lv.minutos} min · <b>${lv.trechos}</b> trecho(s) cortado(s) nos picos do chat</div>
           <div class="linha" style="margin-top:10px"><button id="lver">Ver trechos</button><button id="llog">Log</button><span style="flex:1"></span><button id="lparar">■ Parar</button></div>`
-        : `<label>Link da live no ar (YouTube ou twitch.tv/canal)</label><input id="lurl" placeholder="https://twitch.tv/…">
+        : `<label for="lurl">Link da live no ar (YouTube ou twitch.tv/canal)</label><input id="lurl" placeholder="https://twitch.tv/…">
           <div class="linha" style="margin-top:8px"><span>gravar por</span><input id="lmin" type="number" value="60" min="5" max="360" style="width:76px"><span>min</span><span style="flex:1"></span><button class="prim" id="liniciar">Gravar e cortar</button></div>
-          <div class="sub" style="margin:6px 0 0;font-size:11px">Grava em blocos e corta 15 s antes e 20 s depois de cada vez que o chat explode. Roda à parte: o resto do Estúdio continua livre. ${lv.codigo != null && lv.trabalho ? `Última gravação terminou (${lv.trechos} trechos) — <a href="#" id="lultima">abrir</a>.` : ""}</div>`}</div></div>
+          <div class="sub" style="margin:6px 0 0;font-size:11px">Grava em blocos e corta 15 s antes e 20 s depois de cada vez que o chat explode. Roda à parte: o resto do Estúdio continua livre. ${lv.codigo != null && lv.trabalho ? `Última gravação terminou (${lv.trechos} trechos) — <a href="#" id="lultima">abrir</a>.` : ""}</div>`}</div>
     <div class="cartao"><div class="linha"><b>${ic("live")} Lives de GTA 6 agora</b><span class="sub" style="margin:0">${L.atualizado ? "atualizado " + esc(hora(L.atualizado)) + " · Twitch, YouTube e Kick" : "nunca buscado"}</span><span style="flex:1"></span>
       <button class="prim" id="lbuscar" ${oc ? "disabled" : ""}>Buscar agora</button></div>
       ${(L.itens || []).length ? `<table style="margin-top:8px"><tr><th style="width:80px">Ao vivo</th><th>Live</th><th style="width:90px">No ar há</th><th style="width:170px"></th></tr>${L.itens.slice(0, 25).map(x => `<tr>
@@ -1172,15 +1340,20 @@ async function viewCortes(m) {
         <td><b>${esc(x.canal)}</b> <span style="color:var(--fraco);font-size:12px">${esc((x.titulo || "").slice(0, 110))}</span></td><td>${noAr(x.inicio)}</td>
         <td><button class="mini" data-gravar="${esc(x.url)}" ${lv.rodando ? "disabled" : ""}>${ic("gravar")}Gravar</button> <a class="mini" href="${esc(x.url)}" target="_blank" rel="noopener">abrir</a></td></tr>`).join("")}</table>`
       : `<p class="sub" style="margin:8px 0 0">Clique em Buscar para ver quem está jogando GTA 6 agora, por número de espectadores (sem precisar de conta).</p>`}</div>
-    <h3>Melhores clipes</h3><p class="sub">Ranking dos clipes avaliados de todos os trabalhos. Abra um trabalho para avaliar clipes antigos e ver os critérios.</p>
-    ${(j.ranking || []).length ? `<table><tr><th>Nota</th><th>Clipe</th><th>Canal</th><th></th></tr>${j.ranking.slice(0,20).map((x,i)=>`<tr><td><b>${i+1}º · ${x.nota.toFixed(1)}</b></td><td>${esc(x.titulo)} · clipe ${x.n}</td><td>${esc(x.canal)}</td><td><button class="mini" data-ranking="${esc(x.trabalho)}">Abrir</button></td></tr>`).join("")}</table>` : `<div class="vazio">Os clipes avaliados aparecem aqui.</div>`}
+    </section><section data-secao="historico" hidden>
     <h3>Trabalhos (${j.trabalhos.length})</h3>
-    ${j.trabalhos.length ? `<table><tr><th>Vídeo / live</th><th style="width:90px">Momentos</th><th style="width:70px">Clipes</th><th style="width:80px">Trechos</th><th style="width:80px"></th></tr>${j.trabalhos.map(t => `<tr class="click" data-t="${esc(t.nome)}">
+    ${j.trabalhos.length ? `<table><tr><th>Vídeo / live</th><th style="width:90px">Momentos</th><th style="width:70px">Clipes</th><th style="width:80px">Trechos</th><th style="width:80px"></th></tr>${j.trabalhos.map(t => `<tr class="click" tabindex="0" data-t="${esc(t.nome)}">
       <td>${t.live ? ic("gravar") + " " : ""}${esc(t.titulo)}<div class="sub" style="margin:0;font-size:11px">${esc(t.canal)}</div></td><td>${t.momentos || "—"}</td><td>${t.clipes || "—"}</td><td>${t.live ? t.trechos : "—"}</td>
       <td><button class="mini" data-apagar="${esc(t.nome)}" title="Apaga a pasta do trabalho (vídeos baixados e clipes)">Apagar</button></td></tr>`).join("")}</table>`
-      : `<div class="vazio">Nenhum ainda. Cole um link acima ou grave uma live.</div>`}`;
+      : `<div class="vazio">Nenhum trabalho ainda. Abra Extrair momentos para analisar um vídeo.</div>`}
+    <h3>Melhores clipes</h3><p class="sub">Ranking dos clipes avaliados de todos os trabalhos. Abra um trabalho para avaliar clipes antigos e ver os critérios.</p>
+    ${(j.ranking || []).length ? `<table><tr><th>Nota</th><th>Clipe</th><th>Canal</th><th></th></tr>${j.ranking.slice(0,20).map((x,i)=>`<tr><td><b>${i+1}º · ${x.nota.toFixed(1)}</b></td><td>${esc(x.titulo)} · clipe ${x.n}</td><td>${esc(x.canal)}</td><td><button class="mini" data-ranking="${esc(x.trabalho)}">Abrir</button></td></tr>`).join("")}</table>` : `<div class="vazio">Os clipes avaliados aparecem aqui.</div>`}
+    </section>`;
+  ligarPaineis(m,"painelCortes",lv.rodando ? "live" : "fonte");
+  $("#fila-cortes").onclick = () => modalFilaCortes();
+  $("#ver-trabalhos",m).onclick = () => m.querySelector('[data-painel="historico"]').click();
+  m.querySelectorAll("[data-fonte]").forEach(b => b.onclick=()=>ir("corte",{corte:b.dataset.fonte}));
   configurarBuscaMomentos($("#form-momentos", m));
-  $("#fila-cortes", m).onclick = () => modalFilaCortes();
   $("#mvarios", m).onclick = () => modalFilaLinks();
   const gravar = async (url, min) => { try { const r = await api("/api/cortes/live", { acao: "iniciar", url, minutos: min }); toast("Gravando a live… os trechos aparecem conforme o chat explode"); S.corte = r.nome; render(); } catch (e) { toast(e.message); } };
   if ($("#liniciar")) $("#liniciar").onclick = () => { const u = $("#lurl").value.trim(); if (!u) return toast("Cole o link da live"); gravar(u, +$("#lmin").value || 60); };
@@ -1217,7 +1390,7 @@ async function viewCorte(m) {
       ${d.canal ? `<span class="pill">canal: ${esc(d.canal)}</span>` : ""}</div>
     ${d.tempos ? `<details class="cartao"><summary>Tempo da análise · ${esc(tempoMedido(Object.values(d.tempos).reduce((a,b)=>a+b,0)))}</summary>
       ${[["fonte","Download ou abertura da fonte"],["audio","Análise do áudio"],["fala","Transcrição"],["selecao","Seleção dos momentos"],["espera","Espera final pelo vídeo"]].map(([k,t])=>`<div>${t} · ${esc(tempoMedido(d.tempos[k]))}</div>`).join("")}</details>` : ""}
-    ${d.live ? `<div class="cartao"><div class="linha"><b>${ic("gravar")} Trechos da live</b>${d.live_rodando ? `<span class="pill erro">● gravando</span><button class="mini" id="cparar">■ Parar</button>` : `<span class="pill">encerrada</span>`}
+    ${d.live ? `<div class="cartao"><div class="linha"><b>${ic("gravar")} Trechos da live</b>${d.live_rodando ? `<span class="pill erro">${ic("ondas")} ao vivo</span><button class="mini" id="cparar">■ Parar</button>` : `<span class="pill">encerrada</span>`}
         <span class="sub" style="margin:0">cada trecho = 35 s em volta de um pico do chat</span></div>
       ${d.trechos.length ? `<div class="bgrid" style="margin-top:10px">${d.trechos.slice().reverse().map(s => `<div class="bcard">${s.existe ? `<video src="/corte/${n}/live/${encodeURIComponent(s.arquivo)}" controls preload="metadata" style="width:100%;aspect-ratio:16/9;border-radius:0"></video>` : `<div class="vazio" style="border:0">corte falhou</div>`}
         <div class="c"><div class="id"><span>#${s.n} · ${esc(s.offset || "")} · ${s.msgs} msgs/10s</span></div><div style="font-size:12px;color:var(--fraco)">${esc((s.palavras || []).join(", "))}</div>
@@ -1263,6 +1436,25 @@ async function viewCorte(m) {
 function abrirModal(html, largura = 760) {
   const md = document.createElement("div"); md.className = "modal";
   md.innerHTML = `<div class="caixa" style="width:min(${largura}px,94vw)">${html}</div>`; document.body.appendChild(md);
+  const caixa = $(".caixa",md), origem = document.activeElement;
+  if (!caixa.querySelector('[role="dialog"]')) {
+    caixa.setAttribute("role","dialog"); caixa.setAttribute("aria-modal","true");
+    caixa.setAttribute("aria-label",$(".cab b",caixa)?.textContent || "Opções");
+  }
+  md.addEventListener("keydown", e => {
+    if (e.key !== "Tab") return;
+    const campos = [...caixa.querySelectorAll("button:enabled,input:enabled,select:enabled,textarea:enabled,a[href],summary")].filter(el=>el.getClientRects().length);
+    const primeiro = campos[0], ultimo = campos.at(-1);
+    if (e.shiftKey && document.activeElement === primeiro) { e.preventDefault(); ultimo?.focus(); }
+    if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primeiro?.focus(); }
+  });
+  const fechou = new MutationObserver(() => {
+    if (md.isConnected) return;
+    fechou.disconnect();
+    if (origem?.isConnected && (!document.querySelector(".modal") || origem.closest(".modal") === [...document.querySelectorAll(".modal")].at(-1))) origem.focus({preventScroll:true});
+  });
+  fechou.observe(document.body,{childList:true});
+  caixa.querySelector("button")?.focus({preventScroll:true});
   md.onclick = (e) => { if (e.target === md) md.remove(); }; return md;
 }
 function previaMomento(d, c) {
@@ -1449,38 +1641,37 @@ function modalCortar(d, c, antigo, projetoAtualizar = null, lote = null) {
   const ed0 = rp.edicao || ["pausas", "zoom", "voz"];
   const sugerido = antigo ? "" : (c.gancho_sugerido || "");
   const md = abrirModal(`<div class="cab"><b style="flex:1">${projetoAtualizar ? "Editar gancho" : `Cortar o momento #${c.n} (${fmtT(c.start)}–${fmtT(c.end)})`}</b><button id="kfechar">Fechar</button></div>
-    <div class="corpo"><label style="margin-top:0">Formato</label>
+    <div class="corpo edicao-paineis"><div class="monitor"><h3>Prévia do corte</h3><div style="position:relative;width:216px;aspect-ratio:9/16;overflow:hidden;background:#000;border-radius:10px"><canvas id="kcanvas" width="270" height="480" style="display:block;width:100%;height:100%"></canvas><div id="ktexto" style="position:absolute;left:0;width:100%;transform:translateY(-50%);text-align:center;color:white;font-family:'Arial Black',sans-serif;font-weight:900;line-height:1.18;padding:5px 7px;white-space:normal;overflow-wrap:anywhere;text-shadow:1px 1px 3px #000"></div></div>
+        <video id="kfonte" src="/corte/${encodeURIComponent(d.nome)}/fonte" preload="metadata" style="display:none"></video><button class="mini" id="ktocar" style="margin-top:6px">Reproduzir prévia</button>
+        <label for="kcursor">Posição no original · <output id="ktempo"></output></label>
+        <input id="kcursor" type="range" min="0" max="0" step="0.1" value="0" disabled>
+        <div class="linha"><button class="mini" id="kmarcaIni">Marcar início</button><button class="mini" id="kmarcaFim">Marcar fim</button></div><p class="sub" style="font-size:11px;margin:4px 0">Prévia aproximada do enquadramento. O arquivo será atualizado ao salvar.</p></div><div class="edicao-campos"><label style="margin-top:0">Formato</label>
       <div class="lays">${LAYOUTS.map(([k, t, dsc]) => `<label class="lay ${k === lay0 ? "on" : ""}"><input type="radio" name="klay" value="${k}" ${k === lay0 ? "checked" : ""}><b>${t}</b><span>${dsc}</span></label>`).join("")}</div>
       <div id="kenquad"><label><input id="kmanual" type="checkbox" ${d.enquadramento || (ant.layout === "facecam" && caixaAnterior.length === 4) ? "checked" : ""}> Ajustar enquadramento</label>
       <label><input type="checkbox" id="kpadrao" ${antigo ? "" : "checked"}> Usar este enquadramento nos próximos cortes ${d.canal ? "do canal" : "deste vídeo"}</label>
       <div id="kcontroles">
       ${camposQuadro.map(([k,t]) => `<label for="quadro-${k}">${t}</label><input id="quadro-${k}" type="range" min="${["altura","largura"].includes(k)?5:0}" max="100" value="${Number(quadro[k])}">`).join("")}</div></div>
-      <div id="kgancho"><label>Gancho (aparece nos primeiros 4 segundos)</label><input id="kg" maxlength="90" value="${esc(ant.gancho || sugerido)}" placeholder="Ex.: Ninguém viu esse carro escondido"></div>
-      <div id="ktitulo"><label>Título (aparece nos primeiros 4 segundos)</label><input id="kt" maxlength="110" value="${esc(ant.titulo || sugerido)}" placeholder="Ex.: Speed FICOU CHOCADO com a polícia do GTA 6"></div>
+      <div id="kgancho"><label for="kg">Gancho (aparece nos primeiros 4 segundos)</label><input id="kg" maxlength="90" value="${esc(ant.gancho || sugerido)}" placeholder="Ex.: Ninguém viu esse carro escondido"></div>
+      <div id="ktitulo"><label for="kt">Título (aparece nos primeiros 4 segundos)</label><input id="kt" maxlength="110" value="${esc(ant.titulo || sugerido)}" placeholder="Ex.: Speed FICOU CHOCADO com a polícia do GTA 6"></div>
       <div class="linha" style="margin-top:8px"><button class="mini" id="kia">${ic("brilho")}Sugerir 3 com IA</button><span id="ksug" class="linha" style="gap:6px"></span></div>
-      <label>Estilo da faixa</label><select id="kestilo" style="width:180px"><option value="box">faixa colorida</option><option value="outline">sem faixa</option></select>
-      <div class="grid2" style="margin-top:12px;align-items:start"><div><div style="position:relative;width:216px;aspect-ratio:9/16;overflow:hidden;background:#000;border-radius:10px"><canvas id="kcanvas" width="270" height="480" style="display:block;width:100%;height:100%"></canvas><div id="ktexto" style="position:absolute;left:0;width:100%;transform:translateY(-50%);text-align:center;color:white;font-family:'Arial Black',sans-serif;font-weight:900;line-height:1.18;padding:5px 7px;white-space:normal;overflow-wrap:anywhere;text-shadow:1px 1px 3px #000"></div></div>
-        <video id="kfonte" src="/corte/${encodeURIComponent(d.nome)}/fonte" preload="metadata" style="display:none"></video><button class="mini" id="ktocar" style="margin-top:6px">Reproduzir prévia</button>
-        <label for="kcursor">Posição no original · <output id="ktempo"></output></label>
-        <input id="kcursor" type="range" min="0" max="0" step="0.1" value="0" disabled>
-        <div class="linha"><button class="mini" id="kmarcaIni">Marcar início</button><button class="mini" id="kmarcaFim">Marcar fim</button></div><p class="sub" style="font-size:11px;margin:4px 0">Prévia aproximada do enquadramento. O arquivo será atualizado ao salvar.</p></div>
-        <div><label>Posição vertical: <b id="kyv"></b></label><input id="ky" type="range" min="250" max="1450" step="10" value="${rp.texto_y ?? (lay0 === "facecam" ? 750 : lay0 === "react" ? 1050 : 480)}">
-        <label>Tamanho: <b id="ktamv"></b></label><input id="ktam" type="range" min="40" max="100" step="2" value="${rp.texto_tamanho ?? 66}">
-        <label>Cor da faixa</label><select id="kcor"><option value="rosa">Rosa Vice</option><option value="laranja">Pôr do sol</option><option value="roxo">Roxo neon</option><option value="escuro">Escuro</option></select></div></div>
+      <label for="kestilo">Estilo da faixa</label><select id="kestilo" style="width:180px"><option value="box">faixa colorida</option><option value="outline">sem faixa</option></select>
+              <div><label for="ky">Posição vertical: <b id="kyv"></b></label><input id="ky" type="range" min="250" max="1450" step="10" value="${rp.texto_y ?? (lay0 === "facecam" ? 750 : lay0 === "react" ? 1050 : 480)}">
+        <label for="ktam">Tamanho: <b id="ktamv"></b></label><input id="ktam" type="range" min="40" max="100" step="2" value="${rp.texto_tamanho ?? 66}">
+        <label for="kcor">Cor da faixa</label><select id="kcor"><option value="rosa">Rosa Vice</option><option value="laranja">Pôr do sol</option><option value="roxo">Roxo neon</option><option value="escuro">Escuro</option></select></div>
       <div class="grid2" style="margin-top:4px"><div><label>Legenda</label><select id="kl"><option value="word">palavra por palavra (destaca a falada)</option><option value="bubble">frase em balão</option><option value="none">sem legenda</option></select></div>
-        <div><label>Trecho no vídeo original (min:seg)</label><div class="linha"><input id="ki" type="text" inputmode="decimal" value="${formatarTempoVideo(ant.inicio ?? c.start)}" aria-label="Início do trecho, minutos e segundos" placeholder="00:00" style="width:112px"><span>até</span><input id="kf" type="text" inputmode="decimal" value="${formatarTempoVideo(ant.fim ?? c.end)}" aria-label="Fim do trecho, minutos e segundos" placeholder="00:00" style="width:112px"><span id="kdur" class="sub" style="margin:0"></span></div><div class="sub" style="font-size:11px;margin:4px 0 0">Use min:seg, por exemplo 49:40.5. Para vídeos longos, use h:min:seg.</div></div></div>
+        <div><label>Trecho no vídeo original (min:seg)</label><div class="linha"><input id="ki" type="text" inputmode="decimal" value="${formatarTempoVideo(ant.inicio ?? c.start)}" aria-label="Início do trecho, minutos e segundos" placeholder="00:00" style="width:112px"><span>até</span><input id="kf" type="text" inputmode="decimal" value="${formatarTempoVideo(ant.fim ?? c.end)}" aria-label="Fim do trecho, minutos e segundos" placeholder="00:00" style="width:112px"></div><div class="sub" style="font-size:11px;margin:4px 0 0">Use min:seg, por exemplo 49:40.5. Para vídeos longos, use h:min:seg.</div></div></div>
       <label for="kq">Pergunta para os comentários (vai no texto do post)</label><input id="kq" maxlength="160" value="${esc(ant.pergunta ?? c.pergunta ?? "")}" placeholder="Ex.: Você teria fugido ou se rendido?">
-      <label>Edição para segurar quem assiste</label>
+      <details class="edicao-opcoes"><summary>Efeitos e tratamento da voz</summary>
       <div class="linha" style="gap:16px">${[["pausas", "Tirar pausas mortas", "só pausas sem fala e sem ação; o pico nunca é cortado"],
         ["zoom", "Zoom nos picos", "zoom leve a cada ~4 s e mais forte na reação (Desfocado e Tela cheia)"],
         ["voz", "Limpar a voz", "tira ronco grave e chiado"],
         ["loop", "Loop", "o fim emenda no começo para assistirem de novo"]].map(([k, t, dica]) => `<label style="display:inline-flex;gap:6px;align-items:center;margin:0;color:var(--texto);font-weight:500" title="${dica}"><input type="checkbox" data-ed="${k}" ${ed0.includes(k) ? "checked" : ""}> ${t}</label>`).join("")}</div>
-      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="kp"> Manter palavrões na legenda (ofensas e preconceito são sempre censurados)</label>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="kp"> Manter palavrões na legenda (ofensas e preconceito são sempre censurados)</label></details>
       <p class="sub" style="font-size:12px;margin:8px 0">${projetoAtualizar ? "Ao salvar, o Estúdio refaz o vídeo e guarda uma cópia do anterior." : "Após cortar, o Estúdio avalia o clipe e agenda automaticamente os que passarem de 7,5 e da checagem."}</p>
       <div class="sub" style="margin:10px 0 0;font-size:12px">O "Reação" acha a câmera do streamer sozinho. Se no trecho não houver rosto sobre o jogo, ele avisa e você escolhe outro formato. Ideal: 7 a 30 s, terminando no clímax.</div>
       <section id="kamostra"><button id="kgerar">Gerar amostra de 5 s</button> <span role="status" id="kandamento"></span>
       <video id="kresultado" controls hidden style="width:216px;max-width:100%"></video></section>
-      <div class="linha" style="margin-top:12px"><span style="flex:1"></span><button class="prim" id="kok">${projetoAtualizar ? "Salvar e refazer vídeo" : "Cortar"}</button></div></div>`, 900);
+      </div></div><div class="rodape-editor"><span>Duração do corte · <b id="kdur" role="status"></b></span><button class="prim" id="kok">${projetoAtualizar ? "Salvar e refazer vídeo" : "Cortar"}</button></div>`, 1040);
   const lay = () => md.querySelector("[name=klay]:checked").value;
   $("#kestilo", md).value = rp.title_style || "box"; $("#kcor", md).value = rp.texto_cor || "rosa"; $("#kl", md).value = lote?.legenda || rp.captions || "word"; $("#kp", md).checked = !!rp.profanity;
   const cores = { rosa: "#b92f78", laranja: "#b84c20", roxo: "#4c2875", escuro: "#211830" };
@@ -1599,7 +1790,7 @@ function modalAgendarClipe(d, c) {
   const md = abrirModal(`<div class="cab"><b style="flex:1">Mandar o clipe ${c.n} para o Agendar</b><button id="afechar">Fechar</button></div>
     <div class="corpo"><label style="margin-top:0">Versão</label><div class="linha">${versoes.map(([l, t], i) => `<label style="display:inline-flex;gap:6px;align-items:center;margin:0 14px 0 0"><input type="radio" name="av" value="${l}" ${i === 0 ? "checked" : ""}> ${t}${c.projetos[l || "orig"] ? " ✓" : ""}</label>`).join("")}</div>
       <label>Texto do post (com o crédito ao criador)</label><textarea id="at" rows="5"></textarea>
-      <div class="sub" style="margin:6px 0 0;font-size:12px">Vira um projeto "clipe" na lista da esquerda e aparece na tela Agendar. Antes de enviar ao Zernio passa pela checagem (formato, áudio, duração, termos proibidos e crédito).</div>
+      <div class="sub" style="margin:6px 0 0;font-size:12px">Cria um projeto de clipe e o coloca na agenda para você escolher um horário. Antes de enviar ao Zernio passa pela checagem (formato, áudio, duração, termos proibidos e crédito).</div>
       <div class="linha" style="margin-top:12px"><span style="flex:1"></span><button class="prim" id="aok">Criar</button></div></div>`, 600);
   const txt = () => { const l = md.querySelector("[name=av]:checked").value; $("#at", md).value = l ? (c.legendas[l] || c.legenda) : c.legenda; };
   md.querySelectorAll("[name=av]").forEach(r => r.onchange = txt); txt();
@@ -1660,7 +1851,7 @@ async function cancelarAgendamento(nome, titulo, depois) {
 }
 async function agendarUm(nome, titulo, horarioAnterior) {
   let z; try { z = await api("/api/zernio"); } catch (e) { return toast(e.message); }
-  if (!z.configurado || !z.contas.length) { toast("Configure a chave e as contas do Zernio primeiro"); return ir("agendar"); }
+  if (!z.configurado || !z.contas.length) { toast("Configure a chave e as contas do Zernio primeiro"); return ir("agendar",{painelAgenda:"contas"}); }
   const usarAnterior = horarioAnterior && new Date(horarioAnterior) > new Date(Date.now() + 15 * 6e4);
   const md = document.createElement("div"); md.className = "modal";
   md.innerHTML = `<div class="caixa" style="width:min(520px,94vw)"><div class="cab"><b style="flex:1">Agendar no Zernio</b><button id="afechar">Fechar</button></div>
@@ -1682,25 +1873,38 @@ async function viewAgendar(m) {
   if (!(S.calMes instanceof Date) || Number.isNaN(+S.calMes)) S.calMes = new Date(z.inicio_diario);
   if (Number.isNaN(+S.calMes)) S.calMes = new Date();
   S.calMes = new Date(S.calMes.getFullYear(), S.calMes.getMonth(), 1); S.calDia = S.calDia || z.inicio_diario.slice(0, 10);
-  m.innerHTML = `<h2>Agendar no Zernio</h2><p class="sub">Escolha os vídeos e confira a previsão antes de enviar ao Zernio. O Estúdio reserva até 10 horários por dia entre 08:00 e 21:30 (${esc(z.fuso)}).</p>
-    <section class="cartao"><div class="linha"><h3>Confirmações do dia</h3><label for="zrecdata">Data</label><input type="date" id="zrecdata" style="width:auto"></div><div id="zrecibos" aria-live="polite"></div></section>
-    <div class="cartao"><b>1. Chave da API</b> <span class="sub" style="margin:0">(zernio.com → Dashboard → API Keys). Fica salva só no seu PC.</span>
+  const secoes = [["planejar","Planejar envios"],["recibos","Conferir envios"],["contas","Contas conectadas"]];
+  m.innerHTML = `<div class="pagina-cab"><div><h2>Agenda de publicação</h2><p class="sub">Até 10 vídeos por dia · 08:00 a 21:30 · ${esc(z.fuso)}</p></div></div>
+    ${seletorPaineis(secoes,"Área de agendamento")}
+    <section class="cartao" data-secao="recibos"><div class="linha"><h3>Confirmações do dia</h3><label for="zrecdata">Data</label><input type="date" id="zrecdata" style="width:auto"></div><div id="zrecibos" aria-live="polite"></div></section>
+    <div class="cartao" data-secao="contas"><label for="zkey">Chave da API do Zernio</label> <span class="sub" style="margin:0">(zernio.com → Dashboard → API Keys). Fica salva só no seu PC.</span>
       <div class="linha" style="margin-top:8px"><input id="zkey" type="password" placeholder="${z.configurado ? "chave salva (cole outra para trocar)" : "cole a chave aqui"}" style="flex:1">
       <button id="zsalvar">Salvar e carregar contas</button></div>
       <div id="zcontas" style="margin-top:10px"></div></div>
-    <div class="cartao"><b>2. Vídeos prontos para agendar</b> <span class="sub" style="margin:0">(com vídeo gerado, sem marca de postado e ainda não agendados)</span>
+    <div class="cartao" data-secao="planejar"><h3>Selecionar vídeos</h3>
       <div class="linha" style="margin-top:8px"><div><label for="zini">Agendar a partir de</label><input type="datetime-local" id="zini" value="${esc(z.inicio_diario)}" required></div>
         <button class="mini" id="zmarcar">Selecionar disponíveis</button></div>
       <div id="zlista" style="margin-top:10px"></div>
       <p id="zplano" class="sub" role="status" style="margin:8px 0"></p>
+      <div class="linha" style="margin-top:10px"><span style="flex:1"></span><button class="prim" id="zagendar" ${oc ? "disabled" : ""}>Agendar</button></div>
       <div class="cal-cab"><b>Calendário de publicação</b><button class="mini" id="calAnterior" aria-label="Mês anterior">←</button><button class="mini" id="calHoje">Hoje</button><button class="mini" id="calProximo" aria-label="Próximo mês">→</button></div>
       <div id="calendario"></div><div class="cal-legenda"><span><i></i>já agendado</span><span class="f"><i></i>selecionado para envio</span></div>
       <p class="sub" style="font-size:12px;margin:5px 0 0">Clique em um dia para usá-lo como primeiro horário. Os vídeos marcados aparecem como previsão até você confirmar o agendamento.</p>
-      <div class="linha" style="margin-top:10px"><span style="flex:1"></span><button class="prim" id="zagendar" ${oc ? "disabled" : ""}>Agendar</button></div></div>
-    <div class="cartao"><div class="linha"><b>Já agendados</b><span style="flex:1"></span><button id="zconf" ${oc ? "disabled" : ""} title="Consulta no Zernio o status real de cada post">${ic("atualizar")}Conferir no Zernio</button></div>${z.agendados.length ? `<details style="margin-top:8px"><summary>Ver lista completa e cancelar uma publicação</summary><table style="margin-top:8px">${z.agendados.map(a => `<tr><td style="width:170px">${fmt(a.horario)}</td><td>${esc(a.titulo)}</td>
+</div>
+    <div class="cartao" data-secao="recibos"><div class="linha"><b>Já agendados</b><span style="flex:1"></span><button id="zconf" ${oc ? "disabled" : ""} title="Consulta no Zernio o status real de cada post">${ic("atualizar")}Conferir no Zernio</button></div>${z.agendados.length ? `<details style="margin-top:8px"><summary>Ver lista completa e cancelar uma publicação</summary><table style="margin-top:8px">${z.agendados.map(a => `<tr><td style="width:170px">${fmt(a.horario)}</td><td>${esc(a.titulo)}</td>
       <td><span class="pill ${a.status === "published" ? "ok" : /fail|partial/.test(a.status || "") ? "erro" : "rodando"}">${esc({ scheduled: "agendado", published: "publicado", failed: "falhou", draft: "rascunho", partial: "parcial" }[a.status] || a.status || "?")}</span></td>
       <td class="sub" style="margin:0;font-size:12px">${esc((a.plataformas || a.contas || []).join(" · "))}${a.conferido_em ? `<br>conferido ${esc(fmt(a.conferido_em))}` : " · não conferido"}</td>
       <td style="width:90px"><button class="mini" data-cancel="${esc(a.nome)}" data-tit="${esc(a.titulo)}" ${oc ? "disabled" : ""}>Cancelar</button></td></tr>`).join("")}</table></details>` : `<p class="sub">Nenhum ainda.</p>`}</div>`;
+  const alvo = S.selecionarProjeto;
+  S.selecionarProjeto = null;
+  if (!z.configurado || !z.contas.length) {
+    const aviso = document.createElement("p");
+    aviso.className = "aviso-box";
+    aviso.innerHTML = 'Conecte uma conta ao Zernio para enviar os vídeos. <button class="mini">Configurar contas</button>';
+    aviso.querySelector("button").onclick = () => m.querySelector('[data-painel="contas"]').click();
+    m.querySelector('[data-secao="planejar"]').prepend(aviso);
+  }
+  ligarPaineis(m,"painelAgenda",z.configurado && z.contas.length ? "planejar" : "contas");
   const dataRecibo = $("#zrecdata", m);
   dataRecibo.value = S.dataRecibo || new Intl.DateTimeFormat("sv-SE", {timeZone:z.fuso}).format(new Date());
   function mostrarRecibos() {
@@ -1727,7 +1931,7 @@ async function viewAgendar(m) {
   const pintarContas = (lista, escolhidas) => {
     const ids = new Set(escolhidas.map(c => c.id));
     $("#zcontas").innerHTML = lista.length ? `<div class="sub" style="margin:0 0 6px">Publicar em:</div>` + lista.map(c => `<label style="display:inline-flex;gap:6px;align-items:center;margin:0 14px 6px 0">
-      <input type="checkbox" data-c='${esc(JSON.stringify(c))}' ${ids.has(c.id) ? "checked" : ""}> ${esc(c.plataforma)} · ${esc(c.usuario)}</label>`).join("")
+      <input type="checkbox" data-c="${esc(JSON.stringify(c))}" ${ids.has(c.id) ? "checked" : ""}> ${esc(c.plataforma)} · ${esc(c.usuario)}</label>`).join("")
       : `<p class="sub">Nenhuma conta conectada no Zernio. Conecte TikTok/YouTube/Instagram no painel do Zernio e clique em Salvar de novo.</p>`;
     $("#zcontas").querySelectorAll("[data-c]").forEach(cb => cb.onchange = salvarContas);
   };
@@ -1765,6 +1969,8 @@ async function viewAgendar(m) {
     agenda.disabled = enviando || !!rodando(S.trabalho) || !n || lotePrevisto.length !== n;
   };
   const atualizarPrevisao = () => {
+    const caixas = [...m.querySelectorAll("#zlista [data-p]:enabled")];
+    $("#zmarcar",m).textContent = caixas.length && caixas.every(cb => cb.checked) ? "Limpar seleção" : "Selecionar disponíveis";
     const horarios = new Map(lotePrevisto.map(p => [p.nome, p.horario]));
     m.querySelectorAll("#zlista [data-h]").forEach(el => {
       const horario = horarios.get(el.dataset.h);
@@ -1808,9 +2014,13 @@ async function viewAgendar(m) {
     const disponiveis = [...m.querySelectorAll("#zlista [data-p]:enabled")];
     const selecionar = disponiveis.some(cb => !cb.checked);
     disponiveis.forEach(cb => { cb.checked = selecionar; });
-    $("#zmarcar").textContent = selecionar ? "Limpar seleção" : "Selecionar disponíveis";
     planejar();
   };
+  if (alvo) {
+    const escolhido = [...m.querySelectorAll("#zlista [data-p]")].find(cb => cb.dataset.p === alvo);
+    if (escolhido && !escolhido.disabled) escolhido.checked = true;
+    else toast("Este vídeo já saiu da fila ou precisa passar pela checagem.");
+  }
   $("#zmarcar").disabled = !m.querySelector("#zlista [data-p]:enabled");
   planejar();
   $("#calAnterior").onclick = () => { S.calMes = new Date(S.calMes.getFullYear(), S.calMes.getMonth()-1, 1); renderCal(); };
