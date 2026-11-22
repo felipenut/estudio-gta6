@@ -436,6 +436,7 @@ def main():
     ap.add_argument("--edicao", default=EDICAO_PADRAO, help="pausas,zoom,voz,loop (ou 'nenhuma')")
     ap.add_argument("--pergunta", default=None, help="pergunta aberta para o post (padrão: a sugerida pela IA)")
     ap.add_argument("--threads", type=int, choices=range(1, 9), help="limite de processamento para cortes em paralelo")
+    ap.add_argument("--amostra", action="store_true")
     a = ap.parse_args()
     d = Path(a.job); c = load_json(d / "candidates.json")
     print("(1/2) preparando legenda e enquadramento…", flush=True)
@@ -443,6 +444,9 @@ def main():
     s0 = a.start if a.start is not None else pick["start"]; e0 = a.end if a.end is not None else pick["end"]
     words = load_json(d / "transcript.json")
     out = d / "edits"; out.mkdir(exist_ok=True)
+    if a.amostra:
+        out = out / "amostras"
+        out.mkdir(exist_ok=True)
     layout, cam, side = a.layout, a.cam, 'right'
     face_expr = None
     if layout in ('react', 'facecam') and cam == 'auto':
@@ -521,7 +525,14 @@ def main():
     parcial = out / f"clip_{a.pick}.parcial.mp4"
     meta_anterior = load_json(out / f"clip_{a.pick}.json") if (out / f"clip_{a.pick}.json").exists() else {}
     print(f"(2/2) renderizando {dur:.0f}s em 1080x1920 ({layout}{', ' + ', '.join(sorted(ed)) if ed else ''})…", flush=True)
-    executar_render(comando_render(c["source"], s0, e0, rp, ass, band, parcial), dur)
+    comando = comando_render(c["source"], s0, e0, rp, ass, band, parcial)
+    if a.amostra:
+        comando[-1:-1] = ["-t", str(min(dur, 5))]
+        executar_render(comando, min(dur, 5))
+        parcial.replace(mp4)
+        print(f"ok: {mp4}")
+        return
+    executar_render(comando, dur)
     if mp4.exists():
         import shutil, time
         pasta_backup = out / "backup"; pasta_backup.mkdir(exist_ok=True)

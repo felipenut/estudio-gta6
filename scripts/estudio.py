@@ -32,7 +32,7 @@ import lote_cortes as LC  # fila de produção entre fontes
 import cortes as CT  # noqa: E402  (tela Cortes e lives)
 import atualizar as ATU  # noqa: E402  (atualização automática pelo GitHub)
 
-VERSAO = 30
+VERSAO = 31
 URL_CHECKOUT_LICENCAS = "https://estudio-gta6-checkout.vercel.app/api/licenca"
 URL_CHECKOUT_CONFIG = "https://estudio-gta6-checkout.vercel.app/api/config"
 ARQ_LICENCA = Path(os.getenv("LOCALAPPDATA") or Path.home()) / "Estudio GTA 6" / "licenca.json"
@@ -312,7 +312,7 @@ def etapas_projeto(acao, p):
     return E[acao]
 
 
-ROTULOS = {"checar": "CHECAGEM", "previa": "PRÉVIA", "gerar": "VÍDEO", "narrar": "NARRAÇÃO", "capa": "CAPA",
+ROTULOS = {"amostra_corte": "AMOSTRA DO CORTE", "checar": "CHECAGEM", "previa": "PRÉVIA", "gerar": "VÍDEO", "narrar": "NARRAÇÃO", "capa": "CAPA",
            "ae": "AFTER EFFECTS", "criar": "CRIAÇÃO", "criar_gerar": "CRIAÇÃO + VÍDEO", "baixar": "DOWNLOAD",
            "oficiais": "VÍDEOS OFICIAIS", "lote": "LOTE", "cortes_lote": "CORTES EM LOTE", "cortes_escala": "PRODUÇÃO DE CORTES", "cortes_links": "FILA DE LINKS", "zernio": "AGENDAMENTO", "tendencias": "TENDÊNCIAS", "etiquetar": "ETIQUETAS (IA)", "indexar": "INDEXAÇÃO",
            "momentos": "MOMENTOS", "cortar": "CORTE", "traduzir_clipe": "TRADUÇÃO DO CLIPE", "lives": "LIVES AGORA",
@@ -584,6 +584,16 @@ def iniciar_lote_cortes(corpo):
         sugestao = candidatos[pick].get("gancho_sugerido") or ""
         opcoes = {"nome": nome, "pick": pick, "layout": layout, "legenda": corpo.get("legenda"),
                   "gancho": sugestao, "titulo": sugestao}
+        modelo = corpo.get("modelo") or {}
+        for campo in ("layout", "legenda", "estilo_titulo", "texto_y", "texto_tamanho", "texto_cor",
+                      "edicao", "enquadramento", "palavroes"):
+            if campo in modelo:
+                opcoes[campo] = modelo[campo]
+        if pick == modelo.get("pick"):
+            for campo in ("inicio", "fim", "gancho", "titulo", "pergunta"):
+                if campo in modelo:
+                    opcoes[campo] = modelo[campo]
+        opcoes["salvar_padrao"] = modelo.get("salvar_padrao") is True and pick == modelo.get("pick")
         fila.append((pick, CT.etapas_cortar(opcoes)))
 
     def produzir(codigo, saida):
@@ -1892,6 +1902,12 @@ class H(BaseHTTPRequestHandler):
                 nome, etapas = CT.etapas_momentos(corpo)
                 iniciar("momentos", lambda: etapas, CT.CORTES / nome / "log.txt", corte=nome)
                 return self._json({"ok": True, "nome": nome, "trabalho": TRABALHO})
+            if u == "/api/cortes/amostra":
+                etapas = CT.etapas_cortar(dict(corpo, salvar_padrao=False))
+                etapas[0].append("--amostra")
+                nome = corpo["nome"]
+                iniciar("amostra_corte", lambda: etapas, CT.trabalho_dir(nome) / "log.txt", corte=nome)
+                return self._json({"trabalho": TRABALHO})
             if u == "/api/cortes/cortar":
                 etapas = CT.etapas_cortar(corpo)
                 nome, pick = corpo["nome"], int(corpo["pick"])

@@ -374,7 +374,7 @@ async function ir(view, extra = {}) { Object.assign(S, { view }, extra); marcarN
 async function abrirProjeto(nome, aba) { S.projeto = nome; S.view = "projeto"; if (aba) S.aba = aba; marcarNav(); try { await carregarProjeto(); if (S.view === "projeto" && S.projeto === nome) render(); } catch (e) { erroTela(e); } }
 async function carregarProjeto() { const nome = S.projeto, dados = await api("/api/projeto/" + encodeURIComponent(nome)); if (S.projeto !== nome) return; S.dados = dados; S.rot = dados.roteiro ? JSON.parse(JSON.stringify(dados.roteiro)) : null; }
 async function lista() { const j = await api("/api/projetos"); S.trabalho = j.trabalho; return j; }
-const VERSAO_PAGINA = 30;
+const VERSAO_PAGINA = 31;
 function erroTela(e) {
   $("#main").innerHTML = `<div class="aviso-box"><b>Não consegui abrir esta tela.</b><br>${esc(e.message || e)}<br><br>
     Se você acabou de atualizar o Estúdio, feche a janela preta do Estúdio e abra o <b>estudio.bat</b> de novo.</div>`;
@@ -1404,15 +1404,21 @@ function modalLoteCortes(d) {
   botao.onclick = async () => {
     botao.disabled = true;
     try {
-      const j = await api("/api/cortes/lote", { nome: d.nome, picks: itens.filter(i => i.checked).map(i => +i.dataset.clpick),
+      const picks = itens.filter(i => i.checked).map(i => +i.dataset.clpick);
+      const primeiro = d.momentos.find(c => picks.includes(c.n) && !prontos.has(c.n));
+      if (primeiro) {
+        const lote = {nome:d.nome, picks, layout:$("#cllayout",md).value, legenda:$("#cllegenda",md).value, preparar_projetos:$("#clprojetos",md).checked};
+        md.remove(); modalCortar(d, primeiro, null, null, lote); return;
+      }
+      const j = await api("/api/cortes/lote", { nome: d.nome, picks,
         layout: $("#cllayout", md).value, legenda: $("#cllegenda", md).value, preparar_projetos: $("#clprojetos", md).checked });
       S.trabalho = j.trabalho; md.remove(); gaveta(true); tick();
     } catch (e) { toast(e.message); contar(); }
   };
 }
 
-function modalCortar(d, c, antigo, projetoAtualizar = null) {
-  const ant = antigo || {}, lay0 = ant.layout || "facecam";
+function modalCortar(d, c, antigo, projetoAtualizar = null, lote = null) {
+  const ant = antigo || {}, lay0 = lote?.layout || ant.layout || "facecam";
   const rp = ant.render || {};
   const camposQuadro = [["x","Câmera · horizontal"],["y","Câmera · vertical"],["largura","Largura da câmera"],["altura","Altura da câmera"],["jogo","Jogo · horizontal"]];
   const quadro = {...{x:50,y:50,largura:25,altura:30,jogo:50}, ...d.enquadramento};
@@ -1453,9 +1459,11 @@ function modalCortar(d, c, antigo, projetoAtualizar = null) {
       <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="kp"> Manter palavrões na legenda (ofensas e preconceito são sempre censurados)</label>
       <p class="sub" style="font-size:12px;margin:8px 0">${projetoAtualizar ? "Ao salvar, o Estúdio refaz o vídeo e guarda uma cópia do anterior." : "Após cortar, o Estúdio avalia o clipe e agenda automaticamente os que passarem de 7,5 e da checagem."}</p>
       <div class="sub" style="margin:10px 0 0;font-size:12px">O "Reação" acha a câmera do streamer sozinho. Se no trecho não houver rosto sobre o jogo, ele avisa e você escolhe outro formato. Ideal: 7 a 30 s, terminando no clímax.</div>
+      <section id="kamostra"><button id="kgerar">Gerar amostra de 5 s</button> <span role="status" id="kandamento"></span>
+      <video id="kresultado" controls hidden style="width:216px;max-width:100%"></video></section>
       <div class="linha" style="margin-top:12px"><span style="flex:1"></span><button class="prim" id="kok">${projetoAtualizar ? "Salvar e refazer vídeo" : "Cortar"}</button></div></div>`, 900);
   const lay = () => md.querySelector("[name=klay]:checked").value;
-  $("#kestilo", md).value = rp.title_style || "box"; $("#kcor", md).value = rp.texto_cor || "rosa"; $("#kl", md).value = rp.captions || "word"; $("#kp", md).checked = !!rp.profanity;
+  $("#kestilo", md).value = rp.title_style || "box"; $("#kcor", md).value = rp.texto_cor || "rosa"; $("#kl", md).value = lote?.legenda || rp.captions || "word"; $("#kp", md).checked = !!rp.profanity;
   const cores = { rosa: "#b92f78", laranja: "#b84c20", roxo: "#4c2875", escuro: "#211830" };
   const atualizarTexto = () => { const el = $("#ktexto", md), tipo = lay(), texto = tipo === "react" ? $("#kt", md).value : $("#kg", md).value;
     el.textContent = texto || "Seu gancho aparece aqui"; el.style.top = (+$("#ky", md).value / 1920 * 100) + "%";
@@ -1506,7 +1514,16 @@ function modalCortar(d, c, antigo, projetoAtualizar = null) {
       $("#ksug", md).querySelectorAll("[data-s]").forEach(s => s.onclick = () => { (lay() === "react" ? $("#kt", md) : $("#kg", md)).value = s.dataset.s; atualizarTexto(); });
       $("#ksug", md).querySelectorAll("[data-q]").forEach(s => s.onclick = () => { $("#kq", md).value = s.dataset.q; });
     } catch (e) { toast(e.message); } b.disabled = false; b.innerHTML = ic("brilho") + "Sugerir 3 com IA"; };
-  $("#kok", md).onclick = async () => {
+  const gerar = $("#kgerar",md), confirmar = $("#kok",md), andamento = $("#kandamento",md), resultado = $("#kresultado",md);
+  let assinatura = "";
+  if (lote) { confirmar.textContent = "Aprovar e produzir lote"; confirmar.disabled = true; }
+  md.addEventListener("input", evento => {
+    if (evento.target === cursor || !assinatura) return;
+    assinatura = ""; resultado.hidden = true;
+    andamento.textContent = "Ajustes alterados. Gere outra amostra.";
+    if (lote) confirmar.disabled = true;
+  });
+  const executar = async (amostra) => {
     const inicio = lerTempoVideo($("#ki", md).value), fim = lerTempoVideo($("#kf", md).value);
     if (inicio == null || fim == null) return toast("Informe início e fim como min:seg, por exemplo 49:40");
     const corpo = { nome: d.nome, pick: c.n, layout: lay(), gancho: $("#kg", md).value, titulo: $("#kt", md).value, estilo_titulo: $("#kestilo", md).value,
@@ -1517,7 +1534,36 @@ function modalCortar(d, c, antigo, projetoAtualizar = null) {
     if (lay() === "facecam") corpo.enquadramento = $("#kmanual",md).checked ? Object.fromEntries(camposQuadro.map(([k]) => [k,+$("#quadro-"+k,md).value])) : null;
     if (Number.isFinite(v.duration) && corpo.fim > v.duration + 0.05) return toast("O fim do corte ultrapassa o vídeo original");
     if (corpo.fim - corpo.inicio < 3) return toast("Trecho curto demais");
+    if (amostra) {
+      gerar.disabled = confirmar.disabled = true; assinatura = ""; resultado.hidden = true;
+      const chave = JSON.stringify(corpo);
+      try {
+        const r = await api("/api/cortes/amostra", corpo);
+        while (md.isConnected) {
+          const t = (await api("/api/estado")).trabalho;
+          if (t.id !== r.trabalho.id) throw Error("Gere a amostra novamente.");
+          andamento.textContent = "Gerando amostra · " + Math.round(t.progresso*100) + "%";
+          if (t.fim) {
+            if (t.codigo !== 0) throw Error("A amostra falhou. Confira o log ou ajuste o enquadramento.");
+            assinatura = chave; resultado.src = "/corte/"+encodeURIComponent(d.nome)+"/edits/amostras/clip_"+c.n+".mp4?t="+Date.now();
+            resultado.hidden = false; andamento.textContent = "Confira a amostra antes de continuar.";
+            resultado.scrollIntoView({block:"nearest"}); break;
+          }
+          await new Promise(resolve => setTimeout(resolve,1000));
+        }
+      } catch(e) { andamento.textContent = e.message; }
+      finally { gerar.disabled = false; confirmar.disabled = !!lote && !assinatura; }
+      return;
+    }
+    if (lote) {
+      if (assinatura !== JSON.stringify(corpo)) return toast("Gere uma amostra com os ajustes atuais");
+      confirmar.disabled = true;
+      try { const r = await api("/api/cortes/lote", {...lote, modelo:corpo}); S.trabalho=r.trabalho; md.remove(); gaveta(true); tick(); }
+      catch(e) { confirmar.disabled=false; toast(e.message); }
+      return;
+    }
     try { const r = await api("/api/cortes/cortar", corpo); S.trabalho = r.trabalho; md.remove(); toast("Cortando… o clipe aparece aqui quando terminar"); gaveta(true); } catch (e) { toast(e.message); } };
+  gerar.onclick = () => executar(true); confirmar.onclick = () => executar(false);
 }
 function modalTraduzir(d, k) {
   const md = abrirModal(`<div class="cab"><b style="flex:1">Clipe ${k} em outros idiomas</b><button id="tfechar">Fechar</button></div>
