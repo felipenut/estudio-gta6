@@ -267,6 +267,25 @@ details > summary { cursor:pointer; color:var(--fraco); font-weight:600; } detai
 .mcard video { width:100%; aspect-ratio:9/16; max-height:440px; background:#000; border-radius:0; display:block; box-shadow:none; }
 .mcard .c { padding:11px 12px; display:flex; flex-direction:column; gap:7px; }
 .mcard.clipe { border-color:#4A3770; }
+.review-toolbar { display:flex; flex-wrap:wrap; align-items:end; gap:8px; padding:12px; margin:10px 0 14px; border:1px solid var(--linha); border-radius:var(--r-item); background:var(--p1); }
+.review-toolbar label, .review-fields label { display:flex; flex-direction:column; gap:4px; color:var(--fraco); font-size:12px; }
+.review-toolbar .review-all { flex-direction:row; align-items:center; min-height:42px; color:var(--texto); }
+.review-toolbar .review-actions { display:flex; flex-wrap:wrap; gap:7px; margin-left:auto; }
+.review-card { min-width:0; }
+.review-card:focus-visible { outline:2px solid var(--verde); outline-offset:3px; }
+.review-card .review-preview { width:100%; aspect-ratio:9/16; max-height:380px; object-fit:contain; background:var(--bg); }
+.review-card .review-head { align-items:center; flex-wrap:wrap; }
+.review-fields { display:grid; grid-template-columns:1fr; gap:8px; }
+.review-fields input, .review-fields textarea, .review-toolbar select { width:100%; min-width:0; }
+.review-fields textarea { min-height:64px; resize:vertical; }
+.review-help { padding:10px 12px; border:1px solid var(--linha); border-radius:var(--r-item); color:var(--fraco); }
+.review-help[hidden] { display:none; }
+@media (max-width:640px) {
+  .review-toolbar { align-items:stretch; }
+  .review-toolbar > label, .review-toolbar > select { flex:1 1 100%; }
+  .review-toolbar .review-actions { width:100%; margin-left:0; }
+  .review-toolbar .review-actions button { flex:1 1 44%; }
+}
 .lays { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .lay { display:flex !important; flex-direction:column; gap:3px; border:1px solid var(--linha); border-radius:var(--r-item); padding:10px 12px; margin:0 !important; cursor:pointer; color:var(--texto) !important; transition:border-color var(--t-rapida), background var(--t-rapida); }
 .lay:hover { border-color:var(--linha-forte); }
@@ -489,7 +508,7 @@ async function ir(view, extra = {}) {
 async function abrirProjeto(nome, aba) { entrarNaTela(); S.projeto = nome; S.view = "projeto"; if (aba) S.aba = aba; marcarNav(); try { await carregarProjeto(); if (S.view === "projeto" && S.projeto === nome) render(); } catch (e) { erroTela(e); } }
 async function carregarProjeto() { const nome = S.projeto, dados = await api("/api/projeto/" + encodeURIComponent(nome)); if (S.projeto !== nome) return; S.dados = dados; S.rot = dados.roteiro ? JSON.parse(JSON.stringify(dados.roteiro)) : null; }
 async function lista() { const j = await api("/api/projetos"); S.trabalho = j.trabalho; return j; }
-const VERSAO_PAGINA = 37;
+const VERSAO_PAGINA = 38;
 function erroTela(e) {
   $("#main").innerHTML = `<div class="aviso-box"><b>Não consegui abrir esta tela.</b><br>${esc(e.message || e)}<br><br>
     Se você acabou de atualizar o Estúdio, feche a janela preta do Estúdio e abra o <b>estudio.bat</b> de novo.</div>`;
@@ -653,7 +672,7 @@ async function aoTerminar(t) {
   if (S.view === "projeto" && t.projeto === S.projeto) { await carregarProjeto(); if (t.codigo === 0) S.aba = { gerar: "revisao", previa: "enquadramento", capa: "video", narrar: "roteiro" }[t.acao] || S.aba; render(); }
   if (["inicio", "projetos", "biblioteca"].includes(S.view)) render();
   if (["tendencias", "perguntas"].includes(t.acao) && S.view === "temas") render();
-  if (["momentos", "cortar", "cortes_lote", "cortes_escala", "cortes_links", "traduzir_clipe", "lives"].includes(t.acao) && ["cortes", "corte"].includes(S.view)) {
+  if (["momentos", "cortar", "cortes_lote", "cortes_escala", "cortes_links", "cortes_revisao", "traduzir_clipe", "lives"].includes(t.acao) && ["cortes", "corte"].includes(S.view)) {
     if (t.acao === "momentos" && t.codigo === 0 && t.corte) { S.corte = t.corte; S.view = "corte"; }
     render(); }
   if (t.acao === "traduzir_video" && t.codigo === 0 && t.projeto) abrirProjeto(t.projeto, "video");
@@ -1385,13 +1404,80 @@ function ritmoFila(m) {
   if (!m || !m.segundos) return "";
   return `<p class="sub">Nesta execução: ${esc(tempoMedido(m.segundos))}${m.novos ? ` · ${m.novos} corte(s) novo(s) · ${esc(tempoMedido(m.segundos/m.novos))} por corte novo` : ""}</p>`;
 }
+async function enviarRevisao(nome, acao, picks, layout) {
+  if (!picks.length) { toast("Selecione pelo menos um clipe."); return; }
+  try {
+    const r = await api("/api/cortes/revisao", { nome, acao, picks, layout });
+    if (r.trabalho) { S.trabalho = r.trabalho; toast("Refazendo os clipes selecionados…"); gaveta(true); tick(); }
+    else {
+      toast(acao === "aprovar" ? "Clipes enviados para Agendar." : acao === "descartar" ? "Clipes descartados." : "Revisão atualizada.");
+      await render();
+      document.querySelector(`[data-review-card="${Number(picks[0])}"]`)?.focus();
+    }
+  } catch (e) { toast(e.message); }
+}
+function htmlRevisaoClipes(d, n, oc) {
+  if (!d.clipes.length) return "";
+  const layoutLabel = (id) => (LAYOUTS.find(l => l[0] === id) || [0, id || "sem layout"])[1];
+  const estados = { aprovado: "Aprovado", descartado: "Descartado", pendente: "Pendente" };
+  const cards = d.clipes.map(c => {
+    const nota = c.avaliacao?.nota ?? c.nota_momento;
+    const status = c.status_revisao || "pendente";
+    const gancho = c.hook_pendente ? c.hook_pendente_texto : (c.layout === "react" ? c.titulo : c.gancho);
+    const poster = c.inicio != null && c.fim != null ? `/api/corte-quadro/${n}/${((Number(c.inicio) + Number(c.fim)) / 2).toFixed(1)}.jpg` : "";
+    const src = c.arquivo ? `/corte/${n}/edits/${encodeURIComponent(c.arquivo)}?v=${encodeURIComponent(c.mtime)}` : "";
+    const notaHtml = nota == null ? "Nota pendente" : `${esc(Number(nota).toFixed(1))} / 10`;
+    const duracao = c.inicio == null || c.fim == null ? "duração indisponível" : `${esc(Math.max(0, Math.round(Number(c.fim) - Number(c.inicio))))} s`;
+    const checagem = c.checagem ? reviewCkPill(c.checagem) : `<span class="pill">checagem pendente</span>`;
+    const avaliacao = c.avaliacao ? `<div class="sub">${esc(c.avaliacao.detalhes || "")}</div>` : "";
+    const pendente = c.hook_pendente ? `<div class="msg a">O gancho editado ainda não foi aplicado ao vídeo. Refazer o clipe para atualizar a imagem.</div>` : "";
+    const tempos = c.tempos ? `<p class="sub">Preparo · ${esc(tempoMedido(c.tempos.preparo))} · Renderização · ${esc(tempoMedido(c.tempos.render))}</p>` : "";
+    const projeto = c.projetos?.orig ? ` · no Agendar: ${esc(c.projetos.orig)}` : "";
+    return `<article class="mcard clipe review-card" data-review-card="${esc(c.n)}" data-status="${esc(status)}" tabindex="0" aria-label="Clipe ${esc(c.n)}, ${esc(estados[status] || status)}">
+      <label class="review-select"><input type="checkbox" data-review-pick="${esc(c.n)}"> Selecionar clipe ${esc(c.n)}</label>
+      ${src ? `<video class="review-preview" data-review-video data-src="${esc(src)}" preload="none" poster="${esc(poster)}" controls playsinline aria-label="Prévia do clipe ${esc(c.n)}"></video>` : `<div class="vazio">Arquivo do clipe não encontrado.</div>`}
+      <div class="c">
+        <div class="linha review-head"><b>Clipe ${esc(c.n)}</b><span class="pill">${esc(layoutLabel(c.layout))}</span>
+          <span class="pill ${status === "aprovado" ? "ok" : status === "descartado" ? "erro" : "rodando"}">${esc(estados[status] || status)}</span>${checagem}</div>
+        <div class="linha"><b style="color:var(--amarelo)">${notaHtml}</b><span class="sub" style="margin:0">${duracao}</span></div>
+        ${avaliacao}${pendente}${tempos}
+        <div class="review-fields">
+          <label>Gancho na tela<input data-review-hook maxlength="110" value="${esc(gancho || "")}" aria-label="Gancho na tela do clipe ${esc(c.n)}"></label>
+          <label>Pergunta para o post<textarea data-review-question maxlength="160" aria-label="Pergunta para o post do clipe ${esc(c.n)}">${esc(c.pergunta || "")}</textarea></label>
+          <button class="mini" data-review-save="${esc(c.n)}" ${oc ? "disabled" : ""}>Salvar textos</button>
+        </div>
+        <div class="sub">${fmtT(c.inicio)}–${fmtT(c.fim)}${projeto}</div>
+      </div>
+    </article>`;
+  }).join("");
+  return `<h3 id="titulo-revisao">Revisar clipes (${d.clipes.length})</h3>
+    <p class="sub">Confira a nota, a checagem e o gancho. Aprovar cria ou abre o projeto em Agendar; não publica nem agenda no Zernio.</p>
+    <div class="review-toolbar" role="group" aria-label="Ações em lote">
+      <label class="review-all"><input id="review-all" type="checkbox"> Selecionar todos</label>
+      <label for="review-layout">Layout para refazer</label>
+      <select id="review-layout">${LAYOUTS.map(([id, nome]) => `<option value="${esc(id)}">${esc(nome)}</option>`).join("")}</select>
+      <div class="review-actions">
+        <button class="mini prim" data-review-action="aprovar" ${oc ? "disabled" : ""}>${ic("agenda")}Mandar para Agendar</button>
+        <button class="mini" data-review-action="descartar" ${oc ? "disabled" : ""}>Descartar</button>
+        <button class="mini" data-review-action="restaurar" ${oc ? "disabled" : ""}>Restaurar</button>
+        <button class="mini" data-review-action="refazer" ${oc ? "disabled" : ""}>Refazer selecionados</button>
+        <button class="mini" id="review-help" aria-expanded="false" aria-controls="review-help-text">Atalhos de teclado</button>
+      </div>
+    </div>
+    <div class="review-help" id="review-help-text" hidden>Foque um cartão: ←/→ ou J/K navega; Espaço reproduz/pausa; A manda para Agendar; D descarta; R refaz com o layout escolhido. Pressione ? para mostrar ou ocultar esta ajuda.</div>
+    <div class="mgrid review-grid">${cards}</div>`;
+}
+function reviewCkPill(ch) {
+  const erros = (ch.itens || []).filter(i => !i.ok).map(i => i.nome + (i.detalhe ? " (" + i.detalhe + ")" : ""));
+  return `<span class="pill ${ch.ok ? ((ch.itens || []).some(i => !i.ok) ? "rodando" : "ok") : "erro"}" title="${esc(erros.join("\n") || "tudo certo")}">${ch.ok ? "checagem ✓" : "✕ checagem"}</span>`;
+}
+
 async function viewCorte(m) {
   if (!S.corte) return ir("cortes");
   const corte = S.corte;
   const d = await api("/api/corte/" + encodeURIComponent(S.corte)), oc = rodando(S.trabalho), n = encodeURIComponent(d.nome);
   if (S.view !== "corte" || S.corte !== corte) return;
   const sinais = [d.sinais.words ? `fala (${d.sinais.words} palavras)` : "", "volume", d.sinais.heatmap ? "mais repetido do YouTube" : "", d.sinais.chat ? "chat" : ""].filter(Boolean).join(" · ");
-  const ckPill = (ch) => !ch ? "" : `<span class="pill ${ch.ok ? (ch.itens.some(i => !i.ok) ? "rodando" : "ok") : "erro"}" title="${esc(ch.itens.filter(i => !i.ok).map(i => i.nome + (i.detalhe ? " (" + i.detalhe + ")" : "")).join("\n") || "tudo certo")}">${ch.ok ? "checagem ✓" : "✗ checagem"}</span>`;
   m.innerHTML = `<div class="topo-proj"><button onclick="ir('cortes')">← Cortes</button><h2 style="margin-left:6px">${esc(d.info.title || d.nome)}</h2>
       ${d.info.webpage_url && /^https?:/.test(d.info.webpage_url) ? `<a href="${esc(d.info.webpage_url)}" target="_blank" rel="noopener">abrir original</a>` : ""}<span style="flex:1"></span>
       ${d.canal ? `<span class="pill">canal: ${esc(d.canal)}</span>` : ""}</div>
@@ -1403,16 +1489,8 @@ async function viewCorte(m) {
         <div class="c"><div class="id"><span>#${s.n} · ${esc(s.offset || "")} · ${s.msgs} msgs/10s</span></div><div style="font-size:12px;color:var(--fraco)">${esc((s.palavras || []).join(", "))}</div>
         ${s.existe ? (s.trabalho ? `<button class="mini" data-abrirt="${esc(s.trabalho)}">Abrir momentos</button>` : `<button class="mini prim" data-trecho="${esc(s.arquivo)}" ${oc ? "disabled" : ""}>Achar o momento e cortar</button>`) : ""}</div></div>`).join("")}</div>`
         : `<p class="sub" style="margin:8px 0 0">${d.live_rodando ? "Esperando o chat explodir… (os primeiros minutos servem para medir o normal do chat)" : "Nenhum pico de chat nesta gravação."}</p>`}</div>` : ""}
-    ${d.clipes.length ? `<h3>Clipes prontos (${d.clipes.length}) · ranking</h3><p class="sub">Ordenados pela nota estimada. Acima de 7,5, clipes novos com checagem aprovada são enviados automaticamente para agendar. A nota não garante viralização.</p><div class="mgrid">${d.clipes.map(c => `<div class="mcard clipe">
-        ${c.arquivo ? `<video src="/corte/${n}/edits/${c.arquivo}?v=${c.mtime}" controls preload="metadata"></video>` : ""}
-        <div class="c"><div class="linha" style="gap:6px"><b>Clipe ${c.n}</b><span class="pill">${esc((LAYOUTS.find(l => l[0] === c.layout) || [0, c.layout])[1])}</span>${ckPill(c.checagem)}</div>
-          ${c.tempos ? `<p class="sub">Preparo · ${esc(tempoMedido(c.tempos.preparo))} · Renderização · ${esc(tempoMedido(c.tempos.render))}</p>` : ""}
-          ${c.avaliacao ? `<div><b style="color:var(--amarelo)">${c.avaliacao.nota.toFixed(1)} / 10</b><div class="sub" style="margin:2px 0;font-size:12px">${esc(c.avaliacao.detalhes)}${!c.avaliacao.ia_ok ? " · Análise de conteúdo indisponível; não agenda automaticamente." : ""}</div>${c.avaliacao.erros.length ? `<div class="msg e">${esc(c.avaliacao.erros.join(" · "))}</div>` : ""}<details><summary>Ver critérios</summary>${Object.entries(c.avaliacao.pontos).map(([k,v])=>`<div>${esc(k)}: ${v}</div>`).join("")}<p class="sub">${esc(c.avaliacao.nao_medidos)}</p></details></div>` : `<div class="sub" style="margin:0">Ainda não avaliado.</div>`}
-          <div style="font-size:13px">${esc(c.titulo || c.gancho || "(sem gancho)")}</div><div class="sub" style="margin:0;font-size:11px">${fmtT(c.inicio)}–${fmtT(c.fim)} · ${Math.round(c.fim - c.inicio)} s</div>
-          ${Object.keys(c.traducoes).length ? `<div style="font-size:13px">${ic("idioma")} ${Object.entries(c.traducoes).map(([l, t]) => `<a href="/corte/${n}/edits/${t.arquivo}?v=${t.mtime}" target="_blank">${l.toUpperCase()}</a>`).join(" · ")}</div>` : ""}
-          ${Object.keys(c.projetos).length ? `<div style="font-size:13px">${ic("agenda")} no Agendar: ${Object.entries(c.projetos).map(([l, p]) => `<a href="#" data-proj="${esc(p)}">${l === "orig" ? "original" : l.toUpperCase()}</a>`).join(" · ")}</div>` : ""}
-          <div class="linha" style="gap:6px"><button class="mini" data-avaliar="${c.n}">Avaliar</button><button class="mini prim" data-agendar="${c.n}">${ic("agenda")}Mandar para Agendar</button><button class="mini" data-traduzir="${c.n}" ${oc ? "disabled" : ""}>${ic("idioma")}Traduzir</button>
-            <button class="mini" data-refazer="${c.n}" ${oc ? "disabled" : ""}>Refazer</button><a class="mini" href="/corte/${n}/edits/${c.arquivo}" download aria-label="Baixar clipe ${c.n}" title="Baixar">${ic("baixar")}</a></div></div></div>`).join("")}</div>` : ""}
+    ${d.ia_aviso ? `<div class="aviso-box" role="status">${esc(d.ia_aviso)}</div>` : ""}
+    ${htmlRevisaoClipes(d,n,oc)}
     <div class="linha"><h3>Momentos (${d.momentos.length})</h3>
       ${d.tem_fonte && d.momentos.length ? `<button id="clote" class="prim" ${oc ? "disabled" : ""}>${ic("pilha")}Produzir cortes em lote</button>` : ""}</div><p class="sub">Do melhor para o pior. Sinais: ${esc(sinais)}${d.sinais.ia ? " + notas da IA (gancho, emoção, se dá para entender sem contexto, risco)" : " (sem a IA: confira a chave em Ajustes)"}. Cada trecho começa um pouco antes da ação e termina quando a reação acaba.</p><p class="sub">Os quadros são prévias da fonte. “Cortar pronto” gera o vídeo vertical com streamer, jogo, faixa de gancho e legendas; use “Ajustar” para mudar o formato e o tempo.</p>
     ${d.momentos.length ? `<div class="mgrid">${d.momentos.map(c => `<div class="mcard">
@@ -1428,6 +1506,66 @@ async function viewCorte(m) {
   if ($("#clote", m)) $("#clote", m).onclick = () => modalLoteCortes(d);
   const mom = (k) => d.momentos.find(x => x.n === +k);
   m.querySelectorAll("[data-previa]").forEach(b => b.onclick = () => previaMomento(d, mom(b.dataset.previa)));
+  const selecionados = () => [...m.querySelectorAll("[data-review-pick]:checked")].map(x => Number(x.dataset.reviewPick));
+  const todosReview = $("#review-all", m);
+  if (todosReview) todosReview.onchange = () => m.querySelectorAll("[data-review-pick]").forEach(x => { x.checked = todosReview.checked; });
+  m.querySelectorAll("[data-review-action]").forEach(b => b.onclick = () => {
+    const acao = b.dataset.reviewAction;
+    enviarRevisao(d.nome, acao, selecionados(), $("#review-layout", m)?.value || "blur");
+  });
+  m.querySelectorAll("[data-review-save]").forEach(b => b.onclick = async () => {
+    const card = b.closest("[data-review-card]"), gancho = $("[data-review-hook]", card)?.value || "", pergunta = $("[data-review-question]", card)?.value || "";
+    b.disabled = true;
+    try {
+      const r = await api("/api/cortes/revisao", { nome: d.nome, acao: "salvar_textos", pick: Number(b.dataset.reviewSave), gancho, pergunta });
+      toast(r.hook_pendente ? "Texto do post salvo. Refazer o corte para aplicar o gancho ao vídeo." : "Texto do post salvo sem refazer o vídeo.");
+      await render();
+      document.querySelector(`[data-review-save="${Number(b.dataset.reviewSave)}"]`)?.focus();
+    } catch (e) { toast(e.message); b.disabled = false; }
+  });
+  m.querySelectorAll("[data-review-card]").forEach(card => {
+    const video = $("[data-review-video]", card);
+    if (!video) return;
+    const reduzirMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reproduzir = () => {
+      if (!video.dataset.carregado) { video.src = video.dataset.src; video.dataset.carregado = "1"; video.load(); }
+      if (!reduzirMovimento) video.play().catch(() => {});
+    };
+    const parar = () => { video.pause(); try { video.currentTime = 0; } catch (e) {} };
+    card.addEventListener("pointerenter", reproduzir);
+    card.addEventListener("pointerleave", parar);
+    card.addEventListener("focusin", e => { if (e.target === card || e.target === video) reproduzir(); });
+    card.addEventListener("focusout", e => { if (!card.contains(e.relatedTarget)) parar(); });
+  });
+  const ajudaAtalhos = (abrir) => {
+    const botao = $("#review-help", m), texto = $("#review-help-text", m);
+    if (!botao || !texto) return;
+    const mostrar = abrir ?? texto.hidden;
+    texto.hidden = !mostrar;
+    botao.setAttribute("aria-expanded", String(mostrar));
+  };
+  $("#review-help", m)?.addEventListener("click", () => ajudaAtalhos());
+  m.onkeydown = e => {
+    const interativo = e.target.closest("input, textarea, select, button, a, video, [contenteditable='true']");
+    if (e.key === "?" && !interativo) { e.preventDefault(); ajudaAtalhos(); return; }
+    const card = e.target.closest("[data-review-card]");
+    if (!card || interativo) return;
+    if (["ArrowLeft", "ArrowRight", "j", "J", "k", "K"].includes(e.key)) {
+      e.preventDefault();
+      const cards = [...m.querySelectorAll("[data-review-card]")], i = cards.indexOf(card);
+      const anterior = ["ArrowLeft", "k", "K"].includes(e.key);
+      cards[(i + (anterior ? -1 : 1) + cards.length) % cards.length]?.focus();
+    } else if (e.key === " " || e.code === "Space") {
+      e.preventDefault();
+      const video = $("[data-review-video]", card);
+      if (video) { if (video.paused) video.play().catch(() => {}); else video.pause(); }
+    } else if (["a", "A", "d", "D", "r", "R"].includes(e.key)) {
+      e.preventDefault();
+      if (oc) { toast("Espere o trabalho atual terminar."); return; }
+      const acao = ["a", "A"].includes(e.key) ? "aprovar" : ["d", "D"].includes(e.key) ? "descartar" : "refazer";
+      enviarRevisao(d.nome, acao, [Number(card.dataset.reviewCard)], $("#review-layout", m)?.value || "blur");
+    }
+  };
   m.querySelectorAll("[data-cortar]").forEach(b => b.onclick = async () => {
     const c = mom(b.dataset.cortar); b.disabled = true;
     try {

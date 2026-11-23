@@ -190,6 +190,7 @@ def avaliar_clipe(nome, pick):
 def detalhe(nome):
     d = trabalho_dir(nome)
     info, cand = _ler(d / "info.json", {}), _ler(d / "candidates.json", {})
+    candidatos = {int(x["n"]): x for x in cand.get("candidates") or [] if isinstance(x, dict) and str(x.get("n", "")).isdigit()}
     canal = info.get("channel") or info.get("uploader") or ""
     clipes = []
     for j in sorted((d / "edits").glob("clip_*.json")) if (d / "edits").exists() else []:
@@ -204,16 +205,26 @@ def detalhe(nome):
             if lang in IDIOMAS:
                 trad[lang] = {"arquivo": f.name, "mtime": f.stat().st_mtime}
         leg = legenda_sugerida(meta, canal)
+        momento = candidatos.get(n) or {}
         clipes.append({"n": n, "arquivo": mp4.name if mp4.exists() else None, "mtime": mp4.stat().st_mtime if mp4.exists() else 0,
                        "inicio": meta.get("start"), "fim": meta.get("end"), "layout": meta.get("layout"),
                        "gancho": meta.get("hook"), "titulo": meta.get("title"), "traducoes": trad,
+                       "nota_momento": meta.get("nota_momento") if meta.get("nota_momento") is not None else momento.get("nota"),
+                       "status_revisao": meta.get("status_revisao") or "pendente",
+                       "hook_pendente": bool(meta.get("hook_pendente")),
+                       "hook_pendente_texto": meta.get("hook_pendente_texto") or "",
                        "render": meta.get("render") or {}, "pergunta": meta.get("pergunta") or "",
                        "tempos": meta.get("tempos"), "duracao": meta.get("duracao"), "tipo": meta.get("tipo"),
                        "legendas": _ler(j.parent / f"clip_{n}_legendas.json", {}), "legenda": leg,
                        "checagem": checar_clipe(mp4, leg, canal) if mp4.exists() else None,
                        "projetos": meta.get("projetos") or {},
                        "avaliacao": (lambda x: x if mp4.exists() and x.get("video_mtime_ns") == mp4.stat().st_mtime_ns else None)(_ler(mp4.with_suffix(".nota.json"), {}) or {})})
-    clipes.sort(key=lambda x: (-(x.get("avaliacao") or {}).get("nota", -1), x["n"]))
+    def nota_revisao(clipe):
+        nota = (clipe.get("avaliacao") or {}).get("nota")
+        if nota is None:
+            nota = clipe.get("nota_momento")
+        return nota if nota is not None else -1
+    clipes.sort(key=lambda x: (-nota_revisao(x), x["n"]))
     est = _ler(d / "live" / "estado.json")
     trechos = []
     for s in (est or {}).get("spikes") or []:
@@ -226,7 +237,8 @@ def detalhe(nome):
         trechos.append(s)
     rodando = bool(LIVE["proc"] and LIVE["trabalho"] == d.name and LIVE["proc"].poll() is None)
     return {"nome": d.name, "info": info, "canal": canal, "enquadramento": _ler(arquivo_enquadramento(d)), "momentos": cand.get("candidates") or [],
-            "tempos": cand.get("tempos"), "sinais": cand.get("signals") or {}, "duracao": cand.get("duration"), "clipes": clipes,
+            "tempos": cand.get("tempos"), "sinais": cand.get("signals") or {}, "duracao": cand.get("duration"),
+            "ia_status": cand.get("ia_status") or "", "ia_aviso": cand.get("ia_aviso") or "", "clipes": clipes,
             "tem_fonte": bool(cand.get("source") and Path(cand["source"]).exists()),
             "live": est, "trechos": trechos, "live_rodando": rodando}
 
@@ -428,6 +440,84 @@ def para_projeto(corpo):
     meta.setdefault("projetos", {})[lang or "orig"] = p.name
     _gravar(d / "edits" / f"clip_{n}.json", meta)
     return p.name
+
+
+def acao_revisao(nome, pick, acao, gancho=None, pergunta=None):
+    """Atualiza aprovação, descarte ou textos do post sem renderizar o vídeo."""
+    d = trabalho_dir(nome)
+    n = int(pick)
+    arquivo = d / "edits" / f"clip_{n}.json"
+    meta = _ler(arquivo)
+    if not meta or not arquivo.with_suffix(".mp4").exists():
+        raise FileNotFoundError("clipe")
+    if acao in ("descartar", "restaurar"):
+        meta["status_revisao"] = "descartado" if acao == "descartar" else "pendente"
+        _gravar(arquivo, meta)
+        return {"status": meta["status_revisao"]}
+    if acao == "salvar_textos":
+        gancho = str(gancho or "").strip()[:110]
+        pergunta = str(pergunta or "").strip()[:160]
+        campo = "title" if meta.get("layout") == "react" else "hook"
+        anterior = str(meta.get(campo) or "").strip()
+        meta["hook_pendente"] = gancho != anterior
+        meta["hook_pendente_texto"] = gancho if gancho != anterior else ""
+        meta["pergunta"] = pergunta
+        projeto = (meta.get("projetos") or {}).get("orig")
+        if projeto:
+            pasta = (VIDEOS / str(projeto)).resolve()
+            if pasta.parent != VIDEOS.resolve():
+                raise ValueError("referência de projeto inválida")
+        if projeto and pasta.is_dir():
+            if _ler(pasta / "out" / "zernio.json"):
+                raise ValueError("cancele o agendamento antes de editar o texto do clipe")
+            para_legenda = dict(meta)
+            para_legenda[campo] = gancho
+            (pasta / "post.txt").write_text(legenda_sugerida(para_legenda, _ler(d / "info.json", {}).get("channel") or ""), encoding="utf-8")
+        _gravar(arquivo, meta)
+        return {"status": meta.get("status_revisao") or "pendente", "hook_pendente": meta["hook_pendente"]}
+    if acao == "aprovar":
+        if meta.get("hook_pendente"):
+            raise ValueError("refaça o clipe para aplicar o gancho editado antes de mandá-lo para Agendar")
+        projetos = meta.get("projetos") or {}
+        projeto = projetos.get("orig")
+        if projeto:
+            pasta_projeto = (VIDEOS / str(projeto)).resolve()
+            if pasta_projeto.parent != VIDEOS.resolve():
+                raise ValueError("referência de projeto inválida")
+            if not pasta_projeto.is_dir():
+                projeto = None
+        if not projeto:
+            projeto = next((p.name for p in VIDEOS.iterdir() if p.is_dir() and
+                            (_ler(p / "roteiro.json", {}) or {}).get("tipo") == "clipe" and
+                            ((_ler(p / "roteiro.json", {}) or {}).get("corte") or {}).get("trabalho") == d.name and
+                            ((_ler(p / "roteiro.json", {}) or {}).get("corte") or {}).get("pick") == n and
+                            not (_ler(p / "roteiro.json", {}) or {}).get("idioma")), None) if VIDEOS.exists() else None
+            if not projeto:
+                meta.setdefault("projetos", {}).pop("orig", None)
+                _gravar(arquivo, meta)
+                projeto = para_projeto({"nome": d.name, "pick": n})
+            meta = _ler(arquivo, meta) or meta
+            meta.setdefault("projetos", {})["orig"] = projeto
+        meta["status_revisao"] = "aprovado"
+        _gravar(arquivo, meta)
+        return {"status": "aprovado", "projeto": projeto}
+    raise ValueError("ação de revisão inválida")
+
+
+def dados_refazer(nome, pick, layout):
+    d = trabalho_dir(nome)
+    n = int(pick)
+    meta = _ler(d / "edits" / f"clip_{n}.json")
+    if not meta or not (d / "edits" / f"clip_{n}.mp4").exists():
+        raise FileNotFoundError("clipe")
+    layout = layout if layout in LAYOUTS else meta.get("layout")
+    gancho = meta.get("hook_pendente_texto") if meta.get("hook_pendente") else None
+    if gancho is None:
+        gancho = meta.get("title") if meta.get("layout") == "react" else meta.get("hook")
+    return {"nome": d.name, "pick": n, "layout": layout, "inicio": meta.get("start"), "fim": meta.get("end"),
+            "gancho": gancho if layout != "react" else "", "titulo": gancho if layout == "react" else "",
+            "pergunta": meta.get("pergunta") or "", "hook_pendente": bool(meta.get("hook_pendente")),
+            "projeto_atualizar": (meta.get("projetos") or {}).get("orig")}
 
 
 def apagar(nome):

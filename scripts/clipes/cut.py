@@ -572,6 +572,8 @@ def main():
                                             "pergunta": (a.pergunta if a.pergunta is not None else (pick.get("pergunta") or meta_anterior.get("pergunta") or "")).strip()[:160],
                                             "nota_momento": pick.get("nota"), "tipo": (pick.get("ia") or {}).get("tipo"),
                                             "primeira_fala": round(cap_words[0]["s"] - s0, 2) if cap_words else None,
+                                            "status_revisao": meta_anterior.get("status_revisao") or "pendente",
+                                            "hook_pendente": False, "hook_pendente_texto": "",
                                             "projetos": meta_anterior.get("projetos") or {},
                                             "source_url": info.get("webpage_url"), "source_title": info.get("title"),
                                             "source_channel": info.get("channel") or info.get("uploader"),

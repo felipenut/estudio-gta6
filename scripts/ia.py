@@ -100,52 +100,67 @@ def chat(mensagens, modelo=None, temperatura=None, max_tokens=4096, _retentar=Tr
 
 
 def extrair_json(txt):
-    """Pega o primeiro objeto/lista JSON da resposta (aceita bloco ```json ... ```)."""
+    """Extrai um objeto/lista JSON mesmo com cercas ou texto ao redor."""
     txt = limpar(txt)
-    m = re.search(r"```(?:json)?\s*(.+?)```", txt, re.S)
-    if m:
-        txt = m.group(1)
-    ini = min([i for i in (txt.find("{"), txt.find("[")) if i >= 0], default=-1)
-    if ini < 0:
-        raise ErroIA("a IA não devolveu JSON")
-    abre = txt[ini]
-    fecha = "}" if abre == "{" else "]"
-    nivel, em_str, esc = 0, False, False
-    for i in range(ini, len(txt)):
-        ch = txt[i]
-        if em_str:
-            if esc:
-                esc = False
-            elif ch == "\\":
-                esc = True
-            elif ch == '"':
-                em_str = False
-            continue
-        if ch == '"':
-            em_str = True
-        elif ch == abre:
-            nivel += 1
-        elif ch == fecha:
-            nivel -= 1
-            if nivel == 0:
-                bruto = txt[ini:i + 1]
+    cerca = chr(96) * 3
+    blocos = [m.group(1) for m in re.finditer(re.escape(cerca) + r"(?:json)?\s*(.*?)" + re.escape(cerca), txt, re.S | re.I)]
+    blocos.append(txt)
+    decodificador = json.JSONDecoder()
+
+    def sem_virgula_final(bruto):
+        saida, em_str, escape = [], False, False
+        for i, ch in enumerate(bruto):
+            if em_str:
+                saida.append(ch)
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    em_str = False
+                continue
+            if ch == '"':
+                em_str = True
+                saida.append(ch)
+            elif ch == ",":
+                proximo = i + 1
+                while proximo < len(bruto) and bruto[proximo].isspace():
+                    proximo += 1
+                if proximo >= len(bruto) or bruto[proximo] not in "}]":
+                    saida.append(ch)
+            else:
+                saida.append(ch)
+        return "".join(saida)
+
+    for bloco in blocos:
+        for i, ch in enumerate(bloco):
+            if ch not in "{[":
+                continue
+            bruto = bloco[i:]
+            for candidato in (bruto, sem_virgula_final(bruto)):
                 try:
-                    return json.loads(bruto)
+                    valor, _ = decodificador.raw_decode(candidato)
+                    if isinstance(valor, (dict, list)):
+                        return valor
                 except json.JSONDecodeError:
-                    return json.loads(re.sub(r",\s*([}\]])", r"\1", bruto))   # vírgula sobrando
-    raise ErroIA("JSON incompleto na resposta da IA")
+                    continue
+    if not re.search(r"[\[{]", txt):
+        raise ErroIA("a IA não devolveu JSON")
+    raise ErroIA("JSON incompleto ou inválido na resposta da IA")
 
 
 def chat_json(mensagens, modelo=None, temperatura=None, max_tokens=6000, tentativas=2):
-    ultimo = None
-    for _ in range(tentativas):
-        txt = chat(mensagens, modelo, temperatura, max_tokens)
+    ultimo, conversa = None, list(mensagens)
+    total = max(1, int(tentativas))
+    for tentativa in range(total):
+        txt = chat(conversa, modelo, temperatura, max_tokens if tentativa == 0 else min(6000, int(max_tokens * 1.25)))
         try:
             return extrair_json(txt)
         except (ErroIA, json.JSONDecodeError) as e:
             ultimo = e
-            mensagens = mensagens + [{"role": "assistant", "content": txt},
-                                     {"role": "user", "content": "Responda SOMENTE com o JSON válido, sem texto antes ou depois."}]
+            if tentativa + 1 < total:
+                conversa = conversa + [{"role": "assistant", "content": txt[-1200:]},
+                                       {"role": "user", "content": "A resposta anterior veio incompleta ou fora do JSON. Refaça somente como JSON minificado e completo."}]
     raise ErroIA(f"não consegui ler o JSON da IA: {ultimo}")
 
 

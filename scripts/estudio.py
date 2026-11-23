@@ -32,7 +32,7 @@ import lote_cortes as LC  # fila de produção entre fontes
 import cortes as CT  # noqa: E402  (tela Cortes e lives)
 import atualizar as ATU  # noqa: E402  (atualização automática pelo GitHub)
 
-VERSAO = 37
+VERSAO = 38
 URL_CHECKOUT_LICENCAS = "https://estudio-gta6-checkout.vercel.app/api/licenca"
 URL_CHECKOUT_CONFIG = "https://estudio-gta6-checkout.vercel.app/api/config"
 ARQ_LICENCA = Path(os.getenv("LOCALAPPDATA") or Path.home()) / "Estudio GTA 6" / "licenca.json"
@@ -315,7 +315,7 @@ def etapas_projeto(acao, p):
 ROTULOS = {"amostra_corte": "AMOSTRA DO CORTE", "checar": "CHECAGEM", "previa": "PRÉVIA", "gerar": "VÍDEO", "narrar": "NARRAÇÃO", "capa": "CAPA",
            "ae": "AFTER EFFECTS", "criar": "CRIAÇÃO", "criar_gerar": "CRIAÇÃO + VÍDEO", "baixar": "DOWNLOAD",
            "oficiais": "VÍDEOS OFICIAIS", "lote": "LOTE", "cortes_lote": "CORTES EM LOTE", "cortes_escala": "PRODUÇÃO DE CORTES", "cortes_links": "FILA DE LINKS", "zernio": "AGENDAMENTO", "tendencias": "TENDÊNCIAS", "etiquetar": "ETIQUETAS (IA)", "indexar": "INDEXAÇÃO",
-           "momentos": "MOMENTOS", "cortar": "CORTE", "traduzir_clipe": "TRADUÇÃO DO CLIPE", "lives": "LIVES AGORA",
+           "momentos": "MOMENTOS", "cortar": "CORTE", "cortes_revisao": "REVISÃO DE CORTES", "traduzir_clipe": "TRADUÇÃO DO CLIPE", "lives": "LIVES AGORA",
            "perguntas": "PERGUNTAS DOS FÃS", "traduzir_video": "VERSÃO TRADUZIDA"}
 
 
@@ -440,7 +440,7 @@ def iniciar(acao, etapas_fn, log, status=None, projeto=None, depois=None, corte=
         TRABALHO.update(id=TRABALHO["id"] + 1, projeto=projeto, acao=acao, rotulo=ROTULOS.get(acao, acao),
                         log=str(log), inicio=time.time(), fim=None, codigo=None, resultado=None,
                         progresso=0.0, etapa="", corte=corte, cancelando=False, cancelado=False, pausando=False,
-                        repetivel=acao not in ("zernio", "lote", "cortes_lote", "cortes_escala", "cortes_links", "traduzir_video"))
+                        repetivel=acao not in ("zernio", "lote", "cortes_lote", "cortes_escala", "cortes_links", "cortes_revisao", "traduzir_video"))
         REPETIR = ({"acao": acao, "etapas_fn": etapas_fn, "log": log, "status": status, "projeto": projeto,
                     "depois": depois, "corte": corte} if TRABALHO["repetivel"] else None)
 
@@ -1961,6 +1961,45 @@ class H(BaseHTTPRequestHandler):
                         depois=(lambda codigo, saida: atualizar_projeto_clipe(nome, pick, projeto, codigo)) if projeto
                         else (lambda codigo, saida: finalizar_corte(nome, pick, codigo)))
                 return self._json({"ok": True, "trabalho": TRABALHO})
+            if u == "/api/cortes/revisao":
+                acao, nome = str(corpo.get("acao") or ""), corpo.get("nome")
+                if ocupado():
+                    raise RuntimeError("espere o trabalho atual terminar")
+                if acao == "salvar_textos":
+                    return self._json(CT.acao_revisao(nome, int(corpo.get("pick")), acao,
+                                                      corpo.get("gancho"), corpo.get("pergunta")))
+                picks = corpo.get("picks")
+                if not isinstance(picks, list) or not 1 <= len(picks) <= 50:
+                    raise ValueError("selecione de 1 a 50 clipes")
+                ids = [int(x) for x in picks]
+                if len(set(ids)) != len(ids) or any(x < 1 for x in ids):
+                    raise ValueError("a seleção de clipes é inválida")
+                dados = [CT.dados_refazer(nome, pick, corpo.get("layout")) for pick in ids]
+                if acao in ("descartar", "restaurar", "aprovar"):
+                    if acao == "aprovar" and any(item.get("hook_pendente") for item in dados):
+                        raise ValueError("refaça os clipes com gancho pendente antes de mandá-los para Agendar")
+                    resultados = [CT.acao_revisao(nome, pick, acao) for pick in ids]
+                    return self._json({"ok": True, "resultados": resultados})
+                if acao == "refazer":
+                    corpos = dados
+                    for item in corpos:
+                        projeto = item.get("projeto_atualizar")
+                        if projeto:
+                            pasta = projeto_dir(projeto)
+                            corte = (ler(pasta / "roteiro.json") or {}).get("corte") or {}
+                            if corte.get("trabalho") != nome or corte.get("pick") != item["pick"] or ler(pasta / "out" / "zernio.json"):
+                                raise ValueError("cancele o agendamento ou confira o projeto antes de refazer")
+                    etapas = [e for item in corpos for e in CT.etapas_cortar(item)]
+                    projetos = [(item["pick"], item["projeto_atualizar"]) for item in corpos if item.get("projeto_atualizar")]
+                    def atualizar(codigo, saida):
+                        if codigo:
+                            return codigo
+                        for pick, projeto in projetos:
+                            atualizar_projeto_clipe(nome, pick, projeto, 0)
+                        return 0
+                    iniciar("cortes_revisao", lambda: etapas, CT.trabalho_dir(nome) / "log.txt", corte=nome, depois=atualizar)
+                    return self._json({"ok": True, "trabalho": TRABALHO})
+                raise ValueError("ação de revisão inválida")
             if u == "/api/cortes/avaliar":
                 return self._json({"ok": True, "avaliacao": CT.avaliar_clipe(corpo["nome"], int(corpo["pick"]))})
             if u == "/api/cortes/traduzir":
